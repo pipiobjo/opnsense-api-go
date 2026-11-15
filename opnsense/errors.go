@@ -12,9 +12,11 @@ import (
 	"github.com/pipiobjo/opnsense-api-go/internal/transport"
 )
 
-// ErrUnauthorized: key and secret were rejected, or the key lacks the
-// privilege for the endpoint.
+// ErrUnauthorized: key and secret were rejected (HTTP 401).
 var ErrUnauthorized = transport.ErrUnauthorized
+
+// ErrForbidden: the key is valid but lacks the privilege (HTTP 403).
+var ErrForbidden = transport.ErrForbidden
 
 // ErrNotFound: the entry does not exist (anymore).
 var ErrNotFound = errors.New("opnsense: entry not found")
@@ -78,7 +80,7 @@ type ErrValidation struct {
 
 func (e *ErrValidation) Error() string {
 	if len(e.Fields) == 0 {
-		return fmt.Sprintf("opnsense: %s rejected: %s", e.Resource, e.Body)
+		return fmt.Sprintf("opnsense: %s rejected: %s", e.Resource, transport.Trunc([]byte(e.Body)))
 	}
 	return fmt.Sprintf("opnsense: %s rejected: %s", e.Resource, joinMap(e.Fields))
 }
@@ -95,6 +97,7 @@ type FieldDiff struct {
 type ErrNotApplied struct {
 	Resource, ID string
 	Diffs        []FieldDiff
+	Hint         string // a likely cause known from the capability data, or ""
 }
 
 func (e *ErrNotApplied) Error() string {
@@ -106,7 +109,34 @@ func (e *ErrNotApplied) Error() string {
 	if e.ID != "" {
 		id = " " + e.ID
 	}
-	return fmt.Sprintf("opnsense: %s%s saved but not applied as sent: %s", e.Resource, id, strings.Join(parts, "; "))
+	msg := fmt.Sprintf("opnsense: %s%s saved but not applied as sent: %s", e.Resource, id, strings.Join(parts, "; "))
+	if e.Hint != "" {
+		msg += " (" + e.Hint + ")"
+	}
+	return msg
+}
+
+// ErrApply: an apply endpoint did not answer {"status": "ok"}. The
+// configuration is saved but maybe not active; the endpoint stays pending.
+type ErrApply struct {
+	Endpoint string
+	Answer   string // at most 300 bytes
+}
+
+func (e *ErrApply) Error() string {
+	return fmt.Sprintf("opnsense: apply %s did not report ok: %s", e.Endpoint, transport.Trunc([]byte(e.Answer)))
+}
+
+// ErrDecode: some fields of an object could not be decoded (an unexpected
+// shape). The other fields are returned together with this error, so a
+// caller can still use them.
+type ErrDecode struct {
+	Resource string
+	Fields   map[string]string // field -> problem
+}
+
+func (e *ErrDecode) Error() string {
+	return fmt.Sprintf("opnsense: %s: fields not decoded: %s", e.Resource, joinMap(e.Fields))
 }
 
 func versionList(vs []string) string {

@@ -30,6 +30,9 @@ const (
 )
 
 func (m Match) String() string {
+	if m < MatchNone || m > MatchAssumed {
+		return fmt.Sprintf("Match(%d)", int(m))
+	}
 	return [...]string{"none", "exact", "nearest", "assumed"}[m]
 }
 
@@ -68,6 +71,9 @@ type Resolved struct {
 // reports core version core (with hotfix revision, e.g. 26.7.9_1) and the
 // given plugin versions.
 func (s *Set) Resolve(core string, plugins map[string]string, p Policy) (*Resolved, error) {
+	if s == nil || s.Catalog == nil {
+		return nil, fmt.Errorf("no capability data")
+	}
 	r := &Resolved{Core: core, Packages: map[string]*Resolution{}}
 	used, c, m, warn := s.resolveCore(core)
 	if m == MatchNone {
@@ -117,7 +123,7 @@ func (s *Set) resolveCore(v string) (string, Core, Match, string) {
 		return v, c, MatchExact, ""
 	}
 	series, rel := SeriesOf(v), ReleaseOf(v)
-	refs := cat.coresBy[series]
+	refs := cat.series(series)
 	if len(refs) == 0 {
 		return "", Core{}, MatchNone, "series " + series + " is not in the capability data"
 	}
@@ -178,7 +184,7 @@ func (s *Set) resolvePlugin(name, version string, r *Resolved) *Resolution {
 	}
 	// c: several fragments: the one of the nearest older core of the series
 	if len(distinct) > 1 {
-		refs := s.Catalog.coresBy[r.Series]
+		refs := s.Catalog.series(r.Series)
 		for i := len(refs) - 1; i >= 0; i-- {
 			if CompareVersions(refs[i].Version, r.CoreUsed) > 0 {
 				continue
@@ -234,44 +240,53 @@ func ReleaseOf(v string) string {
 	return v
 }
 
-// CompareVersions compares package versions such as 26.7.9_1 or 1.0_6
-// numerically per part (dots and the revision separator).
+// CompareVersions compares package versions such as 26.7.9_1, 1.0_6 or
+// 2.1a: release parts numerically (a part's letter suffix after its
+// number, "2.1" < "2.1a" < "2.2"), then the hotfix revision. 26.7 < 26.7_1
+// < 26.7.1.
 func CompareVersions(a, b string) int {
-	pa, pb := versionParts(a), versionParts(b)
+	ra, reva, _ := strings.Cut(a, "_")
+	rb, revb, _ := strings.Cut(b, "_")
+	pa, pb := strings.Split(ra, "."), strings.Split(rb, ".")
 	for i := 0; i < len(pa) || i < len(pb); i++ {
-		var x, y int
+		x, y := "0", "0"
 		if i < len(pa) {
 			x = pa[i]
 		}
 		if i < len(pb) {
 			y = pb[i]
 		}
-		if x != y {
-			if x < y {
-				return -1
-			}
-			return 1
+		if c := comparePart(x, y); c != 0 {
+			return c
 		}
 	}
-	return 0
+	if reva == "" {
+		reva = "0"
+	}
+	if revb == "" {
+		revb = "0"
+	}
+	return comparePart(reva, revb)
 }
 
-func versionParts(v string) []int {
-	rel, rev, hasRev := strings.Cut(v, "_")
-	var out []int
-	for _, p := range strings.Split(rel, ".") {
-		n, _ := strconv.Atoi(p)
-		out = append(out, n)
+// comparePart compares "12" < "12a" < "13" numerically, then by suffix.
+func comparePart(a, b string) int {
+	na, sa := splitNum(a)
+	nb, sb := splitNum(b)
+	switch {
+	case na < nb:
+		return -1
+	case na > nb:
+		return 1
 	}
-	// the revision sorts after every release part: 26.7 < 26.7_1 < 26.7.1
-	// would be wrong, so the revision is compared only between equal
-	// releases: pad the release to 4 parts first
-	for len(out) < 4 {
-		out = append(out, 0)
+	return strings.Compare(sa, sb)
+}
+
+func splitNum(s string) (int, string) {
+	i := 0
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
 	}
-	if hasRev {
-		n, _ := strconv.Atoi(rev)
-		out = append(out, n)
-	}
-	return out
+	n, _ := strconv.Atoi(s[:i]) // empty -> 0
+	return n, s[i:]
 }

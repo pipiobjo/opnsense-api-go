@@ -4,6 +4,7 @@
 package capability
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -27,6 +28,9 @@ const (
 )
 
 func (k Kind) String() string {
+	if k < KindString || k > KindList {
+		return fmt.Sprintf("Kind(%d)", int(k))
+	}
 	return [...]string{"string", "bool", "int", "list"}[k]
 }
 
@@ -48,9 +52,21 @@ func (f *Field) WriteOnly() bool {
 	return f.Type == "UpdateOnlyTextField" || f.Base == "UpdateOnlyTextField"
 }
 
-// ServerSet reports fields the firewall fills itself.
+// ServerSet reports fields the firewall fills itself and ignores on write.
 func (f *Field) ServerSet() bool {
-	return f.Base == "UniqueIdField" || f.Base == "AutoNumberField"
+	switch f.Base {
+	case "UniqueIdField", "AutoNumberField", "JsonAuditField":
+		return true
+	}
+	return false
+}
+
+// StaticOptions reports whether Options is the complete list of allowed
+// values: only for the core OptionField without derivation gaps. Subclasses
+// (ServiceField, JsonKeyValueStoreField, ...) can add options at run time,
+// and option groups are not represented exactly.
+func (f *Field) StaticOptions() bool {
+	return f.Type == "OptionField" && len(f.Gaps) == 0 && len(f.Options) > 0
 }
 
 // Encode turns a Go value into the wire string for this field, checking
@@ -105,11 +121,10 @@ func (f *Field) Encode(v any) (string, error) {
 	return s, nil
 }
 
-// checkOptions: values of a field with static options must be among them.
-// Fields without static options (dynamic lists such as interfaces) are not
-// checked here; the firewall validates them.
+// checkOptions: values of a field with a complete static option list must
+// be among them (see StaticOptions). Others are left to the firewall.
 func (f *Field) checkOptions(s string) error {
-	if len(f.Options) == 0 || s == "" {
+	if !f.StaticOptions() || s == "" {
 		return nil
 	}
 	allowed := make(map[string]bool, len(f.Options))
@@ -148,15 +163,30 @@ func (f *Field) Wire(raw any) (string, error) {
 		return "", nil
 	case string:
 		return x, nil
-	case float64: // a number in JSON (rare)
+	case json.Number: // a number in JSON (rare); exact
+		return x.String(), nil
+	case float64:
 		return strconv.FormatFloat(x, 'f', -1, 64), nil
 	case bool:
 		return map[bool]string{true: "1", false: "0"}[x], nil
 	case []any:
-		if len(x) == 0 { // PHP's empty array for an empty selection
-			return "", nil
+		// PHP encodes an option map with the keys "0", "1", ... as a JSON
+		// list (seen for unbound advanced.logverbosity on 26.7.9): the
+		// index is the key. An empty list is an empty selection.
+		var keys []string
+		for i, e := range x {
+			opt, ok := e.(map[string]any)
+			if !ok {
+				return "", fmt.Errorf("unexpected list value")
+			}
+			if _, ok := opt["selected"]; !ok {
+				return "", fmt.Errorf("unexpected list value")
+			}
+			if selected(opt["selected"]) {
+				keys = append(keys, strconv.Itoa(i))
+			}
 		}
-		return "", fmt.Errorf("unexpected list value")
+		return strings.Join(keys, ","), nil
 	case map[string]any:
 		var keys []string
 		for k, v := range x {
@@ -164,11 +194,7 @@ func (f *Field) Wire(raw any) (string, error) {
 			if opt == nil {
 				return "", fmt.Errorf("option %q is not an object", k)
 			}
-			if sel, _ := opt["selected"].(float64); sel == 1 {
-				keys = append(keys, k)
-			} else if sel, _ := opt["selected"].(bool); sel {
-				keys = append(keys, k)
-			} else if sel, _ := opt["selected"].(string); sel == "1" {
+			if selected(opt["selected"]) {
 				keys = append(keys, k)
 			}
 		}
@@ -176,6 +202,21 @@ func (f *Field) Wire(raw any) (string, error) {
 		return strings.Join(keys, ","), nil
 	}
 	return "", fmt.Errorf("unexpected value of type %T", raw)
+}
+
+// selected reads the "selected" flag of an option: 1, true or "1".
+func selected(v any) bool {
+	switch x := v.(type) {
+	case json.Number:
+		return x.String() == "1"
+	case float64:
+		return x == 1
+	case bool:
+		return x
+	case string:
+		return x == "1"
+	}
+	return false
 }
 
 // Decode turns a wire string into the field's Go value. An empty string

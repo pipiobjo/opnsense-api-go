@@ -5,9 +5,11 @@ package transport
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -43,7 +45,7 @@ func newT(t *testing.T, srv *httptest.Server) *Transport {
 func TestGetIsRetriedPostIsNot(t *testing.T) {
 	srv, n := flaky(t)
 	var out map[string]any
-	if err := newT(t, srv).Get(context.Background(), "/api/x", &out); err != nil || out["ok"] != true {
+	if err := newT(t, srv).Get(context.Background(), "/api/x", nil, &out); err != nil || out["ok"] != true {
 		t.Errorf("GET after a dropped connection: %v %v", out, err)
 	}
 	if n.Load() != 2 {
@@ -81,23 +83,23 @@ func TestErrorsAndRequestShape(t *testing.T) {
 	tr := newT(t, srv)
 	ctx := context.Background()
 	var out any
-	if err := tr.Get(ctx, "/api/ok", &out); err != nil || gotCT != "" || gotBody != "" {
+	if err := tr.Get(ctx, "/api/ok", nil, &out); err != nil || gotCT != "" || gotBody != "" {
 		t.Errorf("GET must have neither body nor Content-Type: %v %q %q", err, gotCT, gotBody)
 	}
 	if err := tr.Post(ctx, "/api/ok", nil, &out, 0); err != nil || gotCT != "application/json" || gotBody != "{}" {
 		t.Errorf("POST without body sends {}: %v %q %q", err, gotCT, gotBody)
 	}
-	if err := tr.Get(ctx, "/api/denied", &out); !errors.Is(err, ErrUnauthorized) {
+	if err := tr.Get(ctx, "/api/denied", nil, &out); !errors.Is(err, ErrForbidden) {
 		t.Errorf("403: %v", err)
 	}
 	var he *HTTPError
-	if err := tr.Get(ctx, "/api/missing", &out); !errors.As(err, &he) || !he.NotFound() {
+	if err := tr.Get(ctx, "/api/missing", nil, &out); !errors.As(err, &he) || !he.NotFound() {
 		t.Errorf("404: %v", err)
 	}
-	if err := tr.Get(ctx, "/api/html", &out); err == nil || !strings.Contains(err.Error(), "not the expected JSON") {
+	if err := tr.Get(ctx, "/api/html", nil, &out); err == nil || !strings.Contains(err.Error(), "not the expected JSON") {
 		t.Errorf("non-JSON: %v", err)
 	}
-	if err := tr.Get(ctx, "/other", &out); err == nil {
+	if err := tr.Get(ctx, "/other", nil, &out); err == nil {
 		t.Error("paths outside /api/ must be refused")
 	}
 	if _, err := New(Config{URL: "https://192.0.2.1", Key: "k"}); err == nil {
@@ -105,5 +107,112 @@ func TestErrorsAndRequestShape(t *testing.T) {
 	}
 	if _, err := New(Config{URL: "https://192.0.2.1", Key: "k", Secret: "s", Pin: "zz"}); err == nil {
 		t.Error("a malformed pin must be refused")
+	}
+}
+
+func TestQueryRedirectAndSize(t *testing.T) {
+	var gotPath, gotQuery string
+	var hits atomic.Int32
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		gotPath, gotQuery = r.URL.EscapedPath(), r.URL.RawQuery
+		switch r.URL.Path {
+		case "/api/redirect":
+			http.Redirect(w, r, "http://"+r.Host+"/api/plain", http.StatusFound)
+		case "/api/big":
+			w.Write([]byte(`"` + strings.Repeat("x", 100) + `"`))
+		case "/api/empty":
+			// nothing
+		case "/api/number":
+			w.Write([]byte(`{"n": 9007199254740993}`))
+		default:
+			w.Write([]byte(`{}`))
+		}
+	}))
+	defer srv.Close()
+	tr := newT(t, srv)
+	ctx := context.Background()
+	var out any
+	if err := tr.Get(ctx, "/api/x/search", url.Values{"rowCount": {"-1"}}, &out); err != nil ||
+		gotPath != "/api/x/search" || gotQuery != "rowCount=-1" {
+		t.Errorf("query must not end up in the path: %v %q %q", err, gotPath, gotQuery)
+	}
+	hits.Store(0)
+	if err := tr.Post(ctx, "/api/redirect", nil, &out, 0); err == nil || !strings.Contains(err.Error(), "redirect refused") || hits.Load() != 1 {
+		t.Errorf("redirect must be refused, not followed: %v (%d requests)", err, hits.Load())
+	}
+	var m map[string]any
+	if err := tr.Get(ctx, "/api/number", nil, &m); err != nil || m["n"].(json.Number).String() != "9007199254740993" {
+		t.Errorf("numbers must stay exact: %v %v", m, err)
+	}
+	m = map[string]any{"kept": true}
+	if err := tr.Post(ctx, "/api/empty", nil, &m, 0); err != nil || m["kept"] != true {
+		t.Errorf("an empty POST answer leaves out unchanged: %v %v", m, err)
+	}
+	if err := tr.Get(ctx, "/api/empty", nil, &m); err == nil {
+		t.Error("an empty GET answer is an error")
+	}
+	old := maxResponse
+	maxResponse = 50
+	defer func() { maxResponse = old }()
+	if err := tr.Get(ctx, "/api/big", nil, &out); err == nil || !strings.Contains(err.Error(), "larger than") {
+		t.Errorf("oversized response: %v", err)
+	}
+}
+
+func TestConfigChecks(t *testing.T) {
+	bad := []Config{
+		{URL: "https://key:topsecret@192.0.2.1", Key: "k", Secret: "s"},
+		{URL: "https://192.0.2.1/?x=1", Key: "k", Secret: "s"},
+		{URL: "https://192.0.2.1/#frag", Key: "k", Secret: "s"},
+		{URL: "http://192.0.2.1", Key: "k", Secret: "s"},
+		{URL: "192.0.2.1", Key: "k", Secret: "s"},
+		{URL: "https://192.0.2.1", Key: "k", Secret: "s", Insecure: true, Pin: strings.Repeat("ab", 32)},
+		{URL: "https://192.0.2.1", Key: "k", Secret: "s", Pin: strings.Repeat("ab", 32), CAPEM: []byte("x")},
+	}
+	for _, c := range bad {
+		_, err := New(c)
+		if err == nil {
+			t.Errorf("accepted: %+v", c)
+			continue
+		}
+		if strings.Contains(err.Error(), "topsecret") {
+			t.Errorf("credentials in the error: %v", err)
+		}
+	}
+	if _, err := New(Config{URL: "https://192.0.2.1:8443/", Key: "k", Secret: "s", Insecure: true}); err != nil {
+		t.Errorf("insecure alone must be accepted: %v", err)
+	}
+}
+
+func TestCheckPath(t *testing.T) {
+	for _, p := range []string{"/api/core/firmware/info", "/api/quagga/ospfsettings/getNeighbor/00000000-0000-4000-8000-000000000001", "/api/a_b/c-d/e.f"} {
+		if err := CheckPath(p); err != nil {
+			t.Errorf("%s: %v", p, err)
+		}
+	}
+	for _, p := range []string{"/api/", "/api/a//b", "/api/a/../b", "/api/a/./b", "/api/a/%2e%2e", "/api/a b", "/api/a?b=1", "/api/a#b", "/other/x", "api/x", "/api/a/ä"} {
+		if err := CheckPath(p); err == nil {
+			t.Errorf("%q accepted", p)
+		}
+	}
+}
+
+func TestUnauthorizedAndForbiddenDiffer(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/a" {
+			w.WriteHeader(401)
+		} else {
+			w.WriteHeader(403)
+		}
+	}))
+	defer srv.Close()
+	tr := newT(t, srv)
+	var out any
+	if err := tr.Get(context.Background(), "/api/a", nil, &out); !errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrForbidden) {
+		t.Errorf("401: %v", err)
+	}
+	if err := tr.Get(context.Background(), "/api/b", nil, &out); !errors.Is(err, ErrForbidden) || errors.Is(err, ErrUnauthorized) {
+		t.Errorf("403: %v", err)
 	}
 }

@@ -10,7 +10,9 @@
 //	c, err := opnsense.New(ctx, opnsense.Config{URL: "https://fw.example", Key: k, Secret: s})
 //	hosts, err := c.Entries("unbound/settings#hosts.host")
 //	id, err := hosts.Add(ctx, opnsense.Values{"hostname": "nas", "domain": "example.com", "server": "192.0.2.10"})
-//	err = c.Apply(ctx)
+//	err = hosts.Apply(ctx)
+//
+// A Client is safe for concurrent use.
 package opnsense
 
 import (
@@ -48,13 +50,24 @@ const (
 	Refuse = capability.Refuse
 )
 
-// TLS settings. Verification is always on; there is no switch to turn it
-// off. Without CAFile, CAPEM or PinSHA256 the system roots are used.
+// TLS settings: at most one of CAFile/CAPEM, PinSHA256 and
+// InsecureSkipVerify. Without any of them the system roots are used. For a
+// firewall with a self-signed certificate, prefer PinSHA256: it is as easy
+// to set up as InsecureSkipVerify and keeps the API key safe.
 type TLS struct {
 	CAFile    string // PEM file with the CA that signed the firewall's certificate
 	CAPEM     []byte // the same as bytes
-	PinSHA256 string // SHA-256 of the firewall's certificate (hex, colons allowed); for self-signed certificates
+	PinSHA256 string // SHA-256 of the firewall's certificate (hex, colons allowed)
+
+	// InsecureSkipVerify turns certificate verification off. Anyone who can
+	// intercept the connection can read the API key and secret and change
+	// the firewall. Every client created with it carries InsecureWarning in
+	// Instance().Warnings.
+	InsecureSkipVerify bool
 }
+
+// InsecureWarning is the warning a client with InsecureSkipVerify carries.
+const InsecureWarning = "TLS certificate verification is disabled (InsecureSkipVerify): the API key is exposed to anyone on the network path"
 
 // Config of a client.
 type Config struct {
@@ -67,7 +80,6 @@ type Config struct {
 	// seen. Default: AssumeNewestInSeries.
 	UnknownVersion Policy
 	// Capabilities is the data to use. If nil, CapabilityDir is loaded.
-	// (Embedded data follows in a later release.)
 	Capabilities *capability.Set
 	// CapabilityDir is an unpacked "catalog" release: catalog.json and
 	// capabilities/<package>.json.
@@ -78,15 +90,15 @@ type Config struct {
 
 	Timeout      time.Duration // per request, default 60s
 	ApplyTimeout time.Duration // apply endpoints, default 5m
-	Logger       *slog.Logger  // debug log: method, path, status, duration
-	HTTPClient   *http.Client  // replaces the built-in HTTP client (tests)
+	Logger       *slog.Logger  // debug log: method, path, status, duration; never bodies or credentials
+	HTTPClient   *http.Client  // replaces the built-in HTTP client (tests); TLS settings are then not used
 }
 
-// Instance describes the detected firewall.
+// Instance describes the detected firewall. The client returns a copy.
 type Instance struct {
 	Core     string            // core version as reported, e.g. 26.7.9_1
 	Plugins  map[string]string // installed plugin -> version
-	Resolved *capability.Resolved
+	Resolved capability.Resolved
 	Warnings []string
 }
 
@@ -95,15 +107,16 @@ type Client struct {
 	cfg  Config
 	t    *transport.Transport
 	data *capability.Set
-	inst *Instance
+	inst Instance
 	owns map[string][]string // resource -> packages that define it
 
 	mu      sync.Mutex
-	pending map[string]bool        // apply endpoints
-	locks   map[string]*sync.Mutex // per model class
+	pending map[string]uint64      // apply endpoint -> generation of the last mutation
+	locks   map[string]*sync.Mutex // per model class, and per apply endpoint ("apply:<path>")
 }
 
-// New connects, detects the firewall and resolves the capability data.
+// New checks the data, connects, detects the firewall and resolves the
+// capability data.
 func New(ctx context.Context, cfg Config) (*Client, error) {
 	data := cfg.Capabilities
 	if data == nil {
@@ -111,13 +124,14 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 			return nil, errors.New("opnsense: no capability data (Config.Capabilities or Config.CapabilityDir)")
 		}
 		var err error
-		data, err = capability.Load(os.DirFS(cfg.CapabilityDir))
-		if err != nil {
+		if data, err = capability.Load(os.DirFS(cfg.CapabilityDir)); err != nil {
 			return nil, fmt.Errorf("opnsense: capability data: %w", err)
 		}
+	} else if err := data.Check(); err != nil {
+		return nil, fmt.Errorf("opnsense: capability data: %w", err)
 	}
 	tc := transport.Config{URL: cfg.URL, Key: cfg.Key, Secret: cfg.Secret, Pin: cfg.TLS.PinSHA256,
-		CAPEM: cfg.TLS.CAPEM, Timeout: cfg.Timeout, Logger: cfg.Logger, HTTP: cfg.HTTPClient}
+		CAPEM: cfg.TLS.CAPEM, Insecure: cfg.TLS.InsecureSkipVerify, Timeout: cfg.Timeout, Logger: cfg.Logger, HTTP: cfg.HTTPClient}
 	if cfg.TLS.CAFile != "" {
 		pem, err := os.ReadFile(cfg.TLS.CAFile)
 		if err != nil {
@@ -133,7 +147,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		cfg.ApplyTimeout = 5 * time.Minute
 	}
 	c := &Client{cfg: cfg, t: t, data: data, owns: map[string][]string{},
-		pending: map[string]bool{}, locks: map[string]*sync.Mutex{}}
+		pending: map[string]uint64{}, locks: map[string]*sync.Mutex{}}
 	for pkg, d := range data.Docs {
 		for id := range d.Resources {
 			c.owns[id] = append(c.owns[id], pkg)
@@ -148,11 +162,31 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 	return c, nil
 }
 
-// Instance returns what was detected; Warnings lists every assumption.
-func (c *Client) Instance() *Instance { return c.inst }
+// Instance returns a copy of what was detected; Warnings lists every
+// assumption.
+func (c *Client) Instance() Instance {
+	in := c.inst
+	in.Plugins = copyMap(c.inst.Plugins)
+	in.Warnings = append([]string(nil), c.inst.Warnings...)
+	in.Resolved.Warnings = append([]string(nil), c.inst.Resolved.Warnings...)
+	in.Resolved.Packages = make(map[string]*capability.Resolution, len(c.inst.Resolved.Packages))
+	for k, v := range c.inst.Resolved.Packages {
+		r := *v
+		in.Resolved.Packages[k] = &r
+	}
+	return in
+}
 
-// Data returns the capability data in use.
+// Data returns the capability data in use. It is shared: do not modify it.
 func (c *Client) Data() *capability.Set { return c.data }
+
+func copyMap(m map[string]string) map[string]string {
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
 
 type pkgInfo struct {
 	Name      string `json:"name"`
@@ -167,10 +201,10 @@ func (c *Client) detect(ctx context.Context) error {
 		Package        []pkgInfo `json:"package"`
 		Plugin         []pkgInfo `json:"plugin"`
 	}
-	inst := &Instance{Plugins: map[string]string{}}
-	err := c.t.Get(ctx, "/api/core/firmware/info", &info)
+	inst := Instance{Plugins: map[string]string{}}
+	err := c.t.Get(ctx, "/api/core/firmware/info", nil, &info)
 	if errors.Is(err, ErrUnauthorized) {
-		return err
+		return err // wrong key or secret: no fallback helps
 	}
 	if err == nil {
 		inst.Core = info.ProductVersion
@@ -188,14 +222,15 @@ func (c *Client) detect(ctx context.Context) error {
 			}
 		}
 	} else {
-		// fall back to the core version alone
+		// e.g. a key without the firmware privilege (403): the core version
+		// alone, plugins unknown
 		var st struct {
 			ProductVersion string `json:"product_version"`
 			Product        struct {
 				ProductVersion string `json:"product_version"`
 			} `json:"product"`
 		}
-		if err2 := c.t.Get(ctx, "/api/core/firmware/status", &st); err2 != nil {
+		if err2 := c.t.Get(ctx, "/api/core/firmware/status", nil, &st); err2 != nil {
 			return fmt.Errorf("opnsense: detecting the firmware: %w", errors.Join(err, err2))
 		}
 		inst.Core = st.ProductVersion
@@ -211,7 +246,13 @@ func (c *Client) detect(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("opnsense: %w", err)
 	}
-	inst.Resolved = res
+	inst.Resolved = *res
+	if c.cfg.TLS.InsecureSkipVerify {
+		inst.Warnings = append([]string{InsecureWarning}, inst.Warnings...)
+		if c.cfg.Logger != nil {
+			c.cfg.Logger.Warn(InsecureWarning)
+		}
+	}
 	inst.Warnings = append(inst.Warnings, res.Warnings...)
 	c.inst = inst
 	return nil
@@ -242,8 +283,12 @@ func (c *Client) bind(id, kind string) (*bound, error) {
 			if r.Kind != kind {
 				return nil, fmt.Errorf("opnsense: %s is a %s resource, not %s", id, r.Kind, kind)
 			}
+			api := r.APIFor(res.Fragment)
+			if api == nil {
+				return nil, fmt.Errorf("opnsense: %s: no API variant for fragment %s", id, res.Fragment)
+			}
 			return &bound{c: c, id: id, pkg: pkg, version: res.Version, frag: res.Fragment, res: r,
-				api: r.APIFor(res.Fragment), verified: r.Verified[res.Fragment]}, nil
+				api: api, verified: r.Verified[res.Fragment]}, nil
 		}
 		if first == nil {
 			e := &ErrNotAvailable{Resource: id, Package: pkg, AvailableIn: c.versions(pkg, r.In)}
@@ -273,12 +318,12 @@ func (c *Client) versions(pkg string, frags []string) []string {
 	return out
 }
 
-func (c *Client) lock(model string) func() {
+func (c *Client) lock(key string) func() {
 	c.mu.Lock()
-	m := c.locks[model]
+	m := c.locks[key]
 	if m == nil {
 		m = &sync.Mutex{}
-		c.locks[model] = m
+		c.locks[key] = m
 	}
 	c.mu.Unlock()
 	m.Lock()
@@ -290,7 +335,7 @@ func (c *Client) markPending(apply string) {
 		return
 	}
 	c.mu.Lock()
-	c.pending[apply] = true
+	c.pending[apply]++
 	c.mu.Unlock()
 }
 
@@ -311,28 +356,72 @@ func (c *Client) Pending() []string {
 func (c *Client) Apply(ctx context.Context) error {
 	var errs []error
 	for _, p := range c.Pending() {
-		var resp map[string]any
-		err := c.t.Post(ctx, p, nil, &resp, c.cfg.ApplyTimeout)
-		if err == nil {
-			if st, _ := resp["status"].(string); strings.EqualFold(st, "failed") || strings.EqualFold(st, "error") {
-				err = fmt.Errorf("opnsense: apply %s: status %q", p, st)
-			}
-		}
-		if err != nil {
+		if err := c.applyEndpoint(ctx, p); err != nil {
 			errs = append(errs, err)
-			continue
 		}
-		c.mu.Lock()
-		delete(c.pending, p)
-		c.mu.Unlock()
 	}
 	return errors.Join(errs...)
 }
 
+// applyEndpoint calls one apply endpoint if it is pending. A mutation that
+// is saved while the call runs keeps the endpoint pending: the generation
+// is compared, not just cleared.
+func (c *Client) applyEndpoint(ctx context.Context, p string) error {
+	defer c.lock("apply:" + p)()
+	c.mu.Lock()
+	gen, ok := c.pending[p]
+	c.mu.Unlock()
+	if !ok {
+		return nil
+	}
+	var resp map[string]any
+	if err := c.t.Post(ctx, p, nil, &resp, c.cfg.ApplyTimeout); err != nil {
+		return err
+	}
+	if !applyOK(resp) {
+		return &ErrApply{Endpoint: p, Answer: fmt.Sprint(resp)}
+	}
+	c.mu.Lock()
+	if c.pending[p] == gen {
+		delete(c.pending, p)
+	}
+	c.mu.Unlock()
+	return nil
+}
+
+// applyOK: {"status": "ok"} from most service controllers, {"result":
+// "ok"} from some (openvpn on 26.7.9). Anything else is not success.
+func applyOK(resp map[string]any) bool {
+	for _, k := range []string{"status", "result"} {
+		if v, _ := resp[k].(string); strings.EqualFold(strings.TrimSpace(v), "ok") {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Client) afterMutation(ctx context.Context, apply string) error {
 	c.markPending(apply)
-	if c.cfg.AutoApply {
-		return c.Apply(ctx)
+	if c.cfg.AutoApply && apply != "" {
+		return c.applyEndpoint(ctx, apply)
 	}
 	return nil
+}
+
+// Call sends a request to any API path of this firewall and decodes the
+// JSON answer into out: the escape hatch for endpoints that are not
+// resource operations (service actions, diagnostics). Nothing is checked
+// against the capability data, and nothing is read back. method is GET or
+// POST; body is sent as JSON with POST.
+func (c *Client) Call(ctx context.Context, method, path string, body, out any) error {
+	switch method {
+	case http.MethodGet:
+		if body != nil {
+			return errors.New("opnsense: GET takes no body")
+		}
+		return c.t.Get(ctx, path, nil, out)
+	case http.MethodPost:
+		return c.t.Post(ctx, path, body, out, 0)
+	}
+	return fmt.Errorf("opnsense: method %q not supported", method)
 }

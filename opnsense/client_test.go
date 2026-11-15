@@ -85,6 +85,13 @@ func TestTLSPinAndAuth(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "certificate") {
 		t.Errorf("self-signed without pin or CA must fail: %v", err)
 	}
+	c, err := connect(t, f, func(c *Config) { c.TLS = TLS{InsecureSkipVerify: true} })
+	if err != nil || c.Instance().Warnings[0] != InsecureWarning {
+		t.Errorf("InsecureSkipVerify must connect and warn: %v", err)
+	}
+	if _, err := connect(t, f, func(c *Config) { c.TLS.InsecureSkipVerify = true }); err == nil {
+		t.Error("InsecureSkipVerify together with a pin must be refused")
+	}
 	_, err = connect(t, f, func(c *Config) { c.Secret = "wrong" })
 	if !errors.Is(err, ErrUnauthorized) {
 		t.Errorf("wrong secret: %v", err)
@@ -168,12 +175,15 @@ func TestNothingIsSentThatTheVersionDoesNotHave(t *testing.T) {
 	if !errors.As(err, &inv) || inv.Problems["enabled"] == "" {
 		t.Errorf("invalid values: %v", err)
 	}
-	_, err = n.Add(ctx, Values{"description": "no address"})
-	if !errors.As(err, &inv) || inv.Problems["address"] != "required" {
-		t.Errorf("missing required field: %v", err)
-	}
 	if len(f.calls) != before {
 		t.Errorf("requests were sent despite local errors: %v", f.calls[before:])
+	}
+	// required values are left to the firewall (the model's "required" is
+	// not reliable for add)
+	_, err = n.Add(ctx, Values{"description": "no address"})
+	var val *ErrValidation
+	if !errors.As(err, &val) || val.Fields["address"] == "" {
+		t.Errorf("missing required field: %v", err)
 	}
 }
 

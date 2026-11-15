@@ -33,6 +33,16 @@ type fakeFirewall struct {
 	dropSets map[string]bool // fields the "server" accepts but does not store
 	calls    []string
 	applied  int
+
+	// failure modes
+	applyAnswer map[string]any // answer of reconfigure (default {"status":"ok"})
+	applyGate   chan struct{}  // if set, reconfigure waits for it (without holding mu)
+	applyStart  chan struct{}  // closed when reconfigure is entered
+	infoStatus  int            // HTTP status of firmware/info (default 200)
+	delKeeps    bool           // del answers "deleted" but keeps the entry
+	delSilent   bool           // del answers with an empty body (os-wol on 26.7.9)
+	oddField    string         // this neighbor field is returned in an unexpected shape
+	searchPage  int            // rows per page when rowCount is not -1 (0: all)
 }
 
 func newFake(t *testing.T) *fakeFirewall {
@@ -53,6 +63,10 @@ func (f *fakeFirewall) pin() string {
 }
 
 func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/api/quagga/service/reconfigure" && f.applyGate != nil {
+		close(f.applyStart)
+		<-f.applyGate
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, r.Method+" "+r.URL.Path)
@@ -74,6 +88,10 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
 	reply := func(v any) { _ = json.NewEncoder(w).Encode(v) }
 	switch {
+	case p == "/api/core/firmware/info" && f.infoStatus != 0:
+		w.WriteHeader(f.infoStatus)
+	case p == "/api/core/firmware/status":
+		reply(map[string]any{"product": map[string]any{"product_version": f.core}})
 	case p == "/api/core/firmware/info":
 		var plugins []map[string]string
 		for n, v := range f.plugins {
@@ -115,7 +133,27 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 			reply([]any{})
 			return
 		}
-		reply(map[string]any{"neighbor": n})
+		out := map[string]any{}
+		for k, v := range n {
+			out[k] = v
+		}
+		if f.oddField != "" {
+			out[f.oddField] = map[string]any{"unexpected": []any{1, 2}}
+		}
+		reply(map[string]any{"neighbor": out})
+	case strings.HasPrefix(p, "/api/quagga/ospfsettings/toggleNeighbor/"):
+		n := f.nbrs[strings.TrimPrefix(p, "/api/quagga/ospfsettings/toggleNeighbor/")]
+		if n == nil {
+			reply(map[string]any{"result": "failed"})
+			return
+		}
+		if n["enabled"] == "1" {
+			n["enabled"] = "0"
+			reply(map[string]any{"result": "Disabled", "changed": true})
+		} else {
+			n["enabled"] = "1"
+			reply(map[string]any{"result": "Enabled", "changed": true})
+		}
 	case strings.HasPrefix(p, "/api/quagga/ospfsettings/setNeighbor/"):
 		id := strings.TrimPrefix(p, "/api/quagga/ospfsettings/setNeighbor/")
 		in, _ := body["neighbor"].(map[string]any)
@@ -137,7 +175,12 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 			reply(map[string]any{"result": "not found"})
 			return
 		}
-		delete(f.nbrs, id)
+		if !f.delKeeps {
+			delete(f.nbrs, id)
+		}
+		if f.delSilent {
+			return
+		}
 		reply(map[string]any{"result": "deleted"})
 	case p == "/api/quagga/ospfsettings/searchNeighbor":
 		var rows []map[string]string
@@ -148,9 +191,21 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 			}
 			rows = append(rows, row)
 		}
-		reply(map[string]any{"rows": rows, "rowCount": len(rows), "total": len(rows), "current": 1})
+		total := len(rows)
+		all := r.URL.Query().Get("rowCount") == "-1"
+		if v, ok := body["rowCount"]; ok && fmt.Sprint(v) == "-1" {
+			all = true
+		}
+		if !all && f.searchPage > 0 && len(rows) > f.searchPage {
+			rows = rows[:f.searchPage] // OPNsense pages when rowCount is not -1
+		}
+		reply(map[string]any{"rows": rows, "rowCount": len(rows), "total": total, "current": 1})
 	case p == "/api/quagga/service/reconfigure":
 		f.applied++
+		if f.applyAnswer != nil {
+			reply(f.applyAnswer)
+			return
+		}
 		reply(map[string]any{"status": "ok"})
 	default:
 		w.WriteHeader(404)

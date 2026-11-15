@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 // testdata/catalog: the real catalog.json of 34 releases, the real os-frr
@@ -94,7 +95,6 @@ func TestResolveNearestOlderCore(t *testing.T) {
 		"os-x": {Select: map[string]map[string]string{"f1": {"2.2_3": "x1"}, "f3": {"2.2_3": "x3"}},
 			Fragments: map[string]FragmentInfo{"x1": {Releases: []string{"26.1.1"}}, "x3": {Releases: []string{"26.1.3"}}}},
 	}}
-	s.Catalog.index()
 	r, err := s.Resolve("26.1.4", map[string]string{"os-x": "2.2_3"}, AssumeNewestInSeries)
 	if err != nil {
 		t.Fatal(err)
@@ -172,5 +172,56 @@ func TestCheckFindsBrokenReferences(t *testing.T) {
 	err := s.Check()
 	if err == nil || !strings.Contains(err.Error(), "unknown fragment b") || !strings.Contains(err.Error(), "0 API variants") {
 		t.Errorf("Check: %v", err)
+	}
+}
+
+func TestCheckNullEntriesWithoutPanic(t *testing.T) {
+	core := &Doc{Fragments: map[string]FragmentInfo{}}
+	cases := map[string]*Set{
+		"no catalog":     {},
+		"null document":  {Catalog: &Catalog{}, Docs: map[string]*Doc{CorePackage: core, "os-x": nil}},
+		"null resource":  {Catalog: &Catalog{}, Docs: map[string]*Doc{CorePackage: core, "os-x": {Resources: map[string]*Resource{"a/b": nil}}}},
+		"null api":       {Catalog: &Catalog{}, Docs: map[string]*Doc{CorePackage: core, "os-x": {Resources: map[string]*Resource{"a/b": {Kind: "settings", API: []*API{nil}}}}}},
+		"null field":     {Catalog: &Catalog{}, Docs: map[string]*Doc{CorePackage: core, "os-x": {Resources: map[string]*Resource{"a/b": {Kind: "settings", Fields: map[string][]*Field{"f": {nil}}}}}}},
+		"null operation": {Catalog: &Catalog{}, Docs: map[string]*Doc{CorePackage: core, "os-x": {Resources: map[string]*Resource{"a/b": {Kind: "settings", API: []*API{{Operations: map[string]*Operation{"get": nil}}}}}}}},
+		"no core doc":    {Catalog: &Catalog{}, Docs: map[string]*Doc{}},
+		"bad kind":       {Catalog: &Catalog{}, Docs: map[string]*Doc{CorePackage: core, "os-x": {Resources: map[string]*Resource{"a/b": {Kind: "other"}}}}},
+	}
+	for name, s := range cases {
+		if err := s.Check(); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	var nilSet *Set
+	if err := nilSet.Check(); err == nil {
+		t.Error("nil set accepted")
+	}
+	if _, err := (&Set{}).Resolve("26.7.9_1", nil, AssumeNewestInSeries); err == nil {
+		t.Error("Resolve without catalog must fail, not panic")
+	}
+}
+
+func TestVersionsWithLetters(t *testing.T) {
+	ordered := []string{"2.1", "2.1a", "2.1b", "2.2", "26.1.b", "26.1.1"}
+	for i := 0; i+1 < len(ordered); i++ {
+		if CompareVersions(ordered[i], ordered[i+1]) >= 0 || CompareVersions(ordered[i+1], ordered[i]) <= 0 {
+			t.Errorf("%s < %s expected", ordered[i], ordered[i+1])
+		}
+	}
+	if CompareVersions("2.1a", "2.1") == 0 {
+		t.Error("a letter suffix is a different version")
+	}
+	if Match(9).String() != "Match(9)" || Kind(-1).String() != "Kind(-1)" {
+		t.Error("out-of-range String")
+	}
+}
+
+func TestLoadRefusesEscapingFileNames(t *testing.T) {
+	for _, file := range []string{"../x.json", "/etc/passwd", "", "capabilities/../../x"} {
+		cat := `{"format":1,"cores":{},"releases":[],"packages":{"opnsense":{"file":"` + file + `","fragments":[]}}}`
+		fsys := fstest.MapFS{"catalog.json": {Data: []byte(cat)}}
+		if _, err := Load(fsys); err == nil || !strings.Contains(err.Error(), "bad file name") {
+			t.Errorf("file %q: %v", file, err)
+		}
 	}
 }

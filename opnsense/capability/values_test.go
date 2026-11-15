@@ -73,6 +73,9 @@ func TestWireAndDecode(t *testing.T) {
 		{multiF, []any{}, "", []string{}},
 		{optF, map[string]any{"a": map[string]any{"value": "A", "selected": float64(1)}}, "a", "a"},
 		{relF, map[string]any{"": map[string]any{"value": "none", "selected": true}}, "", ""},
+		// options with keys "0".."n" arrive as a JSON list
+		{optF, []any{map[string]any{"value": "Level 0", "selected": float64(0)}, map[string]any{"value": "Level 1", "selected": float64(1)}}, "1", "1"},
+		{multiF, []any{map[string]any{"value": "A", "selected": true}, map[string]any{"value": "B", "selected": false}, map[string]any{"value": "C", "selected": "1"}}, "0,2", []string{"0", "2"}},
 	}
 	for _, c := range cases {
 		w, err := c.f.Wire(c.raw)
@@ -87,6 +90,9 @@ func TestWireAndDecode(t *testing.T) {
 	}
 	if _, err := boolF.Decode("yes"); err == nil {
 		t.Error("a boolean with another value must fail")
+	}
+	if _, err := textF.Wire([]any{"a", "b"}); err == nil {
+		t.Error("a list that is not an option list must fail")
 	}
 	if _, err := intF.Decode("1.5"); err == nil {
 		t.Error("an integer with a fraction must fail")
