@@ -95,7 +95,7 @@ jobs:
           path: catalog
       - name: Test VM ${{ matrix.release }} with all plugins
         id: vm
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@5bae85e06618d97450bbe5c4c247201680c79f16 # main 2026-11-15
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@9882dbddff1fedb52b58237e4d63c7c42f31cdac # main 2026-11-15 (0.9.0)
         with:
           series: ${{ matrix.series }}
           release: ${{ matrix.release }}
@@ -116,7 +116,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Stop test VM
         if: always()
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@5bae85e06618d97450bbe5c4c247201680c79f16 # main 2026-11-15
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@9882dbddff1fedb52b58237e4d63c7c42f31cdac # main 2026-11-15 (0.9.0)
         with:
           command: stop
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
