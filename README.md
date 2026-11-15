@@ -54,11 +54,13 @@ is the client's job.
 |---|---|
 | Resource not installed or not in this version | `*ErrNotAvailable` with the versions that have it |
 | Field not in this version (or misspelled) | `*ErrFieldNotAvailable` with the versions that have it; nothing is sent |
-| Wrong type, value not among the static options, required field missing on `Add` | `*ErrInvalid`; nothing is sent |
-| Firewall rejects the values | `*ErrValidation` with the firewall's message per field |
-| Firewall says "saved" but reads back differently | `*ErrNotApplied` with sent and read values (after `Add`, the UUID is returned too: the entry exists) |
-| Entry does not exist | `ErrNotFound`; `Set` checks first, because OPNsense would create a new entry under an unknown UUID |
-| Key or secret wrong, or privilege missing | `ErrUnauthorized`; credentials never appear in errors or logs |
+| Wrong type; value not in a complete option list; a field the firewall or the endpoint sets itself | `*ErrInvalid`; nothing is sent |
+| Firewall rejects the values (including missing required ones) | `*ErrValidation` with the firewall's message per field |
+| Firewall says "saved" but reads back differently | `*ErrNotApplied` with sent and read values (after `Add` the ID is returned too: the entry exists) |
+| Entry does not exist | `ErrNotFound`; `Set`, `Toggle` and `Delete` check through the list first, because OPNsense would create a new entry under an unknown ID, and some plugins answer an unknown ID with a blank template |
+| One field of an object has an unexpected shape | the other fields are returned together with `*ErrDecode` |
+| An apply endpoint does not report ok | `*ErrApply`; the endpoint stays pending |
+| Key or secret wrong / privilege missing | `ErrUnauthorized` / `ErrForbidden`; credentials never appear in errors or logs |
 
 Detection resolves each installed package to the data that describes it:
 exact when the pipeline has seen the combination; otherwise, by default,
@@ -67,22 +69,51 @@ the nearest data of the same series with a warning in
 error). A newer core hotfix than the data, or a plugin built after the last
 data update, is the usual case. Read-back still protects such writes.
 
-TLS verification cannot be turned off. For a self-signed firewall
-certificate, pin it (`TLS.PinSHA256`, the SHA-256 of the certificate).
-Only GET requests are retried (on connection errors); mutations never are.
+What the client deliberately does not check before sending, because the
+data cannot know it reliably: required fields (controllers fill some of
+them), option lists of field subclasses (they add options at run time),
+and anything that refers to other objects. The firewall's own validation
+answers these as `*ErrValidation`.
+
+Entry IDs are usually UUIDs, but not always (`wan`, `bogons`, hashes).
+IDs may contain letters, digits, `_`, `-` and `.`, not start with a dot;
+anything else is refused before a request is built.
+
+`Apply` activates pending changes of all resources; `Entries.Apply` and
+`Settings.Apply` only those of one resource. A write that lands while an
+apply runs stays pending. `Call` reaches any other API endpoint (service
+actions, diagnostics) without checks or read-back.
+
+### TLS
+
+Verification is on by default against the system roots. Alternatives,
+exactly one of them:
+
+- `TLS.CAFile` / `TLS.CAPEM`: the CA that signed the firewall's certificate.
+- `TLS.PinSHA256`: the SHA-256 of the firewall's certificate; the right
+  choice for the self-signed certificate OPNsense creates.
+- `TLS.InsecureSkipVerify`: no verification. Anyone on the network path
+  can read the key and secret and change the firewall. Every client
+  created with it carries `opnsense.InsecureWarning` in
+  `Instance().Warnings`.
+
+Redirects are never followed, the URL may not contain credentials, and only
+GET requests are retried (on connection errors, never on certificate
+errors).
 
 ## Status
 
 | Part | State |
 |---|---|
-| Transport, wire encodings, detection, resolver, validation, settings and entry lists, apply, read-back | implemented, unit-tested against a fake firewall built from recorded responses, and integration-tested on a throwaway OPNsense 26.7.9 |
-| Embedded capability data (no `CapabilityDir` needed), its provenance and the name lock | next |
-| Integration tests for every verified resource on the newest release of each series | next |
-| Daily data update and releases | after that |
+| Transport, wire encodings, detection, resolver, value checks, settings, entry lists, toggle, apply, read-back | implemented; unit tests against a fake firewall built from recorded behaviour (each rule has a test that fails without it); integration test against OPNsense 26.7.9 with 70 plugins: 311 resources, 359 checks, 0 failures |
+| Embedded capability data (no `CapabilityDir` needed), provenance, name lock | next |
+| Integration tests in CI on the newest release of each series | next |
+| Daily data update and releases without manual steps | after that |
 | Typed Go structs per plugin | later, optional |
 
 Supported: OPNsense 25.7 and newer, core and official plugins, as far as the
-capability data covers them.
+capability data covers them. Not yet tested by integration runs: 25.7 and
+26.1 (the resolver is unit-tested against the data of all 34 releases).
 
 ## Tests
 
@@ -90,6 +121,13 @@ capability data covers them.
 go test ./...                       # unit tests, fake firewall, real capability test data
 go test -tags integration ./test/integration/   # against a throwaway VM, see the file header
 ```
+
+The integration test exercises every resource the capability data marks as
+verified on the VM's version: entry lists with the verified sample (add
+with read-back, get, list, delete), settings by reading them, and every
+apply endpoint that became pending. Samples that refer to something only
+the contract test's instance had (a certificate, a device) are skipped with
+the reason.
 
 Integration tests run only against a VM on `127.0.0.1` (the
 [test VM action](https://github.com/pipiobjo/opnsense-api-spec/blob/main/docs/testvm-action.md)

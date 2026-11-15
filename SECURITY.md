@@ -14,8 +14,9 @@ project without a support contract; fixes are made on a best-effort basis.
   asked for, or report success for a change the firewall did not make.
 - Credentials: a way for the API key or secret to end up in an error, a
   log or a request to another host.
-- TLS: a way to talk to a firewall whose certificate was not verified
-  (there is intentionally no switch to turn verification off).
+- TLS: a way to talk to a firewall whose certificate was not verified,
+  other than the explicit `TLS.InsecureSkipVerify` (which always carries a
+  warning).
 - The capability data handling: a way for crafted data to cause anything
   beyond a refused load.
 

@@ -25,26 +25,44 @@ opnsense-api-spec (format 1):
   fields).
 - `opnsense`: detect the firewall, generic settings and entry operations,
   apply, read-back.
-- `transport`: HTTP/2, TLS that is always verified, error mapping.
+- `transport`: HTTP/2, TLS verified by default (an explicit, warned
+  switch turns it off), no redirects, error mapping.
 
 A new OPNsense release changes data, not code. Typed structs per plugin can
 be generated on top later, for people writing Go by hand; the provider does
 not need them.
 
-Rules that follow from OPNsense's behaviour (each observed on a test VM,
-2026-11-15):
+Rules that follow from OPNsense's behaviour, each observed on a test VM
+(26.7.9, 70 plugins, 2026-11-15):
 
 1. Nothing is sent that the resolved version does not have: OPNsense
    answers `"saved"` for unknown keys, nested ones included, and ignores
    them.
-2. Every `Add` and `Set` is read back and compared; lists are compared as
-   sets. This also covers versions the data has only assumed.
-3. `Set` checks first that the entry exists: for an unknown UUID OPNsense
-   creates a new entry under that UUID, which would silently undo a
-   delete. A get of an unknown UUID returns `[]`.
-4. GET requests carry no body and no `Content-Type` (HTTP 400 otherwise);
-   only they are retried.
-5. Resolution order for packages: the exact combination; the same version
+2. Every `Add` and `Set` is read back and compared; lists as sets. Fields
+   the endpoint stores in another form (`transformed` in the data) are
+   skipped. This also covers versions the data has only assumed.
+3. Existence is decided by the list (search): for an unknown ID, `set`
+   creates a new entry under that ID, `get` answers `[]` in most
+   controllers but a blank template in some (os-nginx). So `Set`,
+   `Toggle` and the confirmation after `Delete` ask the list.
+4. Fields the firewall or the endpoint sets itself are refused before
+   sending: `UniqueIdField`, `AutoNumberField`, `JsonAuditField`, and the
+   `forced` and `computed` fields of the operation (bind domain types, the
+   traffic shaper's pipe number, unbound's forward type).
+5. Required fields and option lists of field subclasses are not checked
+   locally: controllers fill some required fields, and subclasses such as
+   `ServiceField` add options at run time. Only the core `OptionField`'s
+   list is treated as complete. The firewall's validation reports the
+   rest.
+6. Answer shapes: option maps with keys `0..n` arrive as JSON lists; a
+   model without fields as `[]`; apply success as `"status": "ok"` or
+   `"result": "ok"` (anything else is `ErrApply`); some deletes answer
+   nothing (`result-not-returned` in the data), then the list decides.
+7. Entry IDs are not always UUIDs (`wan`, `bogons`, hashes): accepted are
+   path-safe characters only, so no input can leave the API path.
+8. GET requests carry no body and no `Content-Type` (HTTP 400 otherwise);
+   only they are retried. Redirects are refused.
+9. Resolution order for packages: the exact combination; the same version
    seen on other frameworks with one identical fragment; the nearest older
    core of the series; the newest fragment of the series (assumed). A core
    version that is not in the data uses another hotfix revision of the same
@@ -64,9 +82,14 @@ Rules that follow from OPNsense's behaviour (each observed on a test VM,
 
 ## Evidence
 
+- Independent review of the first draft (2026-11-15): 9 findings from
+  path handling to an Apply race; each fixed with a test that fails without
+  the fix.
 - Unit tests with a fake firewall that reproduces the recorded behaviour
   (unknown keys ignored, `[]` for unknown UUIDs, creation by set); every
   rule above has a test that fails when the rule is removed.
-- Integration on a throwaway OPNsense 26.7.9_1 with os-frr 2.1: exact
-  detection, a full OSPF neighbor cycle including the set after delete,
-  settings set and restored.
+- Integration on a throwaway OPNsense 26.7.9_1 with 70 plugins: every
+  resource the data marks as verified (311), 359 checks, 0 failures, 3
+  samples skipped as instance-specific. The run found rules 3 to 7; the
+  overlays in rule 4 led to a change in the spec repository's derivation
+  (`forced`, `computed`, `transformed`).
