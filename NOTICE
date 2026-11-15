@@ -1,0 +1,24 @@
+opnsense-api-go
+Copyright (c) 2026, opnsense-api-go contributors
+Licensed under the BSD 2-Clause License (see LICENSE).
+
+This project is not affiliated with, endorsed by or sponsored by Deciso B.V.
+or the OPNsense project. "OPNsense" is used only to describe which API the
+client talks to.
+
+1. Capability data (opnsense/data, testdata)
+
+The embedded capability data and the test data are taken from the release
+"catalog" of https://github.com/pipiobjo/opnsense-api-spec (BSD 2-Clause).
+They are derived from the MVC models and API controllers shipped in the
+OPNsense release packages and contain material from them (names, structure,
+defaults, option values and labels).
+
+OPNsense core: Copyright (C) Deciso B.V. and contributors.
+OPNsense plugins: Copyright (C) Deciso B.V. and the respective authors.
+All of them are distributed under the BSD 2-Clause License
+(LICENSES/BSD-2-Clause.txt). Source: https://github.com/opnsense/core and
+https://github.com/opnsense/plugins
+
+Redistributions of the data must keep this notice, the copyright notices
+above and the BSD 2-Clause conditions and disclaimer.

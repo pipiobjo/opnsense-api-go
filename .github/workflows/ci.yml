@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# Code gates on every push and pull request: format, vet, unit tests with
+# the fake firewall and the real capability test data. No VM, no secrets.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - name: Format, vet, test
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; echo "::error::gofmt"; exit 1; }
+          go vet ./...
+          go vet -tags integration ./...
+          go test -count=1 -race ./...

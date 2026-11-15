@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
+# SPDX-License-Identifier: BSD-2-Clause
+# Updates are proposed after a waiting period, so a compromised release has
+# time to be noticed and withdrawn before it reaches this module.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

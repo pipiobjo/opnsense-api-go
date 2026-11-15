@@ -1,0 +1,14 @@
+# REUSE (https://reuse.software) annotations; `reuse lint` checks them.
+version = 1
+
+[[annotations]]
+path = ["**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 opnsense-api-go contributors"
+SPDX-License-Identifier = "BSD-2-Clause"
+
+[[annotations]]
+path = ["opnsense/data/**", "**/testdata/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["Deciso B.V. and the respective OPNsense authors", "2026 opnsense-api-spec contributors"]
+SPDX-License-Identifier = "BSD-2-Clause"
