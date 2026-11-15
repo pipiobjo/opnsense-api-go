@@ -140,7 +140,7 @@ opnsense/              Client, Config, Entries, Settings, errors (public API)
 opnsense/capability/   capability data model, resolver, value checks (usable on its own)
 internal/transport/    HTTP, TLS, error mapping
 test/integration/      tests against the throwaway VM
-docs/adr/              decisions
+docs/adr/              decisions (0001 data-driven client, 0002 operation without maintenance)
 ```
 
 ## Licence
