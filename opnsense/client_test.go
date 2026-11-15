@@ -63,6 +63,15 @@ func TestDetectExact(t *testing.T) {
 	}
 }
 
+func TestDetectHotfixIsANote(t *testing.T) {
+	f := newFake(t)
+	f.core = "26.7.9"
+	in := mustConnect(t, f).Instance()
+	if len(in.Warnings) != 0 || !strings.Contains(strings.Join(in.Notes, "|"), "other hotfix revision") {
+		t.Errorf("another hotfix revision must be a note, not a warning: notes %q, warnings %q", in.Notes, in.Warnings)
+	}
+}
+
 func TestDetectAssumedAndRefused(t *testing.T) {
 	f := newFake(t)
 	f.core = "26.7.10"

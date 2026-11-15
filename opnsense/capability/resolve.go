@@ -41,7 +41,10 @@ type Policy int
 
 const (
 	// AssumeNewestInSeries uses the nearest or newest data of the same
-	// series and records a warning.
+	// series. Another hotfix revision of a known release, or a known plugin
+	// version from another core of the series, is a note (usual and
+	// harmless); a release or plugin version the data has never seen is a
+	// warning.
 	AssumeNewestInSeries Policy = iota
 	// Refuse treats every combination that was not seen as an error.
 	Refuse
@@ -53,7 +56,16 @@ type Resolution struct {
 	Version  string // installed version
 	Fragment string // empty with MatchNone
 	Match    Match
-	Warning  string
+	Note     string // MatchNearest: what was used instead
+	Warning  string // MatchAssumed or MatchNone: a guess, or nothing
+}
+
+// message is the note or the warning, whichever is set.
+func (r *Resolution) message() string {
+	if r.Warning != "" {
+		return r.Warning
+	}
+	return r.Note
 }
 
 // Resolved is the result for one firewall.
@@ -64,7 +76,8 @@ type Resolved struct {
 	Series    string
 	Framework string
 	Packages  map[string]*Resolution // including the core
-	Warnings  []string
+	Notes     []string               // nearest data of the same release or series; no action needed
+	Warnings  []string               // assumptions about versions the data has never seen
 }
 
 // Resolve picks the fragment of every installed package for a firewall that
@@ -83,10 +96,15 @@ func (s *Set) Resolve(core string, plugins map[string]string, p Policy) (*Resolv
 		return nil, fmt.Errorf("core %s is not in the capability data (%s)", core, warn)
 	}
 	r.CoreUsed, r.Release, r.Series, r.Framework = used, c.Release, c.Series, c.Framework
-	if warn != "" {
+	coreRes := &Resolution{Package: CorePackage, Version: core, Match: m}
+	switch m {
+	case MatchNearest:
+		coreRes.Note = warn
+		r.Notes = append(r.Notes, warn)
+	case MatchAssumed:
+		coreRes.Warning = warn
 		r.Warnings = append(r.Warnings, warn)
 	}
-	coreRes := &Resolution{Package: CorePackage, Version: core, Match: m, Warning: warn}
 	if d := s.Docs[CorePackage]; d != nil {
 		coreRes.Fragment = d.Select[c.Framework][used]
 	}
@@ -104,11 +122,14 @@ func (s *Set) Resolve(core string, plugins map[string]string, p Policy) (*Resolv
 	for _, name := range names {
 		res := s.resolvePlugin(name, plugins[name], r)
 		r.Packages[name] = res
+		if res.Note != "" {
+			r.Notes = append(r.Notes, res.Note)
+		}
 		if res.Warning != "" {
 			r.Warnings = append(r.Warnings, res.Warning)
 		}
 		if p == Refuse && (res.Match == MatchNearest || res.Match == MatchAssumed) {
-			refused = append(refused, res.Warning)
+			refused = append(refused, res.message())
 		}
 	}
 	if len(refused) > 0 {
@@ -191,7 +212,7 @@ func (s *Set) resolvePlugin(name, version string, r *Resolved) *Resolution {
 			}
 			if h := byFramework[refs[i].Framework]; h != "" {
 				res.Fragment, res.Match = h, MatchNearest
-				res.Warning = fmt.Sprintf("%s %s was not seen on core %s; using its fragment from core %s", name, version, r.CoreUsed, refs[i].Version)
+				res.Note = fmt.Sprintf("%s %s was not seen on core %s; using its fragment from core %s", name, version, r.CoreUsed, refs[i].Version)
 				return res
 			}
 		}

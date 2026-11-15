@@ -1,2 +1,2 @@
 [tools]
-go = "1.27.3"
+go = "1.27"  # newest patch release; CI also tests the oldest supported Go (ci.yml)

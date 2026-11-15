@@ -99,6 +99,14 @@ type Instance struct {
 	Core     string            // core version as reported, e.g. 26.7.9_1
 	Plugins  map[string]string // installed plugin -> version
 	Resolved capability.Resolved
+	// Notes: the data has another hotfix revision of this release, or this
+	// plugin version from another core of the series, and that is used.
+	// Usual after an update; nothing to do.
+	Notes []string
+	// Warnings: a guess about a release or plugin version the data has
+	// never seen, an incomplete detection, or disabled TLS verification.
+	// Fields newer than the data are refused; read-back still checks every
+	// write. Updating the capability data removes most of them.
 	Warnings []string
 }
 
@@ -162,12 +170,13 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 	return c, nil
 }
 
-// Instance returns a copy of what was detected; Warnings lists every
-// assumption.
+// Instance returns a copy of what was detected, with notes and warnings.
 func (c *Client) Instance() Instance {
 	in := c.inst
 	in.Plugins = copyMap(c.inst.Plugins)
 	in.Warnings = append([]string(nil), c.inst.Warnings...)
+	in.Notes = append([]string(nil), c.inst.Notes...)
+	in.Resolved.Notes = append([]string(nil), c.inst.Resolved.Notes...)
 	in.Resolved.Warnings = append([]string(nil), c.inst.Resolved.Warnings...)
 	in.Resolved.Packages = make(map[string]*capability.Resolution, len(c.inst.Resolved.Packages))
 	for k, v := range c.inst.Resolved.Packages {
@@ -254,6 +263,7 @@ func (c *Client) detect(ctx context.Context) error {
 		}
 	}
 	inst.Warnings = append(inst.Warnings, res.Warnings...)
+	inst.Notes = append(inst.Notes, res.Notes...)
 	c.inst = inst
 	return nil
 }

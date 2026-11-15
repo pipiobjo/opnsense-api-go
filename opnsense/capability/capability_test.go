@@ -31,13 +31,14 @@ func TestResolveReal(t *testing.T) {
 		coreMatch   Match
 		frrMatch    Match
 		frrFragment string
-		warn        string
+		warn, note  string
 	}{
-		{"exact", "26.7.9_1", "2.1", "26.7.9_1", MatchExact, MatchExact, "b04bde19061e2dec", ""},
-		{"other hotfix revision of a known release", "26.7.9", "2.1", "26.7.9_1", MatchNearest, MatchExact, "b04bde19061e2dec", "same release, other hotfix revision"},
-		{"newer release of a known series", "26.7.10", "2.1", "26.7.9_1", MatchAssumed, MatchExact, "b04bde19061e2dec", "assuming 26.7.9_1"},
-		{"same plugin version, other framework, same fragment", "26.7.9_1", "1.55", "26.7.9_1", MatchExact, MatchExact, "1debf887d1d01f6e", ""},
-		{"unknown plugin version", "26.7.9_1", "9.9", "26.7.9_1", MatchExact, MatchAssumed, "b04bde19061e2dec", "os-frr 9.9 is not in the data"},
+		{"exact", "26.7.9_1", "2.1", "26.7.9_1", MatchExact, MatchExact, "b04bde19061e2dec", "", ""},
+		// usual after an update: a note, not a warning
+		{"other hotfix revision of a known release", "26.7.9", "2.1", "26.7.9_1", MatchNearest, MatchExact, "b04bde19061e2dec", "", "same release, other hotfix revision"},
+		{"newer release of a known series", "26.7.10", "2.1", "26.7.9_1", MatchAssumed, MatchExact, "b04bde19061e2dec", "assuming 26.7.9_1", ""},
+		{"same plugin version, other framework, same fragment", "26.7.9_1", "1.55", "26.7.9_1", MatchExact, MatchExact, "1debf887d1d01f6e", "", ""},
+		{"unknown plugin version", "26.7.9_1", "9.9", "26.7.9_1", MatchExact, MatchAssumed, "b04bde19061e2dec", "os-frr 9.9 is not in the data", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -57,6 +58,12 @@ func TestResolveReal(t *testing.T) {
 			}
 			if c.warn != "" && !strings.Contains(strings.Join(r.Warnings, "|"), c.warn) {
 				t.Errorf("warnings %v lack %q", r.Warnings, c.warn)
+			}
+			if c.note == "" && len(r.Notes) > 0 {
+				t.Errorf("unexpected notes: %v", r.Notes)
+			}
+			if c.note != "" && !strings.Contains(strings.Join(r.Notes, "|"), c.note) {
+				t.Errorf("notes %v lack %q", r.Notes, c.note)
 			}
 			if th := r.Packages["os-theme-vicuna"]; th.Match != MatchNone || th.Warning != "" {
 				t.Errorf("a package without data is none, silently: %+v", th)
@@ -101,6 +108,9 @@ func TestResolveNearestOlderCore(t *testing.T) {
 	}
 	if x := r.Packages["os-x"]; x.Match != MatchNearest || x.Fragment != "x3" {
 		t.Errorf("want the fragment of the nearest older core (26.1.3): %+v", x)
+	}
+	if len(r.Warnings) != 0 || len(r.Notes) != 1 || r.Packages["os-x"].Note == "" {
+		t.Errorf("a known plugin version from another core is a note: notes %q, warnings %q", r.Notes, r.Warnings)
 	}
 	// on 26.1.2 the version exists on an older (26.1.1) and a newer core
 	// (26.1.3): the older one counts

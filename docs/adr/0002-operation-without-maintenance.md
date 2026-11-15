@@ -1,65 +1,62 @@
-# 0002: Operation without routine maintenance
+# 0002: Operation without routine maintenance: the client is code only
 
-Status: proposed 2026-11-15; to be implemented with the embedded data
+Status: accepted 2026-11-15
 
 ## Context
 
 OPNsense publishes a release roughly every two weeks, hotfix revisions in
-between, and plugins update on their own schedule. A client that needs a
-person for each of these falls behind within weeks. The spec repository
-already turns each release into capability data without manual steps;
-this client must take it from there the same way, and the routine upkeep of
-the repository itself (dependencies, toolchain, actions) must not need a
-person either.
+between, and plugins update on their own schedule. The spec repository
+turns each of these into new capability data without a person.
 
-Routine work that would otherwise fall to a person:
+A first draft of this decision had the client embed that data, update it
+daily by a bot and tag a release whenever it changed. That would have made
+every user of the client, and every project built on it, follow a release
+stream of one or more versions a week, most of them changing nothing they
+use. It would also have given this repository a scheduled pipeline, bot
+commits, a watchdog and failure issues: routine work for whoever maintains
+it.
 
-| Recurring work | Rate |
-|---|---|
-| New capability data (OPNsense release, hotfix, plugin update) | weekly or more |
-| Dependency and action updates | monthly |
-| Go toolchain security releases | monthly |
-| Noticing that the automation itself stopped | rare, but silent |
+What makes a simpler design possible: the client does not need current
+data to be safe. For a firewall newer than its data it uses the nearest
+known data of the same series, refuses fields it does not know, and reads
+back every write.
 
 ## Decision
 
-1. **Data updates run daily and end in a release** (`update.yml`, a few
-   hours after the spec pipeline): fetch the `catalog` release; stop if its
-   `SHA256SUMS` equals the recorded one; verify checksums and the build
-   provenance attestation; validate against the JSON Schema; check the name
-   lock (an identifier that disappears or changes its type class stops the
-   update); run unit tests and the integration tests on the newest release
-   of each series through the spec repository's test VM action; commit the
-   data as the workflow bot; tag the next patch version (minor when
-   resources or fields were added); publish release notes generated from
-   the diff. Any failure commits nothing and opens one `update-failure`
-   issue with the reason and what to do.
-2. **Dependency updates merge themselves** after a waiting period (7 days,
-   Dependabot `cooldown`) when CI is green; a separate workflow merges them
-   on the successful CI run, without checking out their code with write
-   permissions.
-3. **The toolchain follows the latest stable Go** in CI; `go.mod` states
-   only the minimum version. A security release of Go therefore reaches CI
-   without a commit.
-4. **The test VM action is pinned by commit** with the spec repository's
-   version tag as comment, so Dependabot proposes updates when that
-   repository tags a release.
-5. **A watchdog** (daily, as in the spec repository) opens a `watchdog`
-   issue when the update workflow has not succeeded for three days or is
-   disabled, and closes it when it recovers.
-6. **No secrets**: only the workflow's own token. Nothing to rotate.
+1. **The client is code only.** It carries no capability data. The caller
+   passes a directory (`CapabilityDir`) or a loaded set (`Capabilities`).
+   Whoever ships a product built on the client ships the data with it and
+   decides how often to update it; the planned OpenTofu provider embeds it
+   and updates it weekly.
+2. **Releases follow code changes,** tagged when CI is green. A new
+   OPNsense release needs no client release.
+3. **No schedule, no bot, no secrets.** CI runs on pushes and pull
+   requests: format, vet, unit tests with the race detector, and the
+   integration tests on the newest release of each supported series in a
+   throwaway VM (the spec repository's test VM action).
+4. **Dependency updates** concern only the pinned actions (the module has
+   no dependencies outside the standard library): Dependabot, monthly,
+   grouped, versions at least 7 days old.
+5. **Unknown versions are graded.** Another hotfix revision of a known
+   release, or a known plugin version seen on another core of the series,
+   is a note (`Instance().Notes`): usual after an update, nothing to do. A
+   release or plugin version the data has never seen is a warning
+   (`Instance().Warnings`). `UnknownVersion: Refuse` makes both errors.
 
-What stays with a person, by design: a capability `format` change (the
-spec repository publishes the old format for an overlap period), a name
-lock violation (a removed or retyped field), a client code change when
-OPNsense changes its API conventions (the daily integration tests show
-it), and every action that speaks for the project outside its repository.
+What stays with a person: a capability `format` change (the spec
+repository publishes the old format for an overlap period), and a client
+change when OPNsense changes its API conventions. The provider's weekly
+acceptance tests run the client against each new OPNsense release and
+report such a change there.
 
 ## Consequences
 
-- A release of OPNsense reaches users of the client as a patch release
-  within about a day, verified on a real instance of each series.
-- The repository needs branch rules that let the workflow bot push data
-  commits and tags, but nobody force-push or delete them.
-- Measured cost per day: one integration run per series when the data
-  changed (about 10 to 20 minutes each with KVM), nothing otherwise.
+- Users update the client when they want a code change, not to keep up
+  with OPNsense.
+- Someone using the client on its own downloads the `catalog` release of
+  the spec repository and verifies it (`sha256sum -c SHA256SUMS`,
+  `gh attestation verify`); the README shows how.
+- Without newer data, fields and resources added by newer OPNsense
+  versions are refused until the data is updated. Nothing breaks.
+- This repository has no routine work: no scheduled job, no issue that
+  opens itself.

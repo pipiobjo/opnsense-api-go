@@ -1,17 +1,29 @@
 # SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Code gates on every push and pull request: format, vet, unit tests with
-# the fake firewall and the real capability test data. No VM, no secrets.
+# Every push to main and every pull request:
+#   test         format, vet, unit tests with the race detector (fake
+#                firewall, real capability test data)
+#   data         capability data from opnsense-api-spec (tools/ci/catalog.sh)
+#                and the test matrix: newest verified release of each series
+#   integration  per series: throwaway OPNsense VM on 127.0.0.1 with every
+#                plugin (the spec repository's test VM action), then the
+#                integration tests (test/integration)
+# No schedule, no secrets, nothing published (ADR 0002).
 name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -21,12 +33,97 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      matrix:
+        # the two supported Go releases: go.mod's minimum and the newest;
+        # patch releases arrive without a commit
+        go: ["1.26", "1.27"]
+    name: test (Go ${{ matrix.go }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          mise_toml: |
+            [tools]
+            go = "${{ matrix.go }}"
       - name: Format, vet, test
         run: |
           test -z "$(gofmt -l .)" || { gofmt -l .; echo "::error::gofmt"; exit 1; }
           go vet ./...
           go vet -tags integration ./...
           go test -count=1 -race ./...
+
+  data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.data.outputs.matrix }}
+    env:
+      GH_TOKEN: ${{ github.token }} # gh attestation verify only; downloads are anonymous
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - name: Capability data
+        id: data
+        run: |
+          matrix=$(tools/ci/catalog.sh catalog | tail -n 1)
+          jq -e 'length > 0' <<<"$matrix" >/dev/null
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "### Integration matrix" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.[] | "- \(.release)"' <<<"$matrix" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: catalog
+          path: catalog/
+          retention-days: 3
+
+  integration:
+    needs: [test, data]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.data.outputs.matrix) }}
+    name: integration (${{ matrix.release }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: catalog
+          path: catalog
+      - name: Test VM ${{ matrix.release }} with all plugins
+        id: vm
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@5bae85e06618d97450bbe5c4c247201680c79f16 # main 2026-11-15
+        with:
+          series: ${{ matrix.series }}
+          release: ${{ matrix.release }}
+          plugins: all
+          require-plugins: "false"
+      - name: Integration tests
+        env:
+          OPNSENSE_URL: ${{ steps.vm.outputs.url }}
+          OPNSENSE_KEYFILE: ${{ steps.vm.outputs.keyfile }}
+          OPNSENSE_CAPABILITIES: ${{ github.workspace }}/catalog
+        run: |
+          echo "instance ${{ steps.vm.outputs.version }}, ${{ steps.vm.outputs.acceleration }}, plugins not installed: ${{ steps.vm.outputs.failed || 'none' }}" >> "$GITHUB_STEP_SUMMARY"
+          go test -count=1 -tags integration -timeout 150m -v ./test/integration/ 2>&1 | tee integration.log
+          {
+            echo '```'
+            grep -E '^(--- FAIL|--- SKIP|ok|FAIL)|tested [0-9]+ resources' integration.log | head -n 80
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Stop test VM
+        if: always()
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@5bae85e06618d97450bbe5c4c247201680c79f16 # main 2026-11-15
+        with:
+          command: stop
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: logs-${{ matrix.release }}
+          path: |
+            integration.log
+            ${{ steps.vm.outputs.dir }}/*.log
+          retention-days: 7

@@ -25,10 +25,10 @@ c, err := opnsense.New(ctx, opnsense.Config{
 	Key:    key,
 	Secret: secret,
 	TLS:    opnsense.TLS{PinSHA256: "3f2a..."}, // or CAFile, or the system roots
-	CapabilityDir: "catalog",                 // unpacked release "catalog" of opnsense-api-spec
+	CapabilityDir: "catalog",                 // unpacked release "catalog" of opnsense-api-spec, see below
 })
 if err != nil { ... }
-for _, w := range c.Instance().Warnings { log.Print(w) } // assumptions about unknown versions
+for _, w := range c.Instance().Warnings { log.Print(w) } // guesses about versions the data has never seen
 
 hosts, err := c.Entries("unbound/settings#hosts.host")
 id, err := hosts.Add(ctx, opnsense.Values{"hostname": "nas", "domain": "example.com", "server": "192.0.2.10"})
@@ -64,10 +64,28 @@ is the client's job.
 
 Detection resolves each installed package to the data that describes it:
 exact when the pipeline has seen the combination; otherwise, by default,
-the nearest data of the same series with a warning in
-`Instance().Warnings` (`UnknownVersion: opnsense.Refuse` makes that an
-error). A newer core hotfix than the data, or a plugin built after the last
-data update, is the usual case. Read-back still protects such writes.
+the nearest data of the same series. Another hotfix revision of a known
+release, or a known plugin version seen on another core, is a note in
+`Instance().Notes` (usual, nothing to do). A release or plugin version the
+data has never seen is a warning in `Instance().Warnings`.
+`UnknownVersion: opnsense.Refuse` turns both into errors. Read-back still
+protects every write.
+
+### Capability data
+
+The client carries no data ([ADR 0002](docs/adr/0002-operation-without-maintenance.md)).
+Get it from the release `catalog` of opnsense-api-spec and verify it:
+
+```sh
+gh release download catalog -R pipiobjo/opnsense-api-spec -D catalog
+cd catalog && sha256sum -c SHA256SUMS
+gh attestation verify SHA256SUMS -R pipiobjo/opnsense-api-spec
+tar --zstd -xf capabilities.tar.zst
+```
+
+You do not have to update it for every OPNsense release: with older data
+the client keeps working on a newer firewall and refuses only fields and
+resources it does not know yet. Update it when you need one of them.
 
 What the client deliberately does not check before sending, because the
 data cannot know it reliably: required fields (controllers fill some of
@@ -106,10 +124,8 @@ errors).
 | Part | State |
 |---|---|
 | Transport, wire encodings, detection, resolver, value checks, settings, entry lists, toggle, apply, read-back | implemented; unit tests against a fake firewall built from recorded behaviour (each rule has a test that fails without it); integration test against OPNsense 26.7.9 with 70 plugins: 311 resources, 359 checks, 0 failures |
-| Embedded capability data (no `CapabilityDir` needed), provenance, name lock | next |
 | Integration tests in CI on the newest release of each series | next |
-| Daily data update and releases without manual steps | after that |
-| Typed Go structs per plugin | later, optional |
+| Typed Go structs per plugin | not planned |
 
 Supported: OPNsense 25.7 and newer, core and official plugins, as far as the
 capability data covers them. Not yet tested by integration runs: 25.7 and
@@ -129,6 +145,10 @@ apply endpoint that became pending. Samples that refer to something only
 the contract test's instance had (a certificate, a device) are skipped with
 the reason.
 
+CI runs them on every push to `main` and every pull request, on the
+newest verified release of each supported series (25.7, 26.1, 26.7) with
+every plugin; `tools/ci/catalog.sh` gets the capability data.
+
 Integration tests run only against a VM on `127.0.0.1` (the
 [test VM action](https://github.com/pipiobjo/opnsense-api-spec/blob/main/docs/testvm-action.md)
 of opnsense-api-spec); they refuse any other target.
@@ -140,7 +160,7 @@ opnsense/              Client, Config, Entries, Settings, errors (public API)
 opnsense/capability/   capability data model, resolver, value checks (usable on its own)
 internal/transport/    HTTP, TLS, error mapping
 test/integration/      tests against the throwaway VM
-docs/adr/              decisions (0001 data-driven client, 0002 operation without maintenance)
+docs/adr/              decisions (0001 data-driven client, 0002 code only, no routine maintenance)
 ```
 
 ## Licence

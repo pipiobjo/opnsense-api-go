@@ -20,9 +20,9 @@ wire.
 A hand-written runtime of a few files, driven by the capability data of
 opnsense-api-spec (format 1):
 
-- `capability`: load the data, resolve each installed package to the
-  fragment that describes it, check values (type, static options, required
-  fields).
+- `capability`: load the data the caller provides, resolve each installed
+  package to the fragment that describes it, check values (type, static
+  options).
 - `opnsense`: detect the firewall, generic settings and entry operations,
   apply, read-back.
 - `transport`: HTTP/2, TLS verified by default (an explicit, warned
@@ -66,8 +66,10 @@ Rules that follow from OPNsense's behaviour, each observed on a test VM
    seen on other frameworks with one identical fragment; the nearest older
    core of the series; the newest fragment of the series (assumed). A core
    version that is not in the data uses another hotfix revision of the same
-   release, else the nearest core of the series. Every assumption is a
-   warning; `Refuse` turns them into errors.
+   release, else the nearest core of the series. Nearest data of a known
+   release or plugin version is a note, a version the data has never seen
+   a warning ([ADR 0002](0002-operation-without-maintenance.md));
+   `Refuse` turns both into errors.
 
 ## Consequences
 
