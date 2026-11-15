@@ -83,6 +83,11 @@ gh attestation verify SHA256SUMS -R pipiobjo/opnsense-api-spec
 tar --zstd -xf capabilities.tar.zst
 ```
 
+The `catalog` release is not published yet: its format is final only
+after the planned OpenTofu provider has used it. Until then,
+`tools/ci/catalog.sh DIR` builds the same data from the spec repository's
+published pipeline state (it needs Go, `curl`, `zstd` and `jq`).
+
 You do not have to update it for every OPNsense release: with older data
 the client keeps working on a newer firewall and refuses only fields and
 resources it does not know yet. Update it when you need one of them.
