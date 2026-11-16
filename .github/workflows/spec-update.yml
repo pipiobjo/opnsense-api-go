@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# When opnsense-api-spec has published new data (a new OPNsense release,
+# hotfix or plugin update), run the whole client suite against it: unit
+# tests, then the integration tests on the newest release of each series
+# with every plugin (ci.yml). Each data version is tested once; days
+# without new data end after one small download (ADR 0002).
+#
+# A failure notifies nobody. watchdog.yml opens the one "needs-you" issue
+# when this workflow has not succeeded for 7 days, and closes it again.
+#
+# Schedule: daily while the client is pre-release; weekly or monthly once
+# a stable version is released (change the cron line, ADR 0002).
+name: spec-update
+
+on:
+  schedule:
+    - cron: "17 10 * * *" # the spec pipeline starts 05:17 UTC and takes up to 2 hours
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-update
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      hash: ${{ steps.hash.outputs.hash }}
+      tested: ${{ steps.seen.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Hash of the newest published data
+        id: hash
+        run: |
+          h=$(tools/ci/data-hash.sh)
+          echo "hash=$h" >> "$GITHUB_OUTPUT"
+          echo "data: $h" >> "$GITHUB_STEP_SUMMARY"
+      - name: Already tested?
+        id: seen
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tested
+          key: tested-${{ steps.hash.outputs.hash }}
+          lookup-only: true
+
+  test:
+    needs: check
+    if: needs.check.outputs.tested != 'true'
+    uses: ./.github/workflows/ci.yml
+
+  remember:
+    needs: [check, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: mkdir -p .tested && echo "${{ needs.check.outputs.hash }}" > .tested/hash
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tested
+          key: tested-${{ needs.check.outputs.hash }}
+
+  # GitHub disables scheduled workflows of public repositories after 60
+  # days without activity; this and the watchdog re-enable each other
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: |
+          gh api -X PUT "repos/${{ github.repository }}/actions/workflows/spec-update.yml/enable"
+          gh api -X PUT "repos/${{ github.repository }}/actions/workflows/watchdog.yml/enable"

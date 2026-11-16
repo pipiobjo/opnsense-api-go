@@ -157,9 +157,12 @@ is logged, any other failure fails. Samples that refer to something only
 the contract test's instance had (a certificate, a device) are skipped with
 the reason.
 
-CI runs them on every push to `main` and every pull request, on the
-newest verified release of each supported series (25.7, 26.1, 26.7) with
-every plugin; `tools/ci/catalog.sh` gets the capability data.
+CI runs them on every push to `main` and every pull request, and again
+whenever opnsense-api-spec has published new data (`spec-update.yml`),
+on the newest verified release of each supported series (25.7, 26.1,
+26.7) with every plugin; `tools/ci/catalog.sh` gets the capability data.
+Fuzz tests (`go test -fuzz=...`) cover answer decoding, data loading, IDs
+and paths; their seeds run with every `go test`.
 
 Integration tests run only against a VM on `127.0.0.1` (the
 [test VM action](https://github.com/pipiobjo/opnsense-api-spec/blob/main/docs/testvm-action.md)

@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# The one signal to a person (ADR 0002): daily, opens one issue labelled
+# "needs-you" when spec-update.yml has not succeeded for 7 days or is
+# disabled, edits it while that lasts and closes it when it is over. Uses
+# the same script as opnsense-api-spec (tools/ci/alerts.sh), pinned.
+name: watchdog
+
+on:
+  schedule:
+    - cron: "47 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      actions: write # re-enable spec-update.yml after GitHub disabled it
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: pipiobjo/opnsense-api-spec
+          ref: 413761017e7b01b7f34ea9f9bfd8747dc372c195 # 2026-11-16
+          path: spec
+          persist-credentials: false
+      - name: Check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WD_WORKFLOW: spec-update.yml
+          WD_COVERAGE_CHECK: "0"
+        run: spec/tools/ci/alerts.sh check

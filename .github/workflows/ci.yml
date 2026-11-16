@@ -17,12 +17,14 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # spec-update.yml runs the same suite when the spec published new data
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -104,7 +106,7 @@ jobs:
           path: catalog
       - name: Test VM ${{ matrix.release }} with all plugins
         id: vm
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@9882dbddff1fedb52b58237e4d63c7c42f31cdac # main 2026-11-15 (0.9.0)
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@413761017e7b01b7f34ea9f9bfd8747dc372c195 # 2026-11-16 (0.9.2)
         with:
           series: ${{ matrix.series }}
           release: ${{ matrix.release }}
@@ -125,7 +127,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Stop test VM
         if: always()
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@9882dbddff1fedb52b58237e4d63c7c42f31cdac # main 2026-11-15 (0.9.0)
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@413761017e7b01b7f34ea9f9bfd8747dc372c195 # 2026-11-16 (0.9.2)
         with:
           command: stop
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
