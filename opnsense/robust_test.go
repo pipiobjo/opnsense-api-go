@@ -424,3 +424,28 @@ func TestTransformedFieldIsWrittenNotCompared(t *testing.T) {
 		t.Errorf("without the mark the difference must be reported: %v", err)
 	}
 }
+
+// More rows than the total is not an error: 26.1's firewall/d_nat search
+// adds anti-lockout rules it does not count. The real entries can still
+// be found, set and deleted.
+func TestSearchWithUncountedRows(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	f.virtualRows = []string{"lockout_0", "lockout_1"}
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	id, err := n.Add(ctx, Values{"address": "192.0.2.10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err := n.List(ctx)
+	if err != nil || len(ids) != 3 {
+		t.Fatalf("list with uncounted rows: %v %v", ids, err)
+	}
+	if err := n.Set(ctx, id, Values{"description": "x"}); err != nil {
+		t.Errorf("set: %v", err)
+	}
+	if err := n.Delete(ctx, id); err != nil {
+		t.Errorf("delete: %v", err)
+	}
+}

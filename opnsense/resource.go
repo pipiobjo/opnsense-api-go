@@ -276,7 +276,12 @@ func (e *Entries) List(ctx context.Context) ([]string, error) {
 		}
 		ids = append(ids, r.UUID)
 	}
-	if resp.Total != nil && *resp.Total != len(ids) {
+	// fewer rows than the total: the answer was paged or cut, the list is
+	// incomplete. More rows than the total is OPNsense's doing: the
+	// firewall/d_nat search of 26.1 adds two anti-lockout rules
+	// ("lockout_0", "lockout_1") that it does not count (measured on
+	// 26.1.11_10, 2026-11-16).
+	if resp.Total != nil && len(ids) < *resp.Total {
 		return nil, fmt.Errorf("opnsense: %s: search returned %d of %d rows", b.id, len(ids), *resp.Total)
 	}
 	return ids, nil

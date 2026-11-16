@@ -43,6 +43,7 @@ type fakeFirewall struct {
 	delSilent   bool           // del answers with an empty body (os-wol on 26.7.9)
 	oddField    string         // this neighbor field is returned in an unexpected shape
 	searchPage  int            // rows per page when rowCount is not -1 (0: all)
+	virtualRows []string       // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
 }
 
 func newFake(t *testing.T) *fakeFirewall {
@@ -192,6 +193,9 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 			rows = append(rows, row)
 		}
 		total := len(rows)
+		for _, id := range f.virtualRows {
+			rows = append(rows, map[string]string{"uuid": id})
+		}
 		all := r.URL.Query().Get("rowCount") == "-1"
 		if v, ok := body["rowCount"]; ok && fmt.Sprint(v) == "-1" {
 			all = true
