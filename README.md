@@ -56,7 +56,7 @@ is the client's job.
 | Field not in this version (or misspelled) | `*ErrFieldNotAvailable` with the versions that have it; nothing is sent |
 | Wrong type; value not in a complete option list; a field the firewall or the endpoint sets itself | `*ErrInvalid`; nothing is sent |
 | Firewall rejects the values (including missing required ones) | `*ErrValidation` with the firewall's message per field |
-| Firewall says "saved" but reads back differently | `*ErrNotApplied` with sent and read values (after `Add` the ID is returned too: the entry exists) |
+| Firewall says "saved" but reads back differently | `*ErrNotApplied` with sent and read values (after `Add` the ID is returned too: the entry exists). Each difference carries a `Cause` from the capability data: `custom-write` (the field's type converts values on write), `custom-save` (the firewall stores the resource through its own code, which may drop values that do not apply to the rest of the entry), or empty (unexplained). It stays an error either way |
 | Entry does not exist | `ErrNotFound`; `Set`, `Toggle` and `Delete` check through the list first, because OPNsense would create a new entry under an unknown ID, and some plugins answer an unknown ID with a blank template |
 | One field of an object has an unexpected shape | the other fields are returned together with `*ErrDecode` |
 | An apply endpoint does not report ok | `*ErrApply`; the endpoint stays pending |
@@ -145,8 +145,12 @@ go test -tags integration ./test/integration/   # against a throwaway VM, see th
 
 The integration test exercises every resource the capability data marks as
 verified on the VM's version: entry lists with the verified sample (add
-with read-back, get, list, delete), settings by reading them, and every
-apply endpoint that became pending. Samples that refer to something only
+and set with read-back, get, list, delete and check that the entry is
+gone), settings by reading them and writing one field back unchanged, and
+every apply endpoint that became pending. It compares every field it
+sent; the only tolerated difference is one the data explains with
+`custom-save` on a field the contract test did not choose, and each is
+logged. Samples that refer to something only
 the contract test's instance had (a certificate, a device) are skipped with
 the reason.
 

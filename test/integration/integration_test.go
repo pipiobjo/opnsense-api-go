@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -61,11 +62,18 @@ func client(t *testing.T) *opnsense.Client {
 	return c
 }
 
-func TestDetectionIsExact(t *testing.T) {
+// TestDetectionResolves: the VM runs a release of the data, possibly with a
+// hotfix revision published after it (OPNsense ships those between
+// releases). Every package resolves exactly or to the nearest data of the
+// same release (a note); a guess (warning) fails.
+func TestDetectionResolves(t *testing.T) {
 	inst := client(t).Instance()
 	t.Logf("core %s, %d plugins", inst.Core, len(inst.Plugins))
+	for _, n := range inst.Notes {
+		t.Logf("note: %s", n)
+	}
 	for name, r := range inst.Resolved.Packages {
-		if r.Fragment != "" && r.Match != capability.MatchExact {
+		if r.Fragment != "" && r.Match != capability.MatchExact && r.Match != capability.MatchNearest {
 			t.Errorf("%s %s: %s (%s)", name, r.Version, r.Match, r.Warning)
 		}
 	}
@@ -159,15 +167,27 @@ func TestSettingsSetAndRestore(t *testing.T) {
 
 // TestEveryVerifiedResource: every resource the capability data marks as
 // verified on this firewall's version is exercised through the client:
-// entry lists with the verified sample (add with read-back, get, list,
-// delete), settings by reading them. Apply runs at the end for every
-// endpoint that became pending. This makes the client a second consumer of
-// the spec repository's contract test results.
+//
+//   - entry lists with the verified sample: add (with read-back), get, set
+//     of the description (with read-back), list, delete, and the entry is
+//     gone from the list afterwards;
+//   - settings: get, then set of one field to its current value (with
+//     read-back; nothing changes on the firewall).
+//
+// Apply runs at the end for every endpoint that became pending. This makes
+// the client a second consumer of the spec repository's contract test
+// results, and a stricter one: it compares every field it sent.
+//
+// A read-back difference fails the test, with one exception: on a resource
+// the data marks custom-save (stored through own code that drops values
+// not applying to the rest of the entry, such as DHCPv6 options on an
+// interface without DHCPv6), a field the contract test did not choose on
+// purpose may come back different. Each such difference is logged.
 func TestEveryVerifiedResource(t *testing.T) {
 	c := client(t)
 	ctx := context.Background()
 	inst := c.Instance()
-	var tested, skipped int
+	var tested, skipped, tolerated int
 	for pkg, d := range c.Data().Docs {
 		res := inst.Resolved.Packages[pkg]
 		if res == nil || res.Fragment == "" {
@@ -188,8 +208,20 @@ func TestEveryVerifiedResource(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if _, err := s.Get(ctx); err != nil {
-						t.Error(err)
+					cur, err := s.Get(ctx)
+					if err != nil {
+						t.Fatal(err)
+					}
+					name, val, ok := unchangedValue(cur, s.Fields())
+					if !ok {
+						t.Logf("no plain field to write back")
+						return
+					}
+					var na *opnsense.ErrNotApplied
+					if err := s.Set(ctx, opnsense.Values{name: val}); errors.As(err, &na) {
+						tolerated += expectedDiffs(t, na, nil)
+					} else if err != nil {
+						t.Errorf("set %s to its current value: %v", name, err)
 					}
 				})
 				tested++
@@ -203,12 +235,19 @@ func TestEveryVerifiedResource(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					chosen := map[string]bool{}
+					for _, g := range v.Generated {
+						chosen[g] = true
+					}
 					vals := sampleValues(v.Sample, e.Fields(), r.APIFor(res.Fragment).Operations["add"])
 					uid, err := e.Add(ctx, vals)
+					deleted := false
 					if uid != "" {
 						defer func() {
-							if err := e.Delete(ctx, uid); err != nil {
-								t.Errorf("delete: %v", err)
+							if !deleted {
+								if err := e.Delete(ctx, uid); err != nil {
+									t.Errorf("delete: %v", err)
+								}
 							}
 						}()
 					}
@@ -218,15 +257,35 @@ func TestEveryVerifiedResource(t *testing.T) {
 						// test's instance had (a certificate, a device)
 						t.Skipf("instance-specific sample: %v", err)
 					}
-					if err != nil {
+					var na *opnsense.ErrNotApplied
+					if errors.As(err, &na) && uid != "" {
+						tolerated += expectedDiffs(t, na, chosen)
+					} else if err != nil {
 						t.Fatalf("add: %v", err)
 					}
 					if _, err := e.Get(ctx, uid); err != nil {
 						t.Errorf("get: %v", err)
 					}
+					if desc := descriptionField(e.Fields(), r.APIFor(res.Fragment).Operations["set"]); desc != "" {
+						if err := e.Set(ctx, uid, opnsense.Values{desc: "integration set"}); errors.As(err, &na) {
+							tolerated += expectedDiffs(t, na, chosen)
+						} else if err != nil {
+							t.Errorf("set %s: %v", desc, err)
+						}
+					}
 					if _, ok := r.APIFor(res.Fragment).Operations["search"]; ok {
-						if _, err := e.List(ctx); err != nil {
+						ids, err := e.List(ctx)
+						if err != nil {
 							t.Errorf("list: %v", err)
+						} else if !contains(ids, uid) {
+							t.Errorf("list does not contain the new entry %s", uid)
+						}
+						if err := e.Delete(ctx, uid); err != nil {
+							t.Fatalf("delete: %v", err)
+						}
+						deleted = true
+						if ids, err := e.List(ctx); err == nil && contains(ids, uid) {
+							t.Errorf("entry %s still listed after delete", uid)
 						}
 					}
 				})
@@ -234,7 +293,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("tested %d resources, skipped %d entry lists (no verified sample, or the sample refers to other entries)", tested, skipped)
+	t.Logf("tested %d resources, skipped %d entry lists (no verified sample, or the sample refers to other entries); %d read-back differences tolerated (custom-save, not chosen by the contract test)", tested, skipped, tolerated)
 	for _, p := range c.Pending() {
 		t.Run("apply"+p, func(t *testing.T) {
 			var out map[string]any
@@ -255,6 +314,73 @@ func TestEveryVerifiedResource(t *testing.T) {
 			}
 		})
 	}
+}
+
+// expectedDiffs reports the differences of a read-back: those the data
+// explains with custom-save on a field the contract test did not choose
+// are logged and counted; every other one fails the test.
+func expectedDiffs(t *testing.T, na *opnsense.ErrNotApplied, chosen map[string]bool) int {
+	t.Helper()
+	n := 0
+	for _, d := range na.Diffs {
+		if d.Cause == "custom-save" && !chosen[d.Field] {
+			t.Logf("tolerated (custom-save): %s sent %q, read %q", d.Field, d.Sent, d.Got)
+			n++
+			continue
+		}
+		t.Errorf("read-back: %s sent %q, read %q (cause %q; %s)", d.Field, d.Sent, d.Got, d.Cause, na.Hint)
+	}
+	return n
+}
+
+// unchangedValue picks one boolean or integer field of a settings object
+// with its current value, to write it back unchanged; fields the firewall
+// sets itself are left out.
+func unchangedValue(cur opnsense.Values, fields map[string]*capability.Field) (string, any, bool) {
+	names := make([]string, 0, len(fields))
+	for n := range fields {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		f := fields[n]
+		if f.ServerSet() || f.WriteOnly() || f.Volatile {
+			continue
+		}
+		switch v := cur[n].(type) {
+		case bool, int64:
+			return n, v, true
+		}
+	}
+	return "", nil, false
+}
+
+// descriptionField: the entry's description field, if it has one and the
+// set endpoint does not overwrite it.
+func descriptionField(fields map[string]*capability.Field, set *capability.Operation) string {
+	for _, n := range []string{"description", "descr"} {
+		f := fields[n]
+		if f == nil || f.ServerSet() || f.WriteOnly() {
+			continue
+		}
+		if set == nil {
+			return ""
+		}
+		if _, over := set.Overwrites(n); over {
+			continue
+		}
+		return n
+	}
+	return ""
+}
+
+func contains(list []string, v string) bool {
+	for _, x := range list {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }
 
 // sampleValues turns a verified sample into values for Add: nested

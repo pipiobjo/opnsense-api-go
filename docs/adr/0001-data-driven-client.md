@@ -40,7 +40,13 @@ Rules that follow from OPNsense's behaviour, each observed on a test VM
    them.
 2. Every `Add` and `Set` is read back and compared; lists as sets. Fields
    the endpoint stores in another form (`transformed` in the data) are
-   skipped. This also covers versions the data has only assumed.
+   skipped. This also covers versions the data has only assumed. A
+   difference is always an error; where the data explains it
+   (`custom-write` on the field, `custom-save` on the resource) the error
+   says so. Example measured on 26.7.9: an interface assignment drops
+   `dhcp6_request_dns` unless the IPv6 type is DHCPv6, so "0" reads back
+   as "1"; OPNsense's interface model stores entries through its own
+   `toLegacy` code.
 3. Existence is decided by the list (search): for an unknown ID, `set`
    creates a new entry under that ID, `get` answers `[]` in most
    controllers but a blank template in some (os-nginx). So `Set`,

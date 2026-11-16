@@ -258,6 +258,60 @@ func TestReadBackCatchesWhatTheServerIgnored(t *testing.T) {
 	}
 }
 
+// A read-back difference is always an error; the capability data only
+// explains it: Cause and Hint name custom-write (the field's type converts
+// values) or custom-save (the resource is stored through own code), and say
+// nothing when the data knows no reason.
+func TestReadBackCause(t *testing.T) {
+	ctx := context.Background()
+	for _, c := range []struct {
+		name      string
+		mark      func(r *capability.Resource, frag string)
+		cause     string
+		hintParts []string
+	}{
+		{"unexplained", func(*capability.Resource, string) {}, "", nil},
+		{"field converts", func(r *capability.Resource, frag string) {
+			r.FieldFor("description", frag).Gaps = []string{"custom-write"}
+		}, "custom-write", []string{"description: its field type converts values", "custom-write"}},
+		{"resource stored by own code", func(r *capability.Resource, frag string) {
+			r.APIFor(frag).Gaps = []string{"custom-save"}
+		}, "custom-save", []string{"through its own code", "custom-save"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := capability.Load(os.DirFS("capability/testdata/catalog")) // a private copy: marks stay in this test
+			if err != nil {
+				t.Fatal(err)
+			}
+			const frag = "b04bde19061e2dec" // os-frr 2.1 in the test data
+			c.mark(s.Docs["os-frr"].Resources[neighbors], frag)
+			f := newFake(t)
+			f.dropSets["description"] = true
+			cl, err := connect(t, f, func(cfg *Config) { cfg.Capabilities = s })
+			if err != nil {
+				t.Fatal(err)
+			}
+			n, _ := cl.Entries(neighbors)
+			_, err = n.Add(ctx, Values{"address": "192.0.2.10", "description": "lost"})
+			var na *ErrNotApplied
+			if !errors.As(err, &na) || len(na.Diffs) != 1 {
+				t.Fatalf("a difference must stay an error whatever the data says: %v", err)
+			}
+			if na.Diffs[0].Cause != c.cause {
+				t.Errorf("cause %q, want %q", na.Diffs[0].Cause, c.cause)
+			}
+			for _, h := range c.hintParts {
+				if !strings.Contains(na.Hint, h) {
+					t.Errorf("hint %q lacks %q", na.Hint, h)
+				}
+			}
+			if c.cause == "" && na.Hint != "" {
+				t.Errorf("no hint without a known cause: %q", na.Hint)
+			}
+		})
+	}
+}
+
 func TestValidationFromTheFirewall(t *testing.T) {
 	ctx := context.Background()
 	c := mustConnect(t, newFake(t))

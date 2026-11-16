@@ -591,14 +591,31 @@ func (b *bound) readBack(ctx context.Context, id string, sent map[string]string,
 			}
 		}
 		if !ok || !f.SameWire(sent[name], got) {
-			diffs = append(diffs, FieldDiff{Field: name, Sent: sent[name], Got: got})
+			d := FieldDiff{Field: name, Sent: sent[name], Got: got}
+			switch {
+			case f.CustomWrite():
+				d.Cause = "custom-write"
+			case b.api.CustomSave():
+				d.Cause = "custom-save"
+			}
+			diffs = append(diffs, d)
 		}
 	}
 	if len(diffs) > 0 {
 		e := &ErrNotApplied{Resource: b.id, ID: id, Diffs: diffs}
+		var hints []string
 		if op != nil && hasGap(op, "overlay-unknown") {
-			e.Hint = op.Path + " overwrites fields it does not declare (gap overlay-unknown)"
+			hints = append(hints, op.Path+" overwrites fields it does not declare (gap overlay-unknown)")
 		}
+		for _, d := range diffs {
+			switch d.Cause {
+			case "custom-write":
+				hints = append(hints, d.Field+": its field type converts values on write (gap custom-write)")
+			case "custom-save":
+				hints = append(hints, "the firewall stores "+b.id+" through its own code, which may change or drop values that do not apply to the rest of the entry (gap custom-save)")
+			}
+		}
+		e.Hint = strings.Join(uniq(hints), "; ")
 		return e
 	}
 	return nil
@@ -635,4 +652,17 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// uniq keeps the first occurrence of each string, in order.
+func uniq(in []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range in {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }

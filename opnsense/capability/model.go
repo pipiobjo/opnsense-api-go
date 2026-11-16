@@ -125,7 +125,15 @@ type API struct {
 	Wrapper    string                `json:"wrapper,omitempty"`
 	Apply      string                `json:"apply,omitempty"`
 	Operations map[string]*Operation `json:"operations"`
+	// Gaps of the stored data as a whole; "custom-save": the model saves
+	// through its own code, or the entries are converted on the way, so
+	// values may be changed or dropped depending on other fields.
+	Gaps []string `json:"gaps,omitempty"`
 }
+
+// CustomSave reports whether the firewall stores this resource through
+// its own code (gap custom-save).
+func (a *API) CustomSave() bool { return a != nil && has(a.Gaps, "custom-save") }
 
 // Operation is one endpoint of a resource.
 type Operation struct {
@@ -483,4 +491,13 @@ func (s *Set) Check() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func has(list []string, v string) bool {
+	for _, x := range list {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }

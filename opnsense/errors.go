@@ -89,6 +89,12 @@ func (e *ErrValidation) Error() string {
 type FieldDiff struct {
 	Field     string
 	Sent, Got string // wire values
+	// Cause names what the capability data knows about this field:
+	// "custom-write" (its type converts or normalizes values on write),
+	// "custom-save" (the resource is stored through own code that may change
+	// or drop values depending on other fields), or "" (nothing: the
+	// difference is unexplained). The difference is reported either way.
+	Cause string
 }
 
 // ErrNotApplied: the firewall answered "saved", but reading the object

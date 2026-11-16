@@ -271,3 +271,8 @@ func (f *Field) SameWire(sent, got string) bool {
 	sort.Strings(b)
 	return strings.Join(a, ",") == strings.Join(b, ",")
 }
+
+// CustomWrite reports whether the field's type converts or normalizes
+// values on write (gap custom-write): the stored value may differ from the
+// one sent.
+func (f *Field) CustomWrite() bool { return f != nil && has(f.Gaps, "custom-write") }
