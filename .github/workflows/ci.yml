@@ -52,6 +52,15 @@ jobs:
           go vet ./...
           go vet -tags integration ./...
           go test -count=1 -race ./...
+      # the seeds of the fuzz targets run above as plain tests; here each
+      # target also gets generated inputs for a few seconds
+      - name: Fuzz
+        if: matrix.go == '1.27'
+        run: |
+          go test -run='^$' -fuzz='^FuzzWireDecode$' -fuzztime=10s ./opnsense/capability/
+          go test -run='^$' -fuzz='^FuzzLoad$' -fuzztime=10s ./opnsense/capability/
+          go test -run='^$' -fuzz='^FuzzCheckID$' -fuzztime=10s ./opnsense/
+          go test -run='^$' -fuzz='^FuzzCheckPath$' -fuzztime=10s ./internal/transport/
 
   data:
     runs-on: ubuntu-24.04
