@@ -146,11 +146,14 @@ go test -tags integration ./test/integration/   # against a throwaway VM, see th
 The integration test exercises every resource the capability data marks as
 verified on the VM's version: entry lists with the verified sample (add
 and set with read-back, get, list, delete and check that the entry is
-gone), settings by reading them and writing one field back unchanged, and
+gone), settings by reading them and, where the contract test wrote them
+successfully, writing one field back unchanged, and
 every apply endpoint that became pending. It compares every field it
 sent; the only tolerated difference is one the data explains with
 `custom-save` on a field the contract test did not choose, and each is
-logged. Samples that refer to something only
+logged. An apply endpoint whose service cannot run on the isolated VM (no
+internet, no real hardware) answers HTTP 500 with OPNsense's message; that
+is logged, any other failure fails. Samples that refer to something only
 the contract test's instance had (a certificate, a device) are skipped with
 the reason.
 
