@@ -225,9 +225,17 @@ func TestEveryVerifiedResource(t *testing.T) {
 						return
 					}
 					var na *opnsense.ErrNotApplied
-					if err := s.Set(ctx, opnsense.Values{name: val}); errors.As(err, &na) {
+					var val2 *opnsense.ErrValidation
+					err = s.Set(ctx, opnsense.Values{name: val})
+					switch {
+					case errors.As(err, &na):
 						tolerated += expectedDiffs(t, na, nil)
-					} else if err != nil {
+					case errors.As(err, &val2) && !rejects(val2, name):
+						// as in the contract test: the model is not valid in
+						// its default state on this instance (the recorded
+						// write verification may come from another core)
+						t.Skipf("model not valid in its default state here: %v", err)
+					case err != nil:
 						t.Errorf("set %s to its current value: %v", name, err)
 					}
 				})
@@ -397,6 +405,17 @@ func descriptionField(fields map[string]*capability.Field, set *capability.Opera
 		return n
 	}
 	return ""
+}
+
+// rejects: the firewall's validation names the field itself (with or
+// without a section prefix).
+func rejects(v *opnsense.ErrValidation, field string) bool {
+	for k := range v.Fields {
+		if k == field || strings.HasSuffix(k, "."+field) {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(list []string, v string) bool {

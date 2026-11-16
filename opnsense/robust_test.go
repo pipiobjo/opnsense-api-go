@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -447,5 +448,43 @@ func TestSearchWithUncountedRows(t *testing.T) {
 	}
 	if err := n.Delete(ctx, id); err != nil {
 		t.Errorf("delete: %v", err)
+	}
+}
+
+// A write-only field (UpdateOnlyTextField, e.g. a password) is stored but
+// always reads back as "". The read-back must skip it, or every write of
+// a secret would fail as "not applied"; Get leaves it out.
+func TestWriteOnlyFieldIsNotReadBack(t *testing.T) {
+	ctx := context.Background()
+	s, err := capability.Load(os.DirFS("capability/testdata/catalog")) // private copy
+	if err != nil {
+		t.Fatal(err)
+	}
+	const frag = "b04bde19061e2dec" // os-frr 2.1 in the test data
+	fd := s.Docs["os-frr"].Resources[neighbors].FieldFor("description", frag)
+	fd.Type, fd.Base = "UpdateOnlyTextField", "UpdateOnlyTextField"
+	f := newFake(t)
+	f.writeOnly = map[string]bool{"description": true}
+	c, err := connect(t, f, func(cfg *Config) { cfg.Capabilities = s })
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := c.Entries(neighbors)
+	id, err := n.Add(ctx, Values{"address": "192.0.2.10", "description": "secret"})
+	if err != nil {
+		t.Fatalf("add with a write-only field: %v", err)
+	}
+	if err := n.Set(ctx, id, Values{"description": "secret2"}); err != nil {
+		t.Errorf("set of a write-only field: %v", err)
+	}
+	got, err := n.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["description"]; ok {
+		t.Errorf("get must leave a write-only field out: %v", got)
+	}
+	if f.nbrs[id]["description"] != "secret2" {
+		t.Errorf("the value must still be sent and stored: %q", f.nbrs[id]["description"])
 	}
 }

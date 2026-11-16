@@ -35,15 +35,16 @@ type fakeFirewall struct {
 	applied  int
 
 	// failure modes
-	applyAnswer map[string]any // answer of reconfigure (default {"status":"ok"})
-	applyGate   chan struct{}  // if set, reconfigure waits for it (without holding mu)
-	applyStart  chan struct{}  // closed when reconfigure is entered
-	infoStatus  int            // HTTP status of firmware/info (default 200)
-	delKeeps    bool           // del answers "deleted" but keeps the entry
-	delSilent   bool           // del answers with an empty body (os-wol on 26.7.9)
-	oddField    string         // this neighbor field is returned in an unexpected shape
-	searchPage  int            // rows per page when rowCount is not -1 (0: all)
-	virtualRows []string       // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
+	applyAnswer map[string]any  // answer of reconfigure (default {"status":"ok"})
+	applyGate   chan struct{}   // if set, reconfigure waits for it (without holding mu)
+	applyStart  chan struct{}   // closed when reconfigure is entered
+	infoStatus  int             // HTTP status of firmware/info (default 200)
+	delKeeps    bool            // del answers "deleted" but keeps the entry
+	delSilent   bool            // del answers with an empty body (os-wol on 26.7.9)
+	oddField    string          // this neighbor field is returned in an unexpected shape
+	searchPage  int             // rows per page when rowCount is not -1 (0: all)
+	writeOnly   map[string]bool // neighbor fields stored but read back as "" (UpdateOnlyTextField)
+	virtualRows []string        // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
 }
 
 func newFake(t *testing.T) *fakeFirewall {
@@ -137,6 +138,9 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{}
 		for k, v := range n {
 			out[k] = v
+			if f.writeOnly[k] {
+				out[k] = "" // OPNsense never returns an UpdateOnlyTextField's value
+			}
 		}
 		if f.oddField != "" {
 			out[f.oddField] = map[string]any{"unexpected": []any{1, 2}}
