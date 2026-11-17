@@ -44,7 +44,10 @@ err = c.Apply(ctx) // activate: each pending apply endpoint once
 ```
 
 Resources are named as in the capability data: `<module>/<controller>` for
-settings, `<module>/<controller>#<model path>` for entry lists. `Values`
+settings, `<module>/<controller>#<model path>` for entry lists, and
+`<module>/<controller>#<model path>@<family>` where one entry list is
+served by several families of endpoints (bind's primary and forward
+domains). `Values`
 maps field paths to `bool`, `int64`, `string` or `[]string` (list fields);
 the wire encoding (`"0"`/`"1"`, comma-separated lists, option maps on read)
 is the client's job.
@@ -58,7 +61,7 @@ is the client's job.
 | Installed package older than every version of its series in the data | reading works; every write fails with `*ErrReadOnly`, because the data may describe fields that version lacks |
 | Wrong resource kind, or an operation the resource does not have | `*ErrWrongKind`, `*ErrNoOperation` |
 | Field not in this version (or misspelled) | `*ErrFieldNotAvailable` with the versions that have it; nothing is sent |
-| Wrong type; value not in a complete option list; a field the firewall or the endpoint sets itself; a field the firewall does not store (`volatile`) | `*ErrInvalid`; nothing is sent |
+| Wrong type; value not in a complete option list; a field the firewall sets itself (`server_set`) or the endpoint sets (`forced`, `computed`); a field the firewall does not store (`volatile`) | `*ErrInvalid`; nothing is sent |
 | Firewall rejects the values (including missing required ones) | `*ErrValidation` with the firewall's message per field |
 | Firewall says "saved" but reads back differently | `*ErrNotApplied` with sent and read values (after `Add` the ID is returned too: the entry exists). Each difference carries a `Cause` from the capability data: `custom-write` (the field's type converts values on write), `custom-save` (the firewall stores the resource through its own code, which may drop values that do not apply to the rest of the entry), or empty (unexplained). It stays an error either way. Not compared: write-only fields (passwords; the firewall never returns them) and fields the endpoint stores in another form (`transformed`, e.g. base64): for these only an empty read-back is reported |
 | `Toggle` | the entry is read again; if `enabled` did not change, `*ErrNotApplied` |
@@ -142,13 +145,14 @@ never dropped silently.
 
 | Part | State |
 |---|---|
-| Transport, wire encodings, detection, resolver, value checks, settings, entry lists, toggle, apply, read-back | implemented; unit tests against a fake firewall built from recorded behaviour (each rule has a test that fails without it); integration test against OPNsense 26.7.9 with 70 plugins: 311 resources, 359 checks, 0 failures |
-| Integration tests in CI on the newest release of each series | next |
+| Transport, wire encodings, detection, resolver, value checks, settings, entry lists, toggle, apply, read-back | implemented; unit tests against a fake firewall built from recorded behaviour (each rule has a test that fails without it) |
+| Integration tests, newest release of each series with every plugin | local runs with spec data 0.9.3: 25.7.11_9 (299 resources, 303 checks), 26.1.11_10 (307, 311), 26.7.9_3 (314, 318), 0 failures. CI runs the same matrix on every push and after new spec data |
 | Typed Go structs per plugin | not planned |
 
 Supported: OPNsense 25.7 and newer, core and official plugins, as far as the
-capability data covers them. Not yet tested by integration runs: 25.7 and
-26.1 (the resolver is unit-tested against the data of all 34 releases).
+capability data covers them. Only the newest release of each series is
+tested by integration runs; older releases rely on the data and on
+read-back.
 
 ## Tests
 
@@ -189,8 +193,14 @@ opnsense/              Client, Config, Entries, Settings, errors (public API)
 opnsense/capability/   capability data model, resolver, value checks (usable on its own)
 internal/transport/    HTTP, TLS, error mapping
 test/integration/      tests against the throwaway VM
+docs/design.md         layers, request flow, behaviour rules, how to add one
 docs/adr/              decisions (0001 data-driven client, 0002 code only, no routine maintenance)
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md): checks, integration tests on the
+throwaway VM, and the rules for changes.
 
 ## Licence
 

@@ -4,101 +4,57 @@ Status: accepted 2026-11-15, implemented
 
 ## Context
 
-A client generated from the OpenAPI document of one OPNsense release has
-about 5,000 methods and describes exactly that release. Supporting every
-release from 25.7 on would mean one client per release, or a superset that
-does not know which version has what. Generated clients also ignore the
-`x-opnsense-*` extensions that say how to write safely, and every release
-would regenerate thousands of lines.
+A client should work with every OPNsense release from 25.7 on, core and
+plugins, without a code change per release, and it should not let a
+write fail silently: OPNsense answers `"saved"` for keys it does not know
+and ignores them.
+
+A client generated from the OpenAPI document of one release has about
+5,000 methods and describes exactly that release. Generated clients also
+ignore the `x-opnsense-*` extensions that say how to write safely, and
+every release would regenerate thousands of lines.
 
 The API itself is uniform: about 190 entry lists and 180 settings models
 follow the same few patterns, and nearly every value is a string on the
 wire.
 
+## Alternatives considered
+
+| Option | Why not |
+|---|---|
+| Generated client per release (oapi-codegen or similar) | one client per release, or a superset that cannot tell which version has what; no read-back, no version checks; thousands of generated lines per release to review |
+| Generated typed structs per plugin over all versions | same knowledge problem (a field exists only in some versions), and a struct change for every plugin release; useful later as a convenience layer, not as the core |
+| Hand-written resources, like existing providers | the approach that does not scale: every plugin and every version is manual work, which is what this project exists to avoid |
+| No data, discover at run time from the firewall | the API has no self-description; options, defaults and versions would have to be guessed |
+
 ## Decision
 
 A hand-written runtime of a few files, driven by the capability data of
-opnsense-api-spec (format 1):
+opnsense-api-spec (format 1). The data says what a firewall of a given
+version offers; the code only knows the API's conventions. Layers,
+request flow and the rules derived from OPNsense's behaviour are in
+[design.md](../design.md).
 
 - `capability`: load the data the caller provides, resolve each installed
-  package to the fragment that describes it, check values (type, static
-  options).
+  package to the fragment that describes it, check values.
 - `opnsense`: detect the firewall, generic settings and entry operations,
   apply, read-back.
 - `transport`: HTTP/2, TLS verified by default (an explicit, warned
   switch turns it off), no redirects, error mapping.
 
-A new OPNsense release changes data, not code. Typed structs per plugin can
-be generated on top later, for people writing Go by hand; the provider does
-not need them.
-
-Rules that follow from OPNsense's behaviour, each observed on a test VM
-(26.7.9, 70 plugins, 2026-11-15):
-
-1. Nothing is sent that the resolved version does not have: OPNsense
-   answers `"saved"` for unknown keys, nested ones included, and ignores
-   them.
-2. Every `Add` and `Set` is read back and compared; lists as sets. Fields
-   the endpoint stores in another form (`transformed` in the data) are
-   skipped. This also covers versions the data has only assumed. A
-   difference is always an error; where the data explains it
-   (`custom-write` on the field, `custom-save` on the resource) the error
-   says so. Example measured on 26.7.9: an interface assignment drops
-   `dhcp6_request_dns` unless the IPv6 type is DHCPv6, so "0" reads back
-   as "1"; OPNsense's interface model stores entries through its own
-   `toLegacy` code.
-3. Existence is decided by the list (search): for an unknown ID, `set`
-   creates a new entry under that ID, `get` answers `[]` in most
-   controllers but a blank template in some (os-nginx). So `Set`,
-   `Toggle` and the confirmation after `Delete` ask the list, and `Get`
-   asks it when the answer is incomplete or equals the blank template
-   (independent review, 2026-11-16).
-4. Fields the firewall or the endpoint sets itself are refused before
-   sending: `UniqueIdField`, `AutoNumberField`, `JsonAuditField`, and the
-   `forced` and `computed` fields of the operation (bind domain types, the
-   traffic shaper's pipe number, unbound's forward type).
-5. Required fields and option lists of field subclasses are not checked
-   locally: controllers fill some required fields, and subclasses such as
-   `ServiceField` add options at run time. Only the core `OptionField`'s
-   list is treated as complete. The firewall's validation reports the
-   rest.
-6. Answer shapes: option maps with keys `0..n` arrive as JSON lists; a
-   model without fields as `[]`; apply success as `"status": "ok"` or
-   `"result": "ok"` (anything else is `ErrApply`); some deletes answer
-   nothing (`result-not-returned` in the data), then the list decides.
-7. Entry IDs are not always UUIDs (`wan`, `bogons`, hashes): accepted are
-   path-safe characters only, so no input can leave the API path.
-8. GET requests carry no body and no `Content-Type` (HTTP 400 otherwise);
-   only they are retried. Redirects are refused.
-9. Resolution order for packages: the exact combination; the same version
-   seen on other frameworks with one identical fragment (a note); the
-   nearest older core of the series (a note); for a version the data has
-   never seen, the data of the nearest older known version of the series (a
-   warning). Never newer data than the installed version: a package older
-   than all data of its series uses the oldest data read-only (writes fail
-   with `ErrReadOnly`). A core version that is not in the data uses another
-   hotfix revision of the same release, else the nearest older core of the
-   series; a core older than the data of its series is read-only too. A
-   series the data does not cover fails `New` (`ErrSeriesNotInData`): a
-   series change can change the framework, so it is not guessed. `Refuse`
-   turns every note and warning into an error, and also refuses a package
-   the data has but not for this series ([ADR 0002](0002-operation-without-maintenance.md)).
-10. Read-back exceptions, all visible in the README: write-only fields are
-   not compared (never returned); volatile fields are refused before
-   sending (never stored); transformed fields only must not come back
-   empty. With `AutoApply` the read-back comes before the apply, and both
-   results are returned.
-
 ## Consequences
 
-- No dependency outside the Go standard library so far.
+- A new OPNsense release changes data, not code.
+- No dependency outside the Go standard library.
 - The client is as good as the capability data; read-back is the
-  independent check, and the integration tests are a second consumer of the
-  samples the spec repository verified.
+  independent check, and the integration tests are a second consumer of
+  the samples the spec repository verified.
+- Behaviour that the data can describe is derived in the spec repository,
+  not coded here (for example `server_set`, `write_only`, `custom-save`).
 - Values are typed only as bool, int64, string and list. Numbers that are
   not integers stay strings, so nothing is lost by rounding.
 - Secrets are not marked in the data (OPNsense models do not mark them);
-  write-only fields (`UpdateOnlyTextField`) are excluded from read-back.
+  only `write_only` fields are known.
 
 ## Evidence
 
@@ -111,11 +67,15 @@ Rules that follow from OPNsense's behaviour, each observed on a test VM
   AutoApply order, detection fallback, untyped errors, data directory
   links and size, tests that could not fail); each fixed with a test seen
   failing first.
-- Unit tests with a fake firewall that reproduces the recorded behaviour
-  (unknown keys ignored, `[]` for unknown UUIDs, creation by set); every
-  rule above has a test that fails when the rule is removed.
-- Integration on a throwaway OPNsense 26.7.9_1 with 70 plugins: every
-  resource the data marks as verified (311), 359 checks, 0 failures, 3
-  samples skipped as instance-specific. The run found rules 3 to 7; the
+- Integration on a throwaway OPNsense 26.7.9_1 with 70 plugins
+  (2026-11-15): 311 resources, 359 checks, 0 failures, 3 samples skipped
+  as instance-specific. The run found rules 3 to 7 of design.md; the
   overlays in rule 4 led to a change in the spec repository's derivation
   (`forced`, `computed`, `transformed`).
+- 26.1's `firewall/d_nat` search returns two anti-lockout rows it does not
+  count (measured on 26.1.11_10, 2026-11-16): a search may return more
+  rows than its total.
+- Local integration runs on fresh VMs with every plugin, spec data 0.9.3
+  (2026-11-17): 25.7.11_9 299 resources, 303 checks passed; 26.1.11_10
+  307 / 311; 26.7.9_3 314 / 318; 0 failures. The only tolerated
+  differences were `custom-save`, each logged.
