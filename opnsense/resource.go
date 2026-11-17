@@ -98,7 +98,7 @@ func (e *Entries) Add(ctx context.Context, v Values) (string, error) {
 	}
 	defer b.c.lock(b.api.Model)()
 	var resp map[string]any
-	if err := b.c.t.Post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, 0); err != nil {
+	if err := b.c.post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, b.api.Apply); err != nil {
 		return "", err
 	}
 	if err := b.result(resp, "saved", "add", ""); err != nil {
@@ -169,7 +169,7 @@ func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 		return err
 	}
 	var resp map[string]any
-	if err := b.c.t.Post(ctx, b.path(op, id), map[string]any{b.wrapper(op): body}, &resp, 0); err != nil {
+	if err := b.c.post(ctx, b.path(op, id), map[string]any{b.wrapper(op): body}, &resp, b.api.Apply); err != nil {
 		return err
 	}
 	if err := b.result(resp, "saved", "set", id); err != nil {
@@ -195,7 +195,7 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 	}
 	defer b.c.lock(b.api.Model)()
 	var resp map[string]any
-	if err := b.c.t.Post(ctx, b.path(op, id), nil, &resp, 0); err != nil {
+	if err := b.c.post(ctx, b.path(op, id), nil, &resp, b.api.Apply); err != nil {
 		return err
 	}
 	if r, _ := resp["result"].(string); r == "not found" {
@@ -256,7 +256,7 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 		}
 	}
 	var resp map[string]any
-	if err := b.c.t.Post(ctx, p, nil, &resp, 0); err != nil {
+	if err := b.c.post(ctx, p, nil, &resp, b.api.Apply); err != nil {
 		return err
 	}
 	b.c.markPending(b.api.Apply) // the toggle reached the firewall
@@ -349,7 +349,7 @@ func (s *Settings) Set(ctx context.Context, v Values) error {
 	}
 	defer b.c.lock(b.api.Model)()
 	var resp map[string]any
-	if err := b.c.t.Post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, 0); err != nil {
+	if err := b.c.post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, b.api.Apply); err != nil {
 		return err
 	}
 	if err := b.result(resp, "saved", "set", ""); err != nil {

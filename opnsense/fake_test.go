@@ -52,6 +52,7 @@ type fakeFirewall struct {
 	searchPage    int             // rows per page when rowCount is not -1 (0: all)
 	writeOnly     map[string]bool // neighbor fields stored but read back as "" (UpdateOnlyTextField)
 	virtualRows   []string        // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
+	loseAnswer    string          // "abort": a change is processed, then the connection is reset; "garble": answered with broken JSON
 }
 
 func newFake(t *testing.T) *fakeFirewall {
@@ -74,7 +75,26 @@ func (f *fakeFirewall) pin() string {
 	return hex.EncodeToString(sum[:])
 }
 
+// serve processes the request; with loseAnswer a change (a POST other than
+// search and apply) is processed, but its answer is lost or garbled.
 func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	lose := f.loseAnswer
+	f.mu.Unlock()
+	change := r.Method == http.MethodPost && !strings.Contains(r.URL.Path, "/search") && r.URL.Path != "/api/quagga/service/reconfigure"
+	switch {
+	case lose == "abort" && change:
+		f.handle(httptest.NewRecorder(), r)
+		panic(http.ErrAbortHandler) // the stream is reset: no answer arrives
+	case lose == "garble" && change:
+		f.handle(httptest.NewRecorder(), r)
+		fmt.Fprint(w, `{"result":"sa`)
+	default:
+		f.handle(w, r)
+	}
+}
+
+func (f *fakeFirewall) handle(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/api/quagga/service/reconfigure" && f.applyGate != nil {
 		close(f.applyStart)
 		<-f.applyGate

@@ -419,6 +419,16 @@ func (c *Client) markPending(apply string) {
 	c.mu.Unlock()
 }
 
+// post sends a change. If it reached the firewall but the outcome is
+// unknown, the apply endpoint is marked pending: the change may be saved.
+func (c *Client) post(ctx context.Context, path string, body, out any, apply string) error {
+	err := c.t.Post(ctx, path, body, out, 0)
+	if errors.Is(err, ErrOutcomeUnknown) {
+		c.markPending(apply)
+	}
+	return err
+}
+
 // Pending lists the apply endpoints that Apply would call.
 func (c *Client) Pending() []string {
 	c.mu.Lock()

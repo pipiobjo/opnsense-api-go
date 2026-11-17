@@ -19,6 +19,12 @@ var ErrUnauthorized = transport.ErrUnauthorized
 // ErrForbidden: the key is valid but lacks the privilege (HTTP 403).
 var ErrForbidden = transport.ErrForbidden
 
+// ErrOutcomeUnknown: a change was sent, but its answer was lost, unreadable
+// or a server error. It may have been saved, so the resource's apply
+// endpoint is marked pending. After Add the new entry's ID is unknown: list
+// the entries to find it before adding again.
+var ErrOutcomeUnknown = transport.ErrOutcomeUnknown
+
 // ErrNotFound: the entry does not exist (anymore).
 var ErrNotFound = errors.New("opnsense: entry not found")
 

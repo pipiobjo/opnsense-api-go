@@ -216,3 +216,38 @@ func TestUnauthorizedAndForbiddenDiffer(t *testing.T) {
 		t.Errorf("403: %v", err)
 	}
 }
+
+// A POST that reached the server without a valid answer (connection
+// dropped, broken JSON, HTTP 5xx) is ErrOutcomeUnknown, keeping its cause;
+// a 4xx, a refused credential or an unreachable server is not.
+func TestPostOutcomeUnknown(t *testing.T) {
+	ctx := context.Background()
+	var out map[string]any
+	srv, _ := flaky(t)
+	if err := newT(t, srv).Post(ctx, "/api/x", nil, &out, 0); !errors.Is(err, ErrOutcomeUnknown) {
+		t.Errorf("dropped connection after the request: %v, want ErrOutcomeUnknown", err)
+	}
+	for status, want := range map[int]bool{500: true, 502: true, 400: false, 404: false, 401: false, 403: false} {
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) }))
+		err := newT(t, srv).Post(ctx, "/api/x", nil, &out, 0)
+		srv.Close()
+		if errors.Is(err, ErrOutcomeUnknown) != want {
+			t.Errorf("HTTP %d: %v, outcome unknown want %v", status, err, want)
+		}
+		var he *HTTPError
+		if status >= 500 && !errors.As(err, &he) {
+			t.Errorf("HTTP %d: the cause must stay an *HTTPError: %v", status, err)
+		}
+	}
+	garbled := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`{"res`)) }))
+	defer garbled.Close()
+	if err := newT(t, garbled).Post(ctx, "/api/x", nil, &out, 0); !errors.Is(err, ErrOutcomeUnknown) {
+		t.Errorf("broken JSON: %v, want ErrOutcomeUnknown", err)
+	}
+	gone := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	tr := newT(t, gone)
+	gone.Close()
+	if err := tr.Post(ctx, "/api/x", nil, &out, 0); err == nil || errors.Is(err, ErrOutcomeUnknown) {
+		t.Errorf("unreachable server: %v, must not be outcome unknown", err)
+	}
+}

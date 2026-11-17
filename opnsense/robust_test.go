@@ -485,3 +485,68 @@ func TestWriteOnlyFieldIsNotReadBack(t *testing.T) {
 		t.Errorf("the value must still be sent and stored: %q", f.nbrs[id]["description"])
 	}
 }
+
+// Claim: a change whose answer is lost (connection reset, broken JSON, a
+// server error) may have been saved. The error says so (ErrOutcomeUnknown,
+// cause kept) and the apply endpoint is pending, so Apply activates it.
+func TestLostAnswerMarksPending(t *testing.T) {
+	ctx := context.Background()
+	for _, mode := range []string{"abort", "garble"} {
+		t.Run(mode, func(t *testing.T) {
+			f := newFake(t)
+			c := mustConnect(t, f)
+			n, _ := c.Entries(neighbors)
+			id, err := n.Add(ctx, Values{"address": "192.0.2.10"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := n.Apply(ctx); err != nil {
+				t.Fatal(err)
+			}
+			f.mu.Lock()
+			f.loseAnswer = mode
+			f.mu.Unlock()
+			err = n.Set(ctx, id, Values{"description": "changed"})
+			if !errors.Is(err, ErrOutcomeUnknown) {
+				t.Fatalf("Set with a lost answer: %v, want ErrOutcomeUnknown", err)
+			}
+			if p := c.Pending(); len(p) != 1 {
+				t.Errorf("after a lost answer the apply endpoint must be pending: %v", p)
+			}
+			f.mu.Lock()
+			stored := f.nbrs[id]["description"]
+			f.mu.Unlock()
+			if stored != "changed" {
+				t.Fatalf("the fake did not process the change: %q", stored)
+			}
+			st, _ := c.Settings("quagga/ospfsettings")
+			if err := st.Set(ctx, Values{"routerid": "192.0.2.1"}); !errors.Is(err, ErrOutcomeUnknown) {
+				t.Errorf("Settings.Set with a lost answer: %v, want ErrOutcomeUnknown", err)
+			}
+			if _, err := n.Add(ctx, Values{"address": "192.0.2.11"}); !errors.Is(err, ErrOutcomeUnknown) {
+				t.Errorf("Add with a lost answer: %v, want ErrOutcomeUnknown", err)
+			}
+			if err := n.Toggle(ctx, id, false); !errors.Is(err, ErrOutcomeUnknown) {
+				t.Errorf("Toggle with a lost answer: %v, want ErrOutcomeUnknown", err)
+			}
+			if err := n.Delete(ctx, id); !errors.Is(err, ErrOutcomeUnknown) {
+				t.Errorf("Delete with a lost answer: %v, want ErrOutcomeUnknown", err)
+			}
+			f.mu.Lock()
+			f.loseAnswer = ""
+			f.mu.Unlock()
+			before := f.applied
+			if err := c.Apply(ctx); err != nil || f.applied != before+1 || len(c.Pending()) != 0 {
+				t.Errorf("Apply after lost answers: %v, applied %d->%d, pending %v", err, before, f.applied, c.Pending())
+			}
+		})
+	}
+	// a request refused before it is sent is not "outcome unknown"
+	f := newFake(t)
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	f.srv.Close()
+	if _, err := n.Add(ctx, Values{"address": "192.0.2.12"}); err == nil || errors.Is(err, ErrOutcomeUnknown) || len(c.Pending()) != 0 {
+		t.Errorf("a request that never reached the firewall: %v, pending %v", err, c.Pending())
+	}
+}

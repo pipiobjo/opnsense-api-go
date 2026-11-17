@@ -70,6 +70,7 @@ is the client's job.
 | Delete answered, but the entry is still listed | `*ErrStillExists` |
 | Search answered with fewer rows than its total | `*ErrIncompleteList` (more rows than the total is accepted: 26.1's `firewall/d_nat` adds two uncounted anti-lockout rules) |
 | A mutation answered in a way the client cannot interpret (e.g. "saved" without an ID) | `*ErrUnexpectedAnswer`; the mutation may have taken effect, so its apply endpoint is marked pending |
+| A change was sent but its answer was lost, unreadable or HTTP 5xx | an error matching `ErrOutcomeUnknown` (the cause, e.g. `*HTTPError`, is kept); the change may be saved, so its apply endpoint is marked pending. After `Add` the ID is unknown: list the entries before adding again. A request that never reached the firewall is not this error |
 | One field of an object has an unexpected shape | the other fields are returned together with `*ErrDecode` |
 | An apply endpoint does not report ok | `*ErrApply`; the endpoint stays pending. With `AutoApply` the read-back comes first; both errors are returned |
 | Key or secret wrong / privilege missing | `ErrUnauthorized` / `ErrForbidden`; credentials never appear in errors or logs. Only a missing firmware privilege lets `New` continue with the core alone; any other failure to read the plugin list fails `New` |

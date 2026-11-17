@@ -21,8 +21,10 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -64,6 +66,19 @@ type Transport struct {
 // ErrWriteRefused: the transport is read-only and the request could change
 // the firewall; it was not sent.
 var ErrWriteRefused = errors.New("opnsense: read-only mode: request refused before sending")
+
+// ErrOutcomeUnknown: a POST reached the firewall, but its answer was lost,
+// unreadable or a server error (HTTP 5xx). The change may have been saved.
+// The error keeps its cause (errors.As finds an *HTTPError, for example).
+var ErrOutcomeUnknown = errors.New("opnsense: request sent, outcome unknown")
+
+type outcomeUnknown struct{ err error }
+
+func (e *outcomeUnknown) Error() string {
+	return e.err.Error() + " (the request reached the firewall; it may have taken effect)"
+}
+func (e *outcomeUnknown) Unwrap() error        { return e.err }
+func (e *outcomeUnknown) Is(target error) bool { return target == ErrOutcomeUnknown }
 
 // ErrUnauthorized: the firewall rejected key and secret (HTTP 401).
 var ErrUnauthorized = errors.New("opnsense: authentication failed (check API key and secret)")
@@ -208,6 +223,8 @@ func (t *Transport) Get(ctx context.Context, path string, query url.Values, out 
 
 // Post sends a JSON body (nil sends "{}") and decodes the response. Never
 // retried: a mutation may have been applied even if the answer was lost.
+// When the request was written but no valid answer came back (connection
+// lost, unreadable body, HTTP 5xx), the error matches ErrOutcomeUnknown.
 func (t *Transport) Post(ctx context.Context, path string, body, out any, timeout time.Duration) error {
 	if t.ro {
 		return fmt.Errorf("%w: POST %s", ErrWriteRefused, path)
@@ -215,7 +232,23 @@ func (t *Transport) Post(ctx context.Context, path string, body, out any, timeou
 	if timeout == 0 {
 		timeout = t.timeout
 	}
-	_, err := t.do(ctx, http.MethodPost, path, nil, body, out, timeout)
+	var wrote atomic.Bool // set from the transport's write goroutine
+	trace := &httptrace.ClientTrace{WroteRequest: func(i httptrace.WroteRequestInfo) {
+		if i.Err == nil {
+			wrote.Store(true)
+		}
+	}}
+	_, err := t.do(httptrace.WithClientTrace(ctx, trace), http.MethodPost, path, nil, body, out, timeout)
+	var he *HTTPError
+	switch {
+	case err == nil:
+	case errors.As(err, &he):
+		if he.Status >= 500 {
+			return &outcomeUnknown{err}
+		}
+	case wrote.Load() && !errors.Is(err, ErrUnauthorized) && !errors.Is(err, ErrForbidden):
+		return &outcomeUnknown{err}
+	}
 	return err
 }
 
