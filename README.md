@@ -138,8 +138,12 @@ Entry IDs are usually UUIDs, but not always (`wan`, `bogons`, hashes).
 IDs may contain letters, digits, `_`, `-` and `.`, not start with a dot;
 anything else is refused before a request is built.
 
-`Apply` activates pending changes of all resources; `Entries.Apply` and
-`Settings.Apply` only those of one resource. A write that lands while an
+`Apply` activates the changes this `Client` saved (its pending list);
+`Entries.Apply` and `Settings.Apply` call the apply endpoint of one
+resource unconditionally. The pending list lives only in the process: after
+a failed apply, a new process (the next provider run) has nothing pending,
+so it must call `Entries.Apply` or `Settings.Apply` for the resources it
+manages to activate what an earlier run saved. A write that lands while an
 apply runs stays pending. `Call` reaches any other API endpoint (service
 actions, diagnostics) without checks or read-back.
 

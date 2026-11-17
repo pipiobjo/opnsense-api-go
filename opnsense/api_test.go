@@ -95,6 +95,35 @@ func TestResourceApply(t *testing.T) {
 	}
 }
 
+// Claim: the pending list lives in one process. A new Client (the next
+// provider run after a failed apply) has nothing pending, yet
+// Entries.Apply and Settings.Apply must still call the endpoint; Client.Apply
+// calls only what this Client saved.
+func TestResourceApplyInANewProcess(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	c := mustConnect(t, f)
+	if err := c.Apply(ctx); err != nil || f.applied != 0 {
+		t.Errorf("Client.Apply with nothing pending: %v, applied %d", err, f.applied)
+	}
+	n, _ := c.Entries(neighbors)
+	if err := n.Apply(ctx); err != nil || f.applied != 1 {
+		t.Errorf("Entries.Apply in a new client: %v, applied %d, want 1", err, f.applied)
+	}
+	s, _ := c.Settings("quagga/ospfsettings")
+	if err := s.Apply(ctx); err != nil || f.applied != 2 {
+		t.Errorf("Settings.Apply in a new client: %v, applied %d, want 2", err, f.applied)
+	}
+	f.applyAnswer = map[string]any{"status": "failed"}
+	var ae *ErrApply
+	if err := n.Apply(ctx); !errors.As(err, &ae) {
+		t.Errorf("a failed unconditional apply must report ErrApply: %v", err)
+	}
+	if len(c.Pending()) != 0 {
+		t.Errorf("an unconditional apply must not invent pending entries: %v", c.Pending())
+	}
+}
+
 // Claim: nested field paths ("general.enabled") build nested request
 // bodies; a path that would turn a field into a container or the other way
 // round is refused instead of overwriting one with the other.

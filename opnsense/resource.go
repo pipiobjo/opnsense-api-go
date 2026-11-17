@@ -49,13 +49,19 @@ func (e *Entries) Fields() map[string]*capability.Field { return e.b.res.FieldsF
 // Fields returns the fields of the resource in the firewall's version.
 func (s *Settings) Fields() map[string]*capability.Field { return s.b.res.FieldsFor(s.b.frag) }
 
-// Apply calls the apply endpoint of this resource if a mutation is
-// pending (see Client.Apply).
-func (e *Entries) Apply(ctx context.Context) error { return e.b.c.applyEndpoint(ctx, e.b.api.Apply) }
+// Apply calls the apply endpoint of this resource, whether or not this
+// Client saved a change: a change saved by an earlier process (whose apply
+// failed or never ran) must still be activatable. A resource without an
+// apply endpoint is active when saved; then nothing is sent.
+func (e *Entries) Apply(ctx context.Context) error {
+	return e.b.c.applyEndpoint(ctx, e.b.api.Apply, true)
+}
 
-// Apply calls the apply endpoint of this resource if a mutation is
-// pending (see Client.Apply).
-func (s *Settings) Apply(ctx context.Context) error { return s.b.c.applyEndpoint(ctx, s.b.api.Apply) }
+// Apply calls the apply endpoint of this resource unconditionally (see
+// Entries.Apply).
+func (s *Settings) Apply(ctx context.Context) error {
+	return s.b.c.applyEndpoint(ctx, s.b.api.Apply, true)
+}
 
 // Entry IDs are usually UUIDs, but not always: interface assignments use
 // names ("wan", "opt1"), aliases their name ("bogons"), tunables a hash.

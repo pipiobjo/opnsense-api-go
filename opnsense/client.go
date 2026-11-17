@@ -433,31 +433,38 @@ func (c *Client) Pending() []string {
 
 // Apply activates saved changes: every pending apply endpoint is called
 // once. Writes alone change only the stored configuration.
+//
+// The pending list lives only in this Client: a new process (the next
+// provider run after a failed apply) starts with none. Entries.Apply and
+// Settings.Apply call their endpoint unconditionally for that reason.
 func (c *Client) Apply(ctx context.Context) error {
 	if c.cfg.ReadOnly {
 		return &ErrReadOnly{Resource: "apply", Reason: readOnlyModeReason, Mode: true}
 	}
 	var errs []error
 	for _, p := range c.Pending() {
-		if err := c.applyEndpoint(ctx, p); err != nil {
+		if err := c.applyEndpoint(ctx, p, false); err != nil {
 			errs = append(errs, err)
 		}
 	}
 	return errors.Join(errs...)
 }
 
-// applyEndpoint calls one apply endpoint if it is pending. A mutation that
-// is saved while the call runs keeps the endpoint pending: the generation
-// is compared, not just cleared.
-func (c *Client) applyEndpoint(ctx context.Context, p string) error {
+// applyEndpoint calls one apply endpoint: if it is pending, or always with
+// force. A mutation that is saved while the call runs keeps the endpoint
+// pending: the generation is compared, not just cleared.
+func (c *Client) applyEndpoint(ctx context.Context, p string, force bool) error {
 	if c.cfg.ReadOnly {
 		return &ErrReadOnly{Resource: p, Reason: readOnlyModeReason, Mode: true}
+	}
+	if p == "" {
+		return nil // the resource has no apply endpoint: saved is active
 	}
 	defer c.lock("apply:" + p)()
 	c.mu.Lock()
 	gen, ok := c.pending[p]
 	c.mu.Unlock()
-	if !ok {
+	if !ok && !force {
 		return nil
 	}
 	var resp map[string]any
@@ -468,7 +475,7 @@ func (c *Client) applyEndpoint(ctx context.Context, p string) error {
 		return &ErrApply{Endpoint: p, Answer: fmt.Sprint(resp)}
 	}
 	c.mu.Lock()
-	if c.pending[p] == gen {
+	if cur, ok := c.pending[p]; ok && cur == gen {
 		delete(c.pending, p)
 	}
 	c.mu.Unlock()
@@ -493,7 +500,7 @@ func applyOK(resp map[string]any) bool {
 func (c *Client) finish(ctx context.Context, apply string, readBack error) error {
 	var applyErr error
 	if c.cfg.AutoApply && apply != "" {
-		applyErr = c.applyEndpoint(ctx, apply)
+		applyErr = c.applyEndpoint(ctx, apply, false)
 	}
 	return errors.Join(readBack, applyErr)
 }
