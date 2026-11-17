@@ -128,7 +128,11 @@ func TestResolveNearestOlderCore(t *testing.T) {
 }
 
 func TestCompareVersions(t *testing.T) {
-	ordered := []string{"1.0", "1.0_6", "1.1", "25.7", "25.7_1", "25.7.1", "25.7.9", "25.7.10", "25.7.11_9", "26.1"}
+	// the same table as in the other repository (opnsense-api-go
+	// opnsense/capability, opnsense-api-spec internal/pkgrepo): both
+	// implementations must agree
+	ordered := []string{"1.0", "1.0_6", "1.0_10", "1.1", "2.1", "2.1a", "2.2", "25.7", "25.7_1", "25.7.1", "25.7.9",
+		"25.7.10", "25.7.11_2", "25.7.11_9", "25.7.11_10", "26.1"}
 	for i := 0; i < len(ordered); i++ {
 		for j := 0; j < len(ordered); j++ {
 			got := CompareVersions(ordered[i], ordered[j])
@@ -141,6 +145,11 @@ func TestCompareVersions(t *testing.T) {
 			if got != want {
 				t.Errorf("CompareVersions(%s, %s) = %d, want %d", ordered[i], ordered[j], got, want)
 			}
+		}
+	}
+	for _, eq := range [][2]string{{"26.7", "26.7.0"}, {"26.7_0", "26.7"}} {
+		if CompareVersions(eq[0], eq[1]) != 0 {
+			t.Errorf("CompareVersions(%s, %s) must be 0", eq[0], eq[1])
 		}
 	}
 	if SeriesOf("26.7.9_1") != "26.7" || ReleaseOf("26.7.9_1") != "26.7.9" || SeriesOf("26.1") != "26.1" {

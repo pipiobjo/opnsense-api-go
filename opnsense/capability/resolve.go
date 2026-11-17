@@ -321,7 +321,10 @@ func ReleaseOf(v string) string {
 // CompareVersions compares package versions such as 26.7.9_1, 1.0_6 or
 // 2.1a: release parts numerically (a part's letter suffix after its
 // number, "2.1" < "2.1a" < "2.2"), then the hotfix revision. 26.7 < 26.7_1
-// < 26.7.1.
+// < 26.7.1; missing parts count as 0.
+//
+// The same algorithm, with the same test table, is pkgrepo.CompareVersions
+// in opnsense-api-spec; change both together.
 func CompareVersions(a, b string) int {
 	ra, reva, _ := strings.Cut(a, "_")
 	rb, revb, _ := strings.Cut(b, "_")
