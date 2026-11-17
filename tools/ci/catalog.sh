@@ -21,7 +21,7 @@ SPEC_REF="${SPEC_REF:-c8c41e314b6f8b1993d022ec15e5fd940acba790}"
 OUT="${1:-catalog}"
 BASE="https://github.com/$SPEC/releases/download"
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
-get() { env -u GH_TOKEN -u GITHUB_TOKEN curl -fsSL --retry 3 -o "$2" "$BASE/$1"; }
+get() { env -u GH_TOKEN -u GITHUB_TOKEN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$2" "$BASE/$1"; }
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 if get catalog/SHA256SUMS "$work/SHA256SUMS" 2>/dev/null; then
