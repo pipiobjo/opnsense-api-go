@@ -23,3 +23,19 @@ project without a support contract; fixes are made on a best-effort basis.
 ## What is not
 
 Bugs in OPNsense itself; report those to the OPNsense project.
+
+## Dependencies
+
+The module uses the Go standard library only; there is no third-party
+code in what you build. Its SBOM (attached to each release) therefore
+lists the module and the Go release.
+
+CI uses GitHub's own actions and `jdx/mise-action`, pinned by commit
+hash, and the official CycloneDX generator for Go (`cyclonedx-gomod`) in
+the digest-pinned `golang` image, isolated in rootless Podman. Dependabot
+alerts are on, and Dependabot proposes action updates monthly.
+
+Review of 2026-11-17 against the OSV database: no known vulnerability;
+the one finding for Go 1.27.3 (HTTP server, not used by the client) is
+fixed in 1.27.4, which CI uses. Build the client with a current Go patch
+release.
