@@ -168,6 +168,24 @@ to work, which test shows each part, how we know the tests can fail, the
 measured results, and what is not tested. Requirements:
 [opnsense-api-spec/docs/requirements.md](https://github.com/pipiobjo/opnsense-api-spec/blob/main/docs/requirements.md).
 
+## Releases
+
+A release is a version tag; the Go module proxy serves it. Each release
+also has a GitHub release (`release.yml`, after the whole test suite
+passed) with a software bill of materials (CycloneDX 1.6, made with the
+official CycloneDX generator for Go), the unit test coverage report and
+`SHA256SUMS`, all with a provenance attestation:
+
+```sh
+gh release download v0.1.0 -R pipiobjo/opnsense-api-go -D rel && cd rel
+sha256sum -c SHA256SUMS
+gh attestation verify opnsense-api-go-v0.1.0.cdx.json -R pipiobjo/opnsense-api-go
+```
+
+The module depends on the Go standard library only, so the SBOM lists the
+module and the Go release it was built and tested with. Versions below
+v1 are pre-releases: the API may still change.
+
 ## Layout
 
 ```
