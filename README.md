@@ -96,12 +96,15 @@ firewall, for analysis tools or an assistant that helps configure without
 touching anything. Every changing call (`Add`, `Set`, `Delete`, `Toggle`,
 `Settings.Set`, `Apply`) returns `*ErrReadOnly` with `Mode` set
 (`errors.Is(err, opnsense.ErrWriteRefused)`), before anything is sent. A
-second check in the transport refuses every POST except a search with a
-fixed body, so a mistake in the first cannot send a write. `Call` may
-then only GET the get and search operations in the capability data;
-other endpoints (logs, status) must be listed in `Config.ReadOnlyAllow`,
-because OPNsense does not mark which endpoints change nothing, and some
-change state even on GET.
+second check in the transport, with its own list, refuses every POST
+except a search with a fixed body, and every GET or search whose path is
+not a get or search operation of the capability data or listed in
+`Config.ReadOnlyAllow` (before detection: only the two firmware paths
+detection needs). So a mistake in the first check cannot send a write,
+for POST and GET alike. `Call` may likewise only GET the get and search
+operations; other endpoints (logs, status) must be listed in
+`Config.ReadOnlyAllow`, because OPNsense does not mark which endpoints
+change nothing, and some change state even on GET.
 
 OPNsense cannot enforce this itself: a privilege grants URL patterns,
 reading and writing together (of 195 privileges with API access in

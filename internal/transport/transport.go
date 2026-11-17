@@ -24,6 +24,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -47,10 +48,15 @@ type Config struct {
 	Timeout  time.Duration
 	Logger   *slog.Logger // method, path, status and duration only
 	HTTP     *http.Client // replaces the built-in client (tests); redirects are still refused
-	// ReadOnly refuses every POST except Search. The client checks its
-	// own methods first; this is the second line, independent of them.
+	// ReadOnly refuses every POST except Search, and every GET and Search
+	// whose path is not readable (SetReadable; until then only the firmware
+	// paths needed for detection). The client checks its own methods first;
+	// this is the second line, independent of them.
 	ReadOnly bool
 }
+
+// detectPaths are readable before SetReadable: what detection needs.
+var detectPaths = []string{"/api/core/firmware/info", "/api/core/firmware/status"}
 
 // Transport sends requests. It is safe for concurrent use.
 type Transport struct {
@@ -61,6 +67,9 @@ type Transport struct {
 	log     *slog.Logger
 	hc      *http.Client
 	ro      bool
+
+	mu       sync.Mutex
+	readable []string // read-only mode: paths GET and Search may reach
 }
 
 // ErrWriteRefused: the transport is read-only and the request could change
@@ -120,7 +129,8 @@ func New(c Config) (*Transport, error) {
 	if c.Key == "" || c.Secret == "" {
 		return nil, errors.New("opnsense: key and secret are required")
 	}
-	t := &Transport{base: u, key: c.Key, secret: c.Secret, timeout: c.Timeout, log: c.Logger, ro: c.ReadOnly}
+	t := &Transport{base: u, key: c.Key, secret: c.Secret, timeout: c.Timeout, log: c.Logger, ro: c.ReadOnly,
+		readable: detectPaths}
 	if t.timeout == 0 {
 		t.timeout = 60 * time.Second
 	}
@@ -199,10 +209,42 @@ func (e *PinError) Error() string {
 	return "opnsense: server certificate SHA-256 " + e.Got + " does not match the pin"
 }
 
+// SetReadable sets the paths GET and Search may reach in read-only mode:
+// an entry is an exact path, or "<path>/*" for the path and everything
+// below it. The detection paths stay readable.
+func (t *Transport) SetReadable(paths []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.readable = append(append([]string(nil), detectPaths...), paths...)
+}
+
+// mayRead: in read-only mode, the path is in the readable list.
+func (t *Transport) mayRead(method, path string) error {
+	if !t.ro {
+		return nil
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, r := range t.readable {
+		if base, ok := strings.CutSuffix(r, "/*"); ok {
+			if path == base || strings.HasPrefix(path, base+"/") {
+				return nil
+			}
+		} else if path == r {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s %s is not a known read", ErrWriteRefused, method, path)
+}
+
 // Get sends a GET (no body, no Content-Type: the server answers 400
 // otherwise) and decodes the JSON response into out. Connection errors are
-// retried twice, certificate errors never.
+// retried twice, certificate errors never. In read-only mode only readable
+// paths are sent (OPNsense changes state on some GETs).
 func (t *Transport) Get(ctx context.Context, path string, query url.Values, out any) error {
+	if err := t.mayRead(http.MethodGet, path); err != nil {
+		return err
+	}
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
@@ -261,6 +303,9 @@ func (t *Transport) Search(ctx context.Context, path string, out any) error {
 	last := path[strings.LastIndex(path, "/")+1:]
 	if !strings.HasPrefix(strings.ToLower(last), "search") {
 		return fmt.Errorf("%w: %s is not a search endpoint", ErrWriteRefused, path)
+	}
+	if err := t.mayRead(http.MethodPost, path); err != nil {
+		return err
 	}
 	_, err := t.do(ctx, http.MethodPost, path, nil, map[string]any{"current": 1, "rowCount": -1}, out, t.timeout)
 	return err

@@ -69,6 +69,14 @@ func TestReadOnlyMode(t *testing.T) {
 		}
 	}
 
+	// the transport alone, bypassing the API methods: the second check
+	if err := c.t.Get(ctx, "/api/core/system/reboot", nil, &out); !errors.Is(err, ErrWriteRefused) {
+		t.Errorf("transport GET of a path that is no known read: %v", err)
+	}
+	if err := c.t.Get(ctx, "/api/quagga/ospfsettings/getNeighbor/"+id, nil, &out); err != nil {
+		t.Errorf("transport GET of a get operation: %v", err)
+	}
+
 	// every change is refused, typed
 	refused := map[string]error{}
 	_, refused["Add"] = n.Add(ctx, Values{"address": "192.0.2.11"})

@@ -91,7 +91,9 @@ type Config struct {
 	// ReadOnly: the client reads but never changes the firewall. Every
 	// changing method (Add, Set, Delete, Toggle, Settings.Set, Apply)
 	// returns *ErrReadOnly before anything is sent, and the transport
-	// refuses every POST except a search, independently of those checks.
+	// refuses every POST except a search, and every GET outside the get
+	// and search operations and ReadOnlyAllow, independently of those
+	// checks.
 	// Call is limited to GET on the get and search operations in the
 	// capability data, plus the paths in ReadOnlyAllow. OPNsense cannot do
 	// this itself: its privileges grant URL patterns, reading and writing
@@ -208,6 +210,10 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 	}
 	if err := c.detect(ctx); err != nil {
 		return nil, err
+	}
+	if cfg.ReadOnly {
+		// the transport's own list: the second, independent check
+		t.SetReadable(c.readablePaths())
 	}
 	return c, nil
 }
@@ -554,6 +560,30 @@ func (c *Client) Call(ctx context.Context, method, path string, body, out any) e
 }
 
 const readOnlyModeReason = "the client is in read-only mode (Config.ReadOnly)"
+
+// readablePaths lists, for the transport, the get and search operations of
+// the resources this firewall has (each with everything below it, such as
+// an entry ID) and the paths in Config.ReadOnlyAllow.
+func (c *Client) readablePaths() []string {
+	out := append([]string(nil), c.cfg.ReadOnlyAllow...)
+	for pkg, d := range c.data.Docs {
+		res := c.inst.Resolved.Packages[pkg]
+		if res == nil || res.Fragment == "" {
+			continue
+		}
+		for _, r := range d.Resources {
+			if api := r.APIFor(res.Fragment); api != nil {
+				for _, name := range []string{"get", "search"} {
+					if op := api.Operations[name]; op != nil {
+						out = append(out, op.Path+"/*")
+					}
+				}
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
 
 // readAllowed: in read-only mode, Call may GET the get and search
 // operations of the resources this firewall has (with arguments below
