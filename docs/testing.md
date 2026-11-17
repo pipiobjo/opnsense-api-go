@@ -101,7 +101,8 @@ drops below its floor in `tools/ci/coverage-floor.txt`.
 | Profile | Statements covered | Floor |
 |---|---:|---:|
 | unit | 91.2% | 91% |
-| integration (per release) | see below | see below |
+| integration (per release, alone) | 60.8% to 61.0% | 60% |
+| unit and integration together | 91.9% | — |
 
 Coverage says which code ran, not whether its result was checked; the
 claims and the deliberate breaks above are what make the tests count.
