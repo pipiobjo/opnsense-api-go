@@ -17,7 +17,7 @@
 set -euo pipefail
 
 SPEC=pipiobjo/opnsense-api-spec
-SPEC_REF="${SPEC_REF:-413761017e7b01b7f34ea9f9bfd8747dc372c195}"
+SPEC_REF="${SPEC_REF:-a1d6da87c617b285a2b7aa66aa603a4bfefef0cc}"
 OUT="${1:-catalog}"
 BASE="https://github.com/$SPEC/releases/download"
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
