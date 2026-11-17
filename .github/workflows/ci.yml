@@ -3,7 +3,8 @@
 #
 # Every push to main and every pull request:
 #   test         format, vet, unit tests with the race detector (fake
-#                firewall, real capability test data), coverage with a floor
+#                firewall, real capability test data), coverage with a floor,
+#                SBOM (tools/ci/sbom.sh)
 #   data         capability data from opnsense-api-spec (tools/ci/catalog.sh)
 #                and the test matrix: newest verified release of each series
 #   integration  per series: throwaway OPNsense VM on 127.0.0.1 with every
@@ -63,6 +64,16 @@ jobs:
         with:
           name: coverage-unit
           path: coverage/
+          retention-days: 30
+      # the same SBOM step as a release, so it is tested before one
+      - name: SBOM
+        if: matrix.go == '1.27'
+        run: tools/ci/sbom.sh sbom/opnsense-api-go.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.go == '1.27'
+        with:
+          name: sbom
+          path: sbom/
           retention-days: 30
       # the seeds of the fuzz targets run above as plain tests; here each
       # target also gets generated inputs for a few seconds
