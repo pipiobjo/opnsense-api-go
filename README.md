@@ -41,6 +41,9 @@ ospf, err := c.Settings("quagga/ospfsettings")
 err = ospf.Set(ctx, opnsense.Values{"enabled": true, "routerid": "192.0.2.1"})
 
 err = c.Apply(ctx) // activate: each pending apply endpoint once
+
+info := hosts.Info()                            // fields, write-only/server-set/runtime-required, shared_with, verification
+err = hosts.Check(opnsense.Values{"hostname": "nas"}) // every check of a write, nothing sent (plan time)
 ```
 
 Resources are named as in the capability data: `<module>/<controller>` for
@@ -134,6 +137,18 @@ data cannot know it reliably: required fields (controllers fill some of
 them), option lists of field subclasses (they add options at run time),
 and anything that refers to other objects. The firewall's own validation
 answers these as `*ErrValidation`.
+
+`Info()` describes a resource in the firewall's version, as copies a
+consumer may keep: each field's type and kind, whether it is required,
+*runtime-required* (the contract test found the firewall requiring it
+although the model does not say so), write-only (never returned, so a
+change made elsewhere cannot be seen), set by the firewall, or converted on
+write; `SharedWith` names other resources on the same stored data (manage
+it through one of them only); `Verified` is the contract test result for
+this version, or nil if it was not tested. `Check(values)` runs every check
+a write would run without sending anything, for plan time. `Fields()`
+returns the raw descriptions (copies); prefer `Info()`, which does not tie a
+consumer to the data format.
 
 Entry IDs are usually UUIDs, but not always (`wan`, `bogons`, hashes).
 IDs may contain letters, digits, `_`, `-` and `.`, not start with a dot;

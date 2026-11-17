@@ -43,11 +43,13 @@ func (c *Client) Settings(id string) (*Settings, error) {
 	return &Settings{b}, nil
 }
 
-// Fields returns the fields of the resource in the firewall's version.
-func (e *Entries) Fields() map[string]*capability.Field { return e.b.res.FieldsFor(e.b.frag) }
+// Fields returns the raw field descriptions of the resource in the
+// firewall's version, as copies. Prefer Info().Fields: it does not tie a
+// consumer to the data format.
+func (e *Entries) Fields() map[string]*capability.Field { return cloneFields(e.b.res.FieldsFor(e.b.frag)) }
 
-// Fields returns the fields of the resource in the firewall's version.
-func (s *Settings) Fields() map[string]*capability.Field { return s.b.res.FieldsFor(s.b.frag) }
+// Fields returns copies of the raw field descriptions (see Entries.Fields).
+func (s *Settings) Fields() map[string]*capability.Field { return cloneFields(s.b.res.FieldsFor(s.b.frag)) }
 
 // Apply calls the apply endpoint of this resource, whether or not this
 // Client saved a change: a change saved by an earlier process (whose apply

@@ -332,6 +332,30 @@ func (r *Resource) FieldFor(name, h string) *Field {
 	return nil
 }
 
+// Clone returns a deep copy, so a caller can change it without changing the
+// data the client works with.
+func (f *Field) Clone() *Field {
+	if f == nil {
+		return nil
+	}
+	c := *f
+	c.In = In{All: f.In.All, Hashes: slices.Clone(f.In.Hashes)}
+	if f.Default != nil {
+		d := *f.Default
+		c.Default = &d
+	}
+	c.Options = slices.Clone(f.Options)
+	c.Relations = slices.Clone(f.Relations)
+	c.Gaps = slices.Clone(f.Gaps)
+	if f.Constraints != nil {
+		c.Constraints = make(map[string]string, len(f.Constraints))
+		for k, v := range f.Constraints {
+			c.Constraints[k] = v
+		}
+	}
+	return &c
+}
+
 // FieldsFor returns all fields that exist in fragment h.
 func (r *Resource) FieldsFor(h string) map[string]*Field {
 	out := map[string]*Field{}
