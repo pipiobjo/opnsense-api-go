@@ -39,6 +39,13 @@ whenever the spec publishes new data: it fails on a vulnerability that the
 client's code reaches and that has a fix (a newer Go patch release, which
 CI picks up by itself), and warns about one without a fix yet.
 
+Build tools: `jdx/mise-action` installs mise only from releases at least
+7 days old and verifies the binary against mise's signed checksums; mise
+verifies the Go download against go.dev's checksums. Every action is
+pinned to the commit of its release tag (checked 2026-11-17: all match,
+all at least 6 weeks old except `jdx/mise-action` v5.2.8, released
+2026-11-12; later versions come through Dependabot, which waits 7 days).
+
 Review of 2026-11-17 against the OSV database: no known vulnerability;
 the one finding for Go 1.27.3 (HTTP server, not used by the client) is
 fixed in 1.27.4, which CI uses. Build the client with a current Go patch
