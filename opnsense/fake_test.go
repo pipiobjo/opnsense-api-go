@@ -5,6 +5,7 @@ package opnsense
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -35,16 +36,20 @@ type fakeFirewall struct {
 	applied  int
 
 	// failure modes
-	applyAnswer map[string]any  // answer of reconfigure (default {"status":"ok"})
-	applyGate   chan struct{}   // if set, reconfigure waits for it (without holding mu)
-	applyStart  chan struct{}   // closed when reconfigure is entered
-	infoStatus  int             // HTTP status of firmware/info (default 200)
-	delKeeps    bool            // del answers "deleted" but keeps the entry
-	delSilent   bool            // del answers with an empty body (os-wol on 26.7.9)
-	oddField    string          // this neighbor field is returned in an unexpected shape
-	searchPage  int             // rows per page when rowCount is not -1 (0: all)
-	writeOnly   map[string]bool // neighbor fields stored but read back as "" (UpdateOnlyTextField)
-	virtualRows []string        // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
+	applyAnswer   map[string]any  // answer of reconfigure (default {"status":"ok"})
+	applyGate     chan struct{}   // if set, reconfigure waits for it (without holding mu)
+	applyStart    chan struct{}   // closed when reconfigure is entered
+	infoStatus    int             // HTTP status of firmware/info (default 200)
+	delKeeps      bool            // del answers "deleted" but keeps the entry
+	addNoID       bool            // add stores the entry but answers "saved" without a uuid
+	fullTemplate  bool            // get of an unknown UUID answers the complete blank template
+	toggleIgnored bool            // toggle answers as if it switched, but changes nothing
+	encodeSets    map[string]bool // neighbor fields stored base64-encoded (nginx error pages)
+	delSilent     bool            // del answers with an empty body (os-wol on 26.7.9)
+	oddField      string          // this neighbor field is returned in an unexpected shape
+	searchPage    int             // rows per page when rowCount is not -1 (0: all)
+	writeOnly     map[string]bool // neighbor fields stored but read back as "" (UpdateOnlyTextField)
+	virtualRows   []string        // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
 }
 
 func newFake(t *testing.T) *fakeFirewall {
@@ -128,9 +133,20 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 		n := map[string]string{"enabled": "1", "description": "", "address": "", "pollinterval": "", "priority": ""}
 		f.store(n, in)
 		f.nbrs[id] = n
+		if f.addNoID {
+			reply(map[string]any{"result": "saved"})
+			return
+		}
 		reply(map[string]any{"result": "saved", "uuid": id})
+	case p == "/api/quagga/ospfsettings/getNeighbor":
+		// without a UUID: the blank template of a new entry, as getBase answers
+		reply(map[string]any{"neighbor": blankNeighbor()})
 	case strings.HasPrefix(p, "/api/quagga/ospfsettings/getNeighbor/"):
 		n := f.nbrs[strings.TrimPrefix(p, "/api/quagga/ospfsettings/getNeighbor/")]
+		if n == nil && f.fullTemplate {
+			reply(map[string]any{"neighbor": blankNeighbor()})
+			return
+		}
 		if n == nil {
 			reply([]any{})
 			return
@@ -150,6 +166,10 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 		n := f.nbrs[strings.TrimPrefix(p, "/api/quagga/ospfsettings/toggleNeighbor/")]
 		if n == nil {
 			reply(map[string]any{"result": "failed"})
+			return
+		}
+		if f.toggleIgnored {
+			reply(map[string]any{"result": map[string]string{"1": "Disabled", "0": "Enabled"}[n["enabled"]], "changed": true})
 			return
 		}
 		if n["enabled"] == "1" {
@@ -225,6 +245,9 @@ func (f *fakeFirewall) store(n map[string]string, in map[string]any) {
 	for k, v := range in {
 		if _, known := n[k]; known && !f.dropSets[k] {
 			n[k] = fmt.Sprint(v)
+			if f.encodeSets[k] {
+				n[k] = base64.StdEncoding.EncodeToString([]byte(n[k]))
+			}
 		}
 	}
 }
@@ -237,4 +260,10 @@ func (f *fakeFirewall) ospfObject() map[string]any {
 		o[k] = v
 	}
 	return o
+}
+
+// blankNeighbor: what getNeighbor answers without a UUID (a new entry with
+// the model's defaults).
+func blankNeighbor() map[string]any {
+	return map[string]any{"enabled": "1", "description": "", "address": "", "pollinterval": "", "priority": ""}
 }

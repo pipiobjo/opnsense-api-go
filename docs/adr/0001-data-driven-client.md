@@ -50,7 +50,9 @@ Rules that follow from OPNsense's behaviour, each observed on a test VM
 3. Existence is decided by the list (search): for an unknown ID, `set`
    creates a new entry under that ID, `get` answers `[]` in most
    controllers but a blank template in some (os-nginx). So `Set`,
-   `Toggle` and the confirmation after `Delete` ask the list.
+   `Toggle` and the confirmation after `Delete` ask the list, and `Get`
+   asks it when the answer is incomplete or equals the blank template
+   (independent review, 2026-11-16).
 4. Fields the firewall or the endpoint sets itself are refused before
    sending: `UniqueIdField`, `AutoNumberField`, `JsonAuditField`, and the
    `forced` and `computed` fields of the operation (bind domain types, the
@@ -69,13 +71,23 @@ Rules that follow from OPNsense's behaviour, each observed on a test VM
 8. GET requests carry no body and no `Content-Type` (HTTP 400 otherwise);
    only they are retried. Redirects are refused.
 9. Resolution order for packages: the exact combination; the same version
-   seen on other frameworks with one identical fragment; the nearest older
-   core of the series; the newest fragment of the series (assumed). A core
-   version that is not in the data uses another hotfix revision of the same
-   release, else the nearest core of the series. Nearest data of a known
-   release or plugin version is a note, a version the data has never seen
-   a warning ([ADR 0002](0002-operation-without-maintenance.md));
-   `Refuse` turns both into errors.
+   seen on other frameworks with one identical fragment (a note); the
+   nearest older core of the series (a note); for a version the data has
+   never seen, the data of the nearest older known version of the series (a
+   warning). Never newer data than the installed version: a package older
+   than all data of its series uses the oldest data read-only (writes fail
+   with `ErrReadOnly`). A core version that is not in the data uses another
+   hotfix revision of the same release, else the nearest older core of the
+   series; a core older than the data of its series is read-only too. A
+   series the data does not cover fails `New` (`ErrSeriesNotInData`): a
+   series change can change the framework, so it is not guessed. `Refuse`
+   turns every note and warning into an error, and also refuses a package
+   the data has but not for this series ([ADR 0002](0002-operation-without-maintenance.md)).
+10. Read-back exceptions, all visible in the README: write-only fields are
+   not compared (never returned); volatile fields are refused before
+   sending (never stored); transformed fields only must not come back
+   empty. With `AutoApply` the read-back comes before the apply, and both
+   results are returned.
 
 ## Consequences
 
@@ -93,6 +105,12 @@ Rules that follow from OPNsense's behaviour, each observed on a test VM
 - Independent review of the first draft (2026-11-15): 9 findings from
   path handling to an Apply race; each fixed with a test that fails without
   the fix.
+- Second independent review (2026-11-16): 11 findings (toggle without
+  read-back, complete blank templates, volatile and transformed fields,
+  series and version fallback, an own HTTP client dropping the pin,
+  AutoApply order, detection fallback, untyped errors, data directory
+  links and size, tests that could not fail); each fixed with a test seen
+  failing first.
 - Unit tests with a fake firewall that reproduces the recorded behaviour
   (unknown keys ignored, `[]` for unknown UUIDs, creation by set); every
   rule above has a test that fails when the rule is removed.

@@ -415,7 +415,7 @@ func TestTransformedFieldIsWrittenNotCompared(t *testing.T) {
 	}
 	api.Operations["add"].Transformed = []string{"description"}
 	n.b.api = &api
-	f.dropSets["description"] = true // stored differently: reads back as ""
+	f.encodeSets = map[string]bool{"description": true} // stored base64-encoded, as nginx error pages
 	if _, err := n.Add(ctx, Values{"address": "192.0.2.10", "description": "x"}); err != nil {
 		t.Errorf("transformed field compared on read-back: %v", err)
 	}

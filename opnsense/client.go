@@ -91,7 +91,10 @@ type Config struct {
 	Timeout      time.Duration // per request, default 60s
 	ApplyTimeout time.Duration // apply endpoints, default 5m
 	Logger       *slog.Logger  // debug log: method, path, status, duration; never bodies or credentials
-	HTTPClient   *http.Client  // replaces the built-in HTTP client (tests); TLS settings are then not used
+	// HTTPClient replaces the built-in HTTP client, for example for a proxy
+	// or tracing. Its transport then decides about TLS entirely, so it
+	// cannot be combined with TLS settings (New refuses that).
+	HTTPClient *http.Client
 }
 
 // Instance describes the detected firewall. The client returns a copy.
@@ -118,9 +121,12 @@ type Client struct {
 	inst Instance
 	owns map[string][]string // resource -> packages that define it
 
-	mu      sync.Mutex
-	pending map[string]uint64      // apply endpoint -> generation of the last mutation
-	locks   map[string]*sync.Mutex // per model class, and per apply endpoint ("apply:<path>")
+	mu        sync.Mutex
+	pending   map[string]uint64         // apply endpoint -> generation of the last mutation
+	locks     map[string]*sync.Mutex    // per model class, and per apply endpoint ("apply:<path>")
+	templates map[string]map[string]any // entry list -> its blank template (get without UUID)
+
+	pluginsUnknown bool // the key may not read the plugin list
 }
 
 // New checks the data, connects, detects the firewall and resolves the
@@ -131,12 +137,21 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		if cfg.CapabilityDir == "" {
 			return nil, errors.New("opnsense: no capability data (Config.Capabilities or Config.CapabilityDir)")
 		}
-		var err error
-		if data, err = capability.Load(os.DirFS(cfg.CapabilityDir)); err != nil {
+		// opened as a root: symbolic links cannot lead outside the directory
+		root, err := os.OpenRoot(cfg.CapabilityDir)
+		if err != nil {
+			return nil, fmt.Errorf("opnsense: capability data: %w", err)
+		}
+		data, err = capability.Load(root.FS())
+		root.Close()
+		if err != nil {
 			return nil, fmt.Errorf("opnsense: capability data: %w", err)
 		}
 	} else if err := data.Check(); err != nil {
 		return nil, fmt.Errorf("opnsense: capability data: %w", err)
+	}
+	if cfg.HTTPClient != nil && (cfg.TLS.PinSHA256 != "" || cfg.TLS.CAFile != "" || len(cfg.TLS.CAPEM) > 0 || cfg.TLS.InsecureSkipVerify) {
+		return nil, errors.New("opnsense: Config.HTTPClient replaces the built-in transport and its TLS settings; set either HTTPClient or TLS, not both")
 	}
 	tc := transport.Config{URL: cfg.URL, Key: cfg.Key, Secret: cfg.Secret, Pin: cfg.TLS.PinSHA256,
 		CAPEM: cfg.TLS.CAPEM, Insecure: cfg.TLS.InsecureSkipVerify, Timeout: cfg.Timeout, Logger: cfg.Logger, HTTP: cfg.HTTPClient}
@@ -155,7 +170,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		cfg.ApplyTimeout = 5 * time.Minute
 	}
 	c := &Client{cfg: cfg, t: t, data: data, owns: map[string][]string{},
-		pending: map[string]uint64{}, locks: map[string]*sync.Mutex{}}
+		pending: map[string]uint64{}, locks: map[string]*sync.Mutex{}, templates: map[string]map[string]any{}}
 	for pkg, d := range data.Docs {
 		for id := range d.Resources {
 			c.owns[id] = append(c.owns[id], pkg)
@@ -212,8 +227,11 @@ func (c *Client) detect(ctx context.Context) error {
 	}
 	inst := Instance{Plugins: map[string]string{}}
 	err := c.t.Get(ctx, "/api/core/firmware/info", nil, &info)
-	if errors.Is(err, ErrUnauthorized) {
-		return err // wrong key or secret: no fallback helps
+	if err != nil && !errors.Is(err, ErrForbidden) {
+		// only a missing privilege has a fallback; anything else (wrong key,
+		// HTTP 500, a timeout) would leave a client that believes no plugin
+		// is installed
+		return fmt.Errorf("opnsense: detecting the firmware (GET /api/core/firmware/info): %w", err)
 	}
 	if err == nil {
 		inst.Core = info.ProductVersion
@@ -231,8 +249,8 @@ func (c *Client) detect(ctx context.Context) error {
 			}
 		}
 	} else {
-		// e.g. a key without the firmware privilege (403): the core version
-		// alone, plugins unknown
+		// a key without the firmware privilege (403): the core version alone,
+		// plugins unknown
 		var st struct {
 			ProductVersion string `json:"product_version"`
 			Product        struct {
@@ -247,6 +265,7 @@ func (c *Client) detect(ctx context.Context) error {
 			inst.Core = st.Product.ProductVersion
 		}
 		inst.Warnings = append(inst.Warnings, "plugin list not available ("+err.Error()+"); only the core is used")
+		c.pluginsUnknown = true
 	}
 	if inst.Core == "" {
 		return errors.New("opnsense: the firewall did not report its version")
@@ -278,6 +297,15 @@ type bound struct {
 	res      *capability.Resource
 	api      *capability.API
 	verified *capability.ResVerify
+	readOnly string // why writes are refused, "" if they are allowed
+}
+
+// writable refuses writes to a package older than its data (ErrReadOnly).
+func (b *bound) writable() error {
+	if b.readOnly == "" {
+		return nil
+	}
+	return &ErrReadOnly{Resource: b.id, Package: b.pkg, Have: b.version, Reason: b.readOnly}
 }
 
 func (c *Client) bind(id, kind string) (*bound, error) {
@@ -291,19 +319,29 @@ func (c *Client) bind(id, kind string) (*bound, error) {
 		res := c.inst.Resolved.Packages[pkg]
 		if res != nil && res.Fragment != "" && r.Available(res.Fragment) {
 			if r.Kind != kind {
-				return nil, fmt.Errorf("opnsense: %s is a %s resource, not %s", id, r.Kind, kind)
+				return nil, &ErrWrongKind{Resource: id, Kind: r.Kind, Want: kind}
 			}
 			api := r.APIFor(res.Fragment)
 			if api == nil {
 				return nil, fmt.Errorf("opnsense: %s: no API variant for fragment %s", id, res.Fragment)
 			}
-			return &bound{c: c, id: id, pkg: pkg, version: res.Version, frag: res.Fragment, res: r,
-				api: api, verified: r.Verified[res.Fragment]}, nil
+			b := &bound{c: c, id: id, pkg: pkg, version: res.Version, frag: res.Fragment, res: r,
+				api: api, verified: r.Verified[res.Fragment]}
+			if res.ReadOnly {
+				b.readOnly = res.Warning
+			}
+			// a resource of the core needs the core to be writable as well
+			if core := c.inst.Resolved.Packages[capability.CorePackage]; pkg != capability.CorePackage && core != nil && core.ReadOnly && b.readOnly == "" {
+				b.readOnly = core.Warning
+			}
+			return b, nil
 		}
 		if first == nil {
 			e := &ErrNotAvailable{Resource: id, Package: pkg, AvailableIn: c.versions(pkg, r.In)}
 			if res != nil {
 				e.Have = res.Version
+			} else if pkg != capability.CorePackage {
+				e.PluginsUnknown = c.pluginsUnknown
 			}
 			first = e
 		}
@@ -410,12 +448,16 @@ func applyOK(resp map[string]any) bool {
 	return false
 }
 
-func (c *Client) afterMutation(ctx context.Context, apply string) error {
-	c.markPending(apply)
+// finish completes a mutation that reached the firewall: the apply
+// endpoint is already pending (markPending right after the request); the
+// read-back result comes first, then AutoApply. Both errors are returned,
+// so a failing apply cannot hide a value the firewall did not keep.
+func (c *Client) finish(ctx context.Context, apply string, readBack error) error {
+	var applyErr error
 	if c.cfg.AutoApply && apply != "" {
-		return c.applyEndpoint(ctx, apply)
+		applyErr = c.applyEndpoint(ctx, apply)
 	}
-	return nil
+	return errors.Join(readBack, applyErr)
 }
 
 // Call sends a request to any API path of this firewall and decodes the

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/pipiobjo/opnsense-api-go/internal/transport"
+	"github.com/pipiobjo/opnsense-api-go/opnsense/capability"
 )
 
 // ErrUnauthorized: key and secret were rejected (HTTP 401).
@@ -31,12 +32,18 @@ type ErrNotAvailable struct {
 	Package     string   // package that provides it ("" if no package does)
 	Have        string   // installed version, "" if not installed
 	AvailableIn []string // package versions that have it
+	// PluginsUnknown: the API key may not read the plugin list (no firmware
+	// privilege), so the client cannot tell whether the package is
+	// installed.
+	PluginsUnknown bool
 }
 
 func (e *ErrNotAvailable) Error() string {
 	switch {
 	case e.Package == "":
 		return fmt.Sprintf("opnsense: resource %s is not in the capability data", e.Resource)
+	case e.PluginsUnknown:
+		return fmt.Sprintf("opnsense: resource %s needs package %s, but the plugin list is unknown (the API key lacks the firmware privilege)", e.Resource, e.Package)
 	case e.Have == "":
 		return fmt.Sprintf("opnsense: resource %s needs package %s, which is not installed", e.Resource, e.Package)
 	}
@@ -143,6 +150,80 @@ type ErrDecode struct {
 
 func (e *ErrDecode) Error() string {
 	return fmt.Sprintf("opnsense: %s: fields not decoded: %s", e.Resource, joinMap(e.Fields))
+}
+
+// ErrSeriesNotInData: the firewall runs a series the capability data does
+// not cover; for a newer series (Newer) update the capability data. New
+// fails with it: guessing across a series change is not safe.
+type ErrSeriesNotInData = capability.ErrSeriesNotInData
+
+// ErrReadOnly: the installed package is older than every version of its
+// series in the capability data. The data may describe fields that version
+// lacks, so writes are refused; reading works. Update the package, or use
+// capability data that covers its version.
+type ErrReadOnly struct {
+	Resource, Package, Have string
+	Reason                  string
+}
+
+func (e *ErrReadOnly) Error() string {
+	return fmt.Sprintf("opnsense: %s: writes refused: %s", e.Resource, e.Reason)
+}
+
+// ErrWrongKind: Settings asked for an entry list, or Entries for settings.
+type ErrWrongKind struct {
+	Resource   string
+	Kind, Want string // "settings" or "entries"
+}
+
+func (e *ErrWrongKind) Error() string {
+	return fmt.Sprintf("opnsense: %s is a %s resource, not %s", e.Resource, e.Kind, e.Want)
+}
+
+// ErrNoOperation: the resource has no such operation in this version (for
+// example no toggle, or no search).
+type ErrNoOperation struct {
+	Resource, Operation string
+	Package, Have       string
+}
+
+func (e *ErrNoOperation) Error() string {
+	return fmt.Sprintf("opnsense: %s has no %q operation in %s %s", e.Resource, e.Operation, e.Package, e.Have)
+}
+
+// ErrUnexpectedAnswer: the firewall answered a mutation in a way the client
+// cannot interpret. The mutation may have taken effect; its apply endpoint
+// is marked pending. ID is the entry concerned, if known.
+type ErrUnexpectedAnswer struct {
+	Resource, Operation, ID string
+	Answer                  string // at most 300 bytes
+}
+
+func (e *ErrUnexpectedAnswer) Error() string {
+	id := ""
+	if e.ID != "" {
+		id = " " + e.ID
+	}
+	return fmt.Sprintf("opnsense: %s%s: unexpected answer to %s: %s", e.Resource, id, e.Operation, transport.Trunc([]byte(e.Answer)))
+}
+
+// ErrStillExists: the firewall answered a delete, but the entry is still
+// listed afterwards.
+type ErrStillExists struct{ Resource, ID string }
+
+func (e *ErrStillExists) Error() string {
+	return fmt.Sprintf("opnsense: %s %s: delete answered, but the entry still exists", e.Resource, e.ID)
+}
+
+// ErrIncompleteList: a search returned fewer rows than its total (paged or
+// cut); the list cannot be trusted.
+type ErrIncompleteList struct {
+	Resource   string
+	Got, Total int
+}
+
+func (e *ErrIncompleteList) Error() string {
+	return fmt.Sprintf("opnsense: %s: search returned %d of %d rows", e.Resource, e.Got, e.Total)
 }
 
 func versionList(vs []string) string {

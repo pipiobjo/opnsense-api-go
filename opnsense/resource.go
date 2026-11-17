@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -78,6 +79,9 @@ func checkID(id string) error {
 // entry exists and the UUID is returned together with ErrNotApplied.
 func (e *Entries) Add(ctx context.Context, v Values) (string, error) {
 	b := e.b
+	if err := b.writable(); err != nil {
+		return "", err
+	}
 	op, err := b.op("add")
 	if err != nil {
 		return "", err
@@ -91,17 +95,16 @@ func (e *Entries) Add(ctx context.Context, v Values) (string, error) {
 	if err := b.c.t.Post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, 0); err != nil {
 		return "", err
 	}
-	if err := b.result(resp, "saved"); err != nil {
+	if err := b.result(resp, "saved", "add", ""); err != nil {
 		return "", err
 	}
+	b.c.markPending(b.api.Apply)
 	id, _ := resp["uuid"].(string)
 	if checkID(id) != nil {
-		return "", fmt.Errorf("opnsense: %s: add answered without a valid id", b.id)
+		// "saved" without a usable id: the entry was probably created
+		return "", &ErrUnexpectedAnswer{Resource: b.id, Operation: "add", Answer: fmt.Sprint(resp)}
 	}
-	if err := b.c.afterMutation(ctx, b.api.Apply); err != nil {
-		return id, err
-	}
-	return id, b.readBack(ctx, id, sent, op)
+	return id, b.c.finish(ctx, b.api.Apply, b.readBack(ctx, id, sent, op))
 }
 
 // Get reads one entry; ErrNotFound if it does not exist. With an
@@ -114,9 +117,10 @@ func (e *Entries) Get(ctx context.Context, id string) (Values, error) {
 	if err != nil {
 		return nil, err
 	}
-	if e.b.incomplete(obj) {
+	if e.b.incomplete(obj) || e.b.isTemplate(ctx, obj) {
 		// some plugins answer an unknown UUID with a blank template instead
-		// of [] (os-nginx error pages on 26.7.9): ask the list
+		// of [] (os-nginx error pages on 26.7.9), partial or complete: the
+		// list decides
 		if err := e.b.exists(ctx, id); err != nil {
 			return nil, err
 		}
@@ -136,6 +140,9 @@ func (e *Entries) GetRaw(ctx context.Context, id string) (map[string]any, error)
 // Set changes the given fields of an entry; other fields keep their values.
 func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 	b := e.b
+	if err := b.writable(); err != nil {
+		return err
+	}
 	if err := checkID(id); err != nil {
 		return err
 	}
@@ -159,19 +166,20 @@ func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 	if err := b.c.t.Post(ctx, b.path(op, id), map[string]any{b.wrapper(op): body}, &resp, 0); err != nil {
 		return err
 	}
-	if err := b.result(resp, "saved"); err != nil {
+	if err := b.result(resp, "saved", "set", id); err != nil {
 		return err
 	}
-	if err := b.c.afterMutation(ctx, b.api.Apply); err != nil {
-		return err
-	}
-	return b.readBack(ctx, id, sent, op)
+	b.c.markPending(b.api.Apply)
+	return b.c.finish(ctx, b.api.Apply, b.readBack(ctx, id, sent, op))
 }
 
 // Delete removes an entry and confirms it is gone; ErrNotFound if it did
 // not exist.
 func (e *Entries) Delete(ctx context.Context, id string) error {
 	b := e.b
+	if err := b.writable(); err != nil {
+		return err
+	}
 	if err := checkID(id); err != nil {
 		return err
 	}
@@ -188,27 +196,31 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	if _, answered := resp["result"]; answered || !hasGap(op, "result-not-returned") {
-		if err := b.result(resp, "deleted"); err != nil {
+		if err := b.result(resp, "deleted", "del", id); err != nil {
 			return err
 		}
 	} // else: the endpoint answers nothing; the check below decides
-	if err := b.c.afterMutation(ctx, b.api.Apply); err != nil {
-		return err
-	}
+	b.c.markPending(b.api.Apply)
+	var confirm error
 	if err := b.exists(ctx, id); !errors.Is(err, ErrNotFound) {
 		if err == nil {
-			return fmt.Errorf("opnsense: %s %s: answered \"deleted\" but the entry still exists", b.id, id)
+			confirm = &ErrStillExists{Resource: b.id, ID: id}
+		} else {
+			confirm = fmt.Errorf("opnsense: %s %s: confirming the delete: %w", b.id, id, err)
 		}
-		return fmt.Errorf("opnsense: %s %s: confirming the delete: %w", b.id, id, err)
 	}
-	return nil
+	return b.c.finish(ctx, b.api.Apply, confirm)
 }
 
 // Toggle enables or disables an entry through the resource's toggle
-// operation and confirms the new state. Without a target-state parameter
+// operation and confirms the new state by reading the entry again
+// (ErrNotApplied if it did not change). Without a target-state parameter
 // the endpoint flips the state, so the current one is read first.
 func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	b := e.b
+	if err := b.writable(); err != nil {
+		return err
+	}
 	if err := checkID(id); err != nil {
 		return err
 	}
@@ -241,11 +253,24 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	if err := b.c.t.Post(ctx, p, nil, &resp, 0); err != nil {
 		return err
 	}
-	want := map[bool]string{true: "Enabled", false: "Disabled"}[enabled]
-	if r, _ := resp["result"].(string); r != want {
-		return fmt.Errorf("opnsense: %s %s: toggle answered %s", b.id, id, transport.Trunc([]byte(fmt.Sprint(resp))))
+	b.c.markPending(b.api.Apply) // the toggle reached the firewall
+	// the entry decides, not the answer
+	wantWire := map[bool]string{true: "1", false: "0"}[enabled]
+	var check error
+	if _, has := lookup(obj, "enabled"); has {
+		after, err := b.getObject(ctx, id)
+		if err != nil {
+			return b.c.finish(ctx, b.api.Apply, fmt.Errorf("opnsense: %s %s: reading back after the toggle: %w", b.id, id, err))
+		}
+		got, _ := lookup(after, "enabled")
+		if s, _ := got.(string); s != wantWire {
+			check = &ErrNotApplied{Resource: b.id, ID: id, Diffs: []FieldDiff{{Field: "enabled", Sent: wantWire, Got: fmt.Sprint(got)}}}
+		}
+	} else if r, _ := resp["result"].(string); r != map[bool]string{true: "Enabled", false: "Disabled"}[enabled] {
+		// no "enabled" field to read: only the answer can tell
+		check = &ErrUnexpectedAnswer{Resource: b.id, Operation: "toggle", ID: id, Answer: fmt.Sprint(resp)}
 	}
-	return b.c.afterMutation(ctx, b.api.Apply)
+	return b.c.finish(ctx, b.api.Apply, check)
 }
 
 // List returns the UUIDs of all entries.
@@ -282,7 +307,7 @@ func (e *Entries) List(ctx context.Context) ([]string, error) {
 	// ("lockout_0", "lockout_1") that it does not count (measured on
 	// 26.1.11_10, 2026-11-16).
 	if resp.Total != nil && len(ids) < *resp.Total {
-		return nil, fmt.Errorf("opnsense: %s: search returned %d of %d rows", b.id, len(ids), *resp.Total)
+		return nil, &ErrIncompleteList{Resource: b.id, Got: len(ids), Total: *resp.Total}
 	}
 	return ids, nil
 }
@@ -306,6 +331,9 @@ func (s *Settings) GetRaw(ctx context.Context) (map[string]any, error) {
 // Set changes the given fields; other fields keep their values.
 func (s *Settings) Set(ctx context.Context, v Values) error {
 	b := s.b
+	if err := b.writable(); err != nil {
+		return err
+	}
 	op, err := b.op("set")
 	if err != nil {
 		return err
@@ -319,20 +347,18 @@ func (s *Settings) Set(ctx context.Context, v Values) error {
 	if err := b.c.t.Post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, 0); err != nil {
 		return err
 	}
-	if err := b.result(resp, "saved"); err != nil {
+	if err := b.result(resp, "saved", "set", ""); err != nil {
 		return err
 	}
-	if err := b.c.afterMutation(ctx, b.api.Apply); err != nil {
-		return err
-	}
-	return b.readBack(ctx, "", sent, op)
+	b.c.markPending(b.api.Apply)
+	return b.c.finish(ctx, b.api.Apply, b.readBack(ctx, "", sent, op))
 }
 
 // ---------------------------------------------------------------- helpers
 
 func (b *bound) op(name string) (*capability.Operation, error) {
 	if b.api.Operations[name] == nil {
-		return nil, fmt.Errorf("opnsense: %s has no %q operation in %s %s", b.id, name, b.pkg, b.version)
+		return nil, &ErrNoOperation{Resource: b.id, Operation: name, Package: b.pkg, Have: b.version}
 	}
 	return b.api.Operations[name], nil
 }
@@ -390,6 +416,10 @@ func (b *bound) encode(v Values, op *capability.Operation) (map[string]any, map[
 		}
 		if f.ServerSet() {
 			problems[name] = "set by the firewall; it cannot be written"
+			continue
+		}
+		if f.Volatile {
+			problems[name] = "not stored by the firewall (volatile); it cannot be managed"
 			continue
 		}
 		if how, ok := op.Overwrites(name); ok {
@@ -569,8 +599,9 @@ func (b *bound) decode(obj map[string]any) (Values, error) {
 }
 
 // readBack compares what was sent with what the firewall now returns.
-// Write-only, volatile and transformed fields (stored in another form by
-// this endpoint) are skipped.
+// Write-only fields (never returned) are skipped; volatile fields are never
+// sent (encode refuses them); transformed fields (stored in another form by
+// this endpoint) must at least not come back empty.
 func (b *bound) readBack(ctx context.Context, id string, sent map[string]string, op *capability.Operation) error {
 	obj, err := b.getObject(ctx, id)
 	if err != nil {
@@ -584,7 +615,15 @@ func (b *bound) readBack(ctx context.Context, id string, sent map[string]string,
 	sort.Strings(names)
 	for _, name := range names {
 		f := b.res.FieldFor(name, b.frag)
-		if f.WriteOnly() || f.Volatile || (op != nil && op.Transforms(name)) {
+		if f.WriteOnly() || f.Volatile {
+			continue
+		}
+		if op != nil && op.Transforms(name) {
+			// stored in another form: the value cannot be compared, but a
+			// value sent must not come back empty
+			if raw, ok := lookup(obj, name); sent[name] != "" && (!ok || raw == nil || raw == "") {
+				diffs = append(diffs, FieldDiff{Field: name, Sent: sent[name], Got: "", Cause: "transformed"})
+			}
 			continue
 		}
 		raw, ok := lookup(obj, name)
@@ -626,8 +665,10 @@ func (b *bound) readBack(ctx context.Context, id string, sent map[string]string,
 	return nil
 }
 
-// result checks the "result" of a mutation.
-func (b *bound) result(resp map[string]any, want string) error {
+// result checks the "result" of a mutation (operation op on entry id).
+// "failed" is a validation error and changed nothing; any other answer
+// may have changed something, so the apply endpoint is marked pending.
+func (b *bound) result(resp map[string]any, want, op, id string) error {
 	r, _ := resp["result"].(string)
 	if r == want {
 		return nil
@@ -647,7 +688,8 @@ func (b *bound) result(resp map[string]any, want string) error {
 		}
 		return e
 	}
-	return fmt.Errorf("opnsense: %s: unexpected answer %s", b.id, transport.Trunc([]byte(fmt.Sprint(resp))))
+	b.c.markPending(b.api.Apply)
+	return &ErrUnexpectedAnswer{Resource: b.id, Operation: op, ID: id, Answer: fmt.Sprint(resp)}
 }
 
 func contains(list []string, s string) bool {
@@ -670,4 +712,28 @@ func uniq(in []string) []string {
 		}
 	}
 	return out
+}
+
+// isTemplate: the object equals the blank template of a new entry (what
+// get answers without a UUID). Fetched once per entry list and client; an
+// endpoint that needs a UUID has no template, and then this is false.
+func (b *bound) isTemplate(ctx context.Context, obj map[string]any) bool {
+	op, err := b.op("get")
+	if err != nil || len(op.Params) == 0 || !strings.HasSuffix(op.Params[0], "?") {
+		return false
+	}
+	b.c.mu.Lock()
+	tmpl, ok := b.c.templates[b.id]
+	b.c.mu.Unlock()
+	if !ok {
+		t, err := b.getObject(ctx, "")
+		if err != nil {
+			return false
+		}
+		tmpl = t
+		b.c.mu.Lock()
+		b.c.templates[b.id] = tmpl
+		b.c.mu.Unlock()
+	}
+	return reflect.DeepEqual(obj, tmpl)
 }

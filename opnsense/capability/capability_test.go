@@ -37,7 +37,8 @@ func TestResolveReal(t *testing.T) {
 		// usual after an update: a note, not a warning
 		{"other hotfix revision of a known release", "26.7.9", "2.1", "26.7.9_1", MatchNearest, MatchExact, "b04bde19061e2dec", "", "same release, other hotfix revision"},
 		{"newer release of a known series", "26.7.10", "2.1", "26.7.9_1", MatchAssumed, MatchExact, "b04bde19061e2dec", "assuming 26.7.9_1", ""},
-		{"same plugin version, other framework, same fragment", "26.7.9_1", "1.55", "26.7.9_1", MatchExact, MatchExact, "1debf887d1d01f6e", "", ""},
+		// seen only on other cores (same API everywhere): a note, not "exact"
+		{"same plugin version, other framework, same fragment", "26.7.9_1", "1.55", "26.7.9_1", MatchExact, MatchNearest, "1debf887d1d01f6e", "", "its API was the same on every core"},
 		{"unknown plugin version", "26.7.9_1", "9.9", "26.7.9_1", MatchExact, MatchAssumed, "b04bde19061e2dec", "os-frr 9.9 is not in the data", ""},
 	}
 	for _, c := range cases {

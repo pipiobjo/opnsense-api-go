@@ -6,7 +6,8 @@ plugins, looks up what exactly that combination offers in the
 [capability data](https://github.com/pipiobjo/opnsense-api-spec/blob/main/docs/capabilities.md)
 of [opnsense-api-spec](https://github.com/pipiobjo/opnsense-api-spec), and
 refuses to send a resource, field or value that version does not have.
-After every write it reads the object back and compares.
+After every write it reads the object back and compares (exceptions: see
+[Behaviour](#behaviour)).
 
 Why this matters: OPNsense silently ignores keys it does not know and
 answers `"saved"`. A client that sends a field from another version, or a
@@ -52,24 +53,33 @@ is the client's job.
 
 | Situation | Result |
 |---|---|
-| Resource not installed or not in this version | `*ErrNotAvailable` with the versions that have it |
+| Resource not installed or not in this version | `*ErrNotAvailable` with the versions that have it; `PluginsUnknown` when the API key may not read the plugin list |
+| Firewall on a series the data does not cover (e.g. 27.1 with data up to 26.7) | `New` fails with `*ErrSeriesNotInData` (`Newer` set): update the capability data. Not guessed, because a series change can change the framework the API comes from |
+| Installed package older than every version of its series in the data | reading works; every write fails with `*ErrReadOnly`, because the data may describe fields that version lacks |
+| Wrong resource kind, or an operation the resource does not have | `*ErrWrongKind`, `*ErrNoOperation` |
 | Field not in this version (or misspelled) | `*ErrFieldNotAvailable` with the versions that have it; nothing is sent |
-| Wrong type; value not in a complete option list; a field the firewall or the endpoint sets itself | `*ErrInvalid`; nothing is sent |
+| Wrong type; value not in a complete option list; a field the firewall or the endpoint sets itself; a field the firewall does not store (`volatile`) | `*ErrInvalid`; nothing is sent |
 | Firewall rejects the values (including missing required ones) | `*ErrValidation` with the firewall's message per field |
-| Firewall says "saved" but reads back differently | `*ErrNotApplied` with sent and read values (after `Add` the ID is returned too: the entry exists). Each difference carries a `Cause` from the capability data: `custom-write` (the field's type converts values on write), `custom-save` (the firewall stores the resource through its own code, which may drop values that do not apply to the rest of the entry), or empty (unexplained). It stays an error either way |
-| Entry does not exist | `ErrNotFound`; `Set`, `Toggle` and `Delete` check through the list first, because OPNsense would create a new entry under an unknown ID, and some plugins answer an unknown ID with a blank template |
+| Firewall says "saved" but reads back differently | `*ErrNotApplied` with sent and read values (after `Add` the ID is returned too: the entry exists). Each difference carries a `Cause` from the capability data: `custom-write` (the field's type converts values on write), `custom-save` (the firewall stores the resource through its own code, which may drop values that do not apply to the rest of the entry), or empty (unexplained). It stays an error either way. Not compared: write-only fields (passwords; the firewall never returns them) and fields the endpoint stores in another form (`transformed`, e.g. base64): for these only an empty read-back is reported |
+| `Toggle` | the entry is read again; if `enabled` did not change, `*ErrNotApplied` |
+| Entry does not exist | `ErrNotFound`; `Set`, `Toggle` and `Delete` check through the list first, because OPNsense would create a new entry under an unknown ID. `Get` asks the list too when the answer is incomplete or equals the blank template, because some plugins answer an unknown ID with one |
+| Delete answered, but the entry is still listed | `*ErrStillExists` |
+| Search answered with fewer rows than its total | `*ErrIncompleteList` (more rows than the total is accepted: 26.1's `firewall/d_nat` adds two uncounted anti-lockout rules) |
+| A mutation answered in a way the client cannot interpret (e.g. "saved" without an ID) | `*ErrUnexpectedAnswer`; the mutation may have taken effect, so its apply endpoint is marked pending |
 | One field of an object has an unexpected shape | the other fields are returned together with `*ErrDecode` |
-| An apply endpoint does not report ok | `*ErrApply`; the endpoint stays pending |
-| Key or secret wrong / privilege missing | `ErrUnauthorized` / `ErrForbidden`; credentials never appear in errors or logs |
+| An apply endpoint does not report ok | `*ErrApply`; the endpoint stays pending. With `AutoApply` the read-back comes first; both errors are returned |
+| Key or secret wrong / privilege missing | `ErrUnauthorized` / `ErrForbidden`; credentials never appear in errors or logs. Only a missing firmware privilege lets `New` continue with the core alone; any other failure to read the plugin list fails `New` |
 
 Detection resolves each installed package to the data that describes it:
 exact when the pipeline has seen the combination; otherwise, by default,
-the nearest data of the same series. Another hotfix revision of a known
-release, or a known plugin version seen on another core, is a note in
+the nearest older data of the same series. Another hotfix revision of a
+known release, or a known plugin version seen on other cores, is a note in
 `Instance().Notes` (usual, nothing to do). A release or plugin version the
-data has never seen is a warning in `Instance().Warnings`.
-`UnknownVersion: opnsense.Refuse` turns both into errors. Read-back still
-protects every write.
+data has never seen is a warning in `Instance().Warnings`; the data of the
+nearest older known version is used, never newer data (a version older
+than all data is read-only, see above). `UnknownVersion: opnsense.Refuse`
+turns notes and warnings into errors, also for a package the data has but
+not for this series. Read-back still protects every write.
 
 ### Capability data
 
@@ -89,8 +99,10 @@ after the planned OpenTofu provider has used it. Until then,
 published pipeline state (it needs Go, `curl`, `zstd` and `jq`).
 
 You do not have to update it for every OPNsense release: with older data
-the client keeps working on a newer firewall and refuses only fields and
-resources it does not know yet. Update it when you need one of them.
+the client keeps working on a newer firewall of the same series and refuses
+only fields and resources it does not know yet. Update it when you need one
+of them, and before the firewall moves to a new series (`*ErrSeriesNotInData`
+otherwise).
 
 What the client deliberately does not check before sending, because the
 data cannot know it reliably: required fields (controllers fill some of
@@ -122,7 +134,9 @@ exactly one of them:
 
 Redirects are never followed, the URL may not contain credentials, and only
 GET requests are retried (on connection errors, never on certificate
-errors).
+errors). `Config.HTTPClient` replaces the built-in transport entirely; it
+cannot be combined with these settings (`New` refuses that), so a pin is
+never dropped silently.
 
 ## Status
 

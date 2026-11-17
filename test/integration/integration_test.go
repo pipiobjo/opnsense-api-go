@@ -219,14 +219,16 @@ func TestEveryVerifiedResource(t *testing.T) {
 					if !writable {
 						return
 					}
-					name, val, ok := unchangedValue(cur, s.Fields())
+					// a different value, then the original again: writing the
+					// current value back could not tell a stored write from an
+					// ignored one
+					name, val, ok := flippable(cur, s.Fields())
 					if !ok {
-						t.Logf("no plain field to write back")
-						return
+						t.Skip("no boolean field to change and restore")
 					}
 					var na *opnsense.ErrNotApplied
 					var val2 *opnsense.ErrValidation
-					err = s.Set(ctx, opnsense.Values{name: val})
+					err = s.Set(ctx, opnsense.Values{name: !val})
 					switch {
 					case errors.As(err, &na):
 						tolerated += expectedDiffs(t, na, nil)
@@ -235,8 +237,16 @@ func TestEveryVerifiedResource(t *testing.T) {
 						// its default state on this instance (the recorded
 						// write verification may come from another core)
 						t.Skipf("model not valid in its default state here: %v", err)
+					case errors.As(err, &val2):
+						// the other value is not allowed in this state (a
+						// dependency between fields): the write was checked
+						t.Logf("%s=%v rejected by the firewall's validation: %v", name, !val, err)
+						return
 					case err != nil:
-						t.Errorf("set %s to its current value: %v", name, err)
+						t.Errorf("set %s to %v: %v", name, !val, err)
+					}
+					if err := s.Set(ctx, opnsense.Values{name: val}); err != nil && !errors.As(err, &na) {
+						t.Errorf("restore %s to %v: %v", name, val, err)
 					}
 				})
 				tested++
@@ -277,9 +287,14 @@ func TestEveryVerifiedResource(t *testing.T) {
 					}
 					var val *opnsense.ErrValidation
 					if errors.As(err, &val) {
-						// the sample refers to something only the contract
-						// test's instance had (a certificate, a device)
-						t.Skipf("instance-specific sample: %v", err)
+						// only a value that refers to something on the contract
+						// test's instance (a certificate, an interface, another
+						// entry) may be rejected here; any other rejection is
+						// a fault in the client or the data
+						if refersToInstance(val, e.Fields()) {
+							t.Skipf("instance-specific sample: %v", err)
+						}
+						t.Fatalf("add rejected for values that do not refer to other objects: %v", err)
 					}
 					var na *opnsense.ErrNotApplied
 					if errors.As(err, &na) && uid != "" {
@@ -321,32 +336,95 @@ func TestEveryVerifiedResource(t *testing.T) {
 		}
 	}
 	t.Logf("tested %d resources, skipped %d entry lists (no verified sample, or the sample refers to other entries); %d read-back differences tolerated (custom-save, not chosen by the contract test)", tested, skipped, tolerated)
-	for _, p := range c.Pending() {
-		t.Run("apply"+p, func(t *testing.T) {
-			var out map[string]any
+	// apply through the client: every pending endpoint once; afterwards only
+	// those that failed may still be pending
+	t.Run("apply", func(t *testing.T) {
+		before := c.Pending()
+		err := c.Apply(ctx)
+		failed := map[string]bool{}
+		for _, e := range unwrap(err) {
 			var he *opnsense.HTTPError
-			if err := c.Call(ctx, "POST", p, nil, &out); errors.As(err, &he) && he.Status == 500 && strings.Contains(he.Body, `"errorMessage"`) {
+			var ea *opnsense.ErrApply
+			switch {
+			case errors.As(e, &he) && he.Status == 500 && strings.Contains(he.Body, `"errorMessage"`):
 				// the endpoint exists and the service reports why it cannot
 				// run here: the test VM has no internet and no real hardware
 				t.Logf("service cannot run on the test VM: %s", he.Body)
-				return
-			} else if err != nil {
-				t.Fatal(err)
-			}
-			st, _ := out["status"].(string)
-			res, _ := out["result"].(string)
-			st, res = strings.TrimSpace(st), strings.TrimSpace(res)
-			switch {
-			case strings.EqualFold(st, "ok") || strings.EqualFold(res, "ok"):
-			case st != "":
-				// an explicit failure: services that cannot run on the test
-				// VM; the client reports these as ErrApply
-				t.Logf("apply reports a failure: %v", out)
+				failed[he.Path] = true
+			case errors.As(e, &ea):
+				// an explicit failure status from a service that cannot run on
+				// the isolated VM
+				t.Logf("apply reports a failure: %v", ea)
+				failed[ea.Endpoint] = true
 			default:
-				t.Errorf("unknown apply answer: %v", out)
+				t.Errorf("apply: %v", e)
 			}
-		})
+		}
+		for _, p := range c.Pending() {
+			if !failed[p] {
+				t.Errorf("%s still pending although it did not fail", p)
+			}
+		}
+		t.Logf("applied %d endpoints, %d could not run on the test VM", len(before), len(failed))
+	})
+}
+
+// unwrap lists the errors joined by errors.Join (or the error itself).
+func unwrap(err error) []error {
+	if err == nil {
+		return nil
 	}
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		var out []error
+		for _, e := range j.Unwrap() {
+			out = append(out, unwrap(e)...)
+		}
+		return out
+	}
+	return []error{err}
+}
+
+// refersToInstance: every rejected field holds a value that points to
+// something of the contract test's instance: a relation to other entries,
+// or an option list filled at run time (certificates, interfaces).
+func refersToInstance(v *opnsense.ErrValidation, fields map[string]*capability.Field) bool {
+	if len(v.Fields) == 0 {
+		return false
+	}
+	for name := range v.Fields {
+		f := fields[name]
+		if f == nil {
+			return false
+		}
+		runtimeOptions := f.Base == "BaseListField" && len(f.Options) == 0
+		for _, g := range f.Gaps {
+			runtimeOptions = runtimeOptions || g == "options-dynamic"
+		}
+		if len(f.Relations) == 0 && !runtimeOptions {
+			return false
+		}
+	}
+	return true
+}
+
+// flippable: a boolean field of a settings object with its current value,
+// to change and restore; fields the firewall sets itself are left out.
+func flippable(cur opnsense.Values, fields map[string]*capability.Field) (string, bool, bool) {
+	names := make([]string, 0, len(fields))
+	for n := range fields {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		f := fields[n]
+		if f.ServerSet() || f.WriteOnly() || f.Volatile || len(f.Gaps) > 0 {
+			continue
+		}
+		if b, ok := cur[n].(bool); ok {
+			return n, b, true
+		}
+	}
+	return "", false, false
 }
 
 // expectedDiffs reports the differences of a read-back: those the data
@@ -364,28 +442,6 @@ func expectedDiffs(t *testing.T, na *opnsense.ErrNotApplied, chosen map[string]b
 		t.Errorf("read-back: %s sent %q, read %q (cause %q; %s)", d.Field, d.Sent, d.Got, d.Cause, na.Hint)
 	}
 	return n
-}
-
-// unchangedValue picks one boolean or integer field of a settings object
-// with its current value, to write it back unchanged; fields the firewall
-// sets itself are left out.
-func unchangedValue(cur opnsense.Values, fields map[string]*capability.Field) (string, any, bool) {
-	names := make([]string, 0, len(fields))
-	for n := range fields {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		f := fields[n]
-		if f.ServerSet() || f.WriteOnly() || f.Volatile {
-			continue
-		}
-		switch v := cur[n].(type) {
-		case bool, int64:
-			return n, v, true
-		}
-	}
-	return "", nil, false
 }
 
 // descriptionField: the entry's description field, if it has one and the
@@ -430,7 +486,8 @@ func contains(list []string, v string) bool {
 // sampleValues turns a verified sample into values for Add: nested
 // objects become dotted paths; values the firewall sets itself, fields the
 // add endpoint overwrites, empty values (often filled by the controller)
-// and fields not in this version are left out.
+// and fields not in this version are left out; write-only fields get a
+// test value.
 func sampleValues(sample map[string]any, fields map[string]*capability.Field, add *capability.Operation) opnsense.Values {
 	out := opnsense.Values{}
 	var walk func(prefix string, m map[string]any)
@@ -448,7 +505,14 @@ func sampleValues(sample map[string]any, fields map[string]*capability.Field, ad
 			}
 			s, ok := x.(string)
 			f := fields[name]
-			if !ok || s == "" || f == nil || f.ServerSet() || f.WriteOnly() {
+			if ok && f != nil && f.WriteOnly() {
+				// the firewall never returns a write-only value (a
+				// password), so the sample cannot hold it: send a value of
+				// letters and digits, which the client does not compare
+				out[name] = "Integration1pw"
+				continue
+			}
+			if !ok || s == "" || f == nil || f.ServerSet() {
 				continue
 			}
 			if _, overwritten := add.Overwrites(name); overwritten {

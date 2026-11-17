@@ -40,7 +40,7 @@ func (m Match) String() string {
 type Policy int
 
 const (
-	// AssumeNewestInSeries uses the nearest or newest data of the same
+	// AssumeNewestInSeries uses the nearest older data of the same
 	// series. Another hotfix revision of a known release, or a known plugin
 	// version from another core of the series, is a note (usual and
 	// harmless); a release or plugin version the data has never seen is a
@@ -58,6 +58,27 @@ type Resolution struct {
 	Match    Match
 	Note     string // MatchNearest: what was used instead
 	Warning  string // MatchAssumed or MatchNone: a guess, or nothing
+	// ReadOnly: the installed version is older than all data of its series,
+	// so the data may describe fields it lacks. Reading is allowed, writing
+	// is refused.
+	ReadOnly bool
+}
+
+// ErrSeriesNotInData: the firewall runs a series the capability data does
+// not cover. A newer series (Newer) needs newer data; it is not guessed,
+// because a series change can change the framework the API is derived from.
+type ErrSeriesNotInData struct {
+	Core   string // version the firewall reports
+	Series string
+	Newer  bool   // newer than every series in the data
+	Newest string // newest series in the data
+}
+
+func (e *ErrSeriesNotInData) Error() string {
+	if e.Newer {
+		return fmt.Sprintf("core %s: series %s is newer than the capability data (newest %s); update the capability data", e.Core, e.Series, e.Newest)
+	}
+	return fmt.Sprintf("core %s: series %s is not in the capability data", e.Core, e.Series)
 }
 
 // message is the note or the warning, whichever is set.
@@ -90,13 +111,19 @@ func (s *Set) Resolve(core string, plugins map[string]string, p Policy) (*Resolv
 	r := &Resolved{Core: core, Packages: map[string]*Resolution{}}
 	used, c, m, warn := s.resolveCore(core)
 	if m == MatchNone {
-		return nil, fmt.Errorf("core %s: %s", core, warn)
+		return nil, s.seriesError(core)
 	}
 	if m != MatchExact && p == Refuse {
 		return nil, fmt.Errorf("core %s is not in the capability data (%s)", core, warn)
 	}
 	r.CoreUsed, r.Release, r.Series, r.Framework = used, c.Release, c.Series, c.Framework
 	coreRes := &Resolution{Package: CorePackage, Version: core, Match: m}
+	if m == MatchAssumed && CompareVersions(used, core) > 0 {
+		// no older core of the series in the data: the newer one may have
+		// fields this firewall lacks
+		coreRes.ReadOnly = true
+		warn = fmt.Sprintf("core %s is older than the capability data of series %s (oldest %s); reading only, writes are refused", core, c.Series, used)
+	}
 	switch m {
 	case MatchNearest:
 		coreRes.Note = warn
@@ -128,7 +155,8 @@ func (s *Set) Resolve(core string, plugins map[string]string, p Policy) (*Resolv
 		if res.Warning != "" {
 			r.Warnings = append(r.Warnings, res.Warning)
 		}
-		if p == Refuse && (res.Match == MatchNearest || res.Match == MatchAssumed) {
+		if p == Refuse && (res.Match == MatchNearest || res.Match == MatchAssumed ||
+			(res.Match == MatchNone && s.Docs[name] != nil)) {
 			refused = append(refused, res.message())
 		}
 	}
@@ -199,8 +227,9 @@ func (s *Set) resolvePlugin(name, version string, r *Resolved) *Resolution {
 	}
 	if len(distinct) == 1 {
 		for h := range distinct {
-			res.Fragment, res.Match = h, MatchExact
+			res.Fragment, res.Match = h, MatchNearest
 		}
+		res.Note = fmt.Sprintf("%s %s was not seen on core %s; its API was the same on every core it was seen on", name, version, r.CoreUsed)
 		return res
 	}
 	// c: several fragments: the one of the nearest older core of the series
@@ -217,17 +246,45 @@ func (s *Set) resolvePlugin(name, version string, r *Resolved) *Resolution {
 			}
 		}
 	}
-	// d: unknown version (or only on other series): newest fragment of the series
-	best, bestOrder := "", -1
+	// d: unknown version: the data of the nearest older known version of
+	// the series; older than all of them: the oldest, read-only (newer data
+	// may describe fields the installed version lacks)
+	type known struct {
+		version, hash string
+		order         int
+	}
+	var all []known
 	for h, info := range d.Fragments {
-		if info.Order > bestOrder && inSeries(info.Releases, r.Series) {
-			best, bestOrder = h, info.Order
+		if !inSeries(info.Releases, r.Series) {
+			continue
+		}
+		for _, v := range info.Versions {
+			all = append(all, known{v, h, info.Order})
 		}
 	}
-	if best != "" {
-		res.Fragment, res.Match = best, MatchAssumed
-		res.Warning = fmt.Sprintf("%s %s is not in the data; assuming %s (newest of series %s)",
-			name, version, strings.Join(d.Fragments[best].Versions, "/"), r.Series)
+	if len(all) > 0 {
+		sort.Slice(all, func(i, j int) bool {
+			if c := CompareVersions(all[i].version, all[j].version); c != 0 {
+				return c < 0
+			}
+			return all[i].order < all[j].order
+		})
+		pick := -1
+		for i, k := range all {
+			if CompareVersions(k.version, version) <= 0 {
+				pick = i
+			}
+		}
+		res.Match = MatchAssumed
+		if pick >= 0 {
+			res.Fragment = all[pick].hash
+			res.Warning = fmt.Sprintf("%s %s is not in the data; assuming %s (nearest older known version of series %s)",
+				name, version, all[pick].version, r.Series)
+		} else {
+			res.Fragment, res.ReadOnly = all[0].hash, true
+			res.Warning = fmt.Sprintf("%s %s is older than the capability data of series %s (oldest %s); reading only, writes are refused",
+				name, version, r.Series, all[0].version)
+		}
 		return res
 	}
 	// e
@@ -310,4 +367,18 @@ func splitNum(s string) (int, string) {
 	}
 	n, _ := strconv.Atoi(s[:i]) // empty -> 0
 	return n, s[i:]
+}
+
+// seriesError: the core's series is not in the data; says whether it is
+// newer than all of it.
+func (s *Set) seriesError(core string) error {
+	series := SeriesOf(core)
+	newest := ""
+	for _, c := range s.Catalog.Cores {
+		if newest == "" || CompareVersions(c.Series, newest) > 0 {
+			newest = c.Series
+		}
+	}
+	return &ErrSeriesNotInData{Core: core, Series: series, Newest: newest,
+		Newer: newest != "" && CompareVersions(series, newest) > 0}
 }

@@ -10,6 +10,8 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"testing/fstest"
 )
@@ -171,3 +173,28 @@ func FuzzLoad(f *testing.F) {
 		}
 	})
 }
+
+// Loading is bounded as a whole, not only per file: a catalog that names
+// more packages than MaxPackages is refused before anything is read.
+func TestLoadBounded(t *testing.T) {
+	pk := map[string]any{}
+	for i := 0; i <= MaxPackages; i++ {
+		pk["os-p"+strconv.Itoa(i)] = map[string]any{"file": "capabilities/x.json"}
+	}
+	b, _ := json.Marshal(map[string]any{"format": 1, "packages": pk})
+	reads := 0
+	fsys := countFS{inner: anyNameFS{"catalog.json": b, "*": []byte(`{}`)}, reads: &reads}
+	if _, err := Load(fsys); err == nil || !strings.Contains(err.Error(), "packages") {
+		t.Errorf("want a refusal for too many packages, got %v", err)
+	}
+	if reads > 1 {
+		t.Errorf("refused only after reading %d files", reads)
+	}
+}
+
+type countFS struct {
+	inner fs.FS
+	reads *int
+}
+
+func (c countFS) Open(name string) (fs.File, error) { *c.reads++; return c.inner.Open(name) }

@@ -322,6 +322,13 @@ func (r *Resource) FieldsFor(h string) map[string]*Field {
 // 2 MB).
 const MaxFile = 64 << 20
 
+// MaxPackages and MaxTotal bound a whole load (today: 75 packages, about
+// 4 MB): a crafted catalog cannot make Load read without end.
+const (
+	MaxPackages = 1000
+	MaxTotal    = 512 << 20
+)
+
 // Load reads catalog.json and capabilities/<package>.json from fsys (for
 // example os.DirFS of an unpacked catalog release) and checks the result.
 // The directory is trusted input: os.DirFS follows symbolic links.
@@ -334,7 +341,11 @@ func Load(fsys fs.FS) (*Set, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(cat.Packages) > MaxPackages {
+		return nil, fmt.Errorf("catalog: %d packages, more than %d", len(cat.Packages), MaxPackages)
+	}
 	s := &Set{Catalog: cat, Docs: map[string]*Doc{}}
+	total := len(raw)
 	names := make([]string, 0, len(cat.Packages))
 	for name := range cat.Packages {
 		names = append(names, name)
@@ -348,6 +359,9 @@ func Load(fsys fs.FS) (*Set, error) {
 		b, err := readFile(fsys, file)
 		if err != nil {
 			return nil, err
+		}
+		if total += len(b); total > MaxTotal {
+			return nil, fmt.Errorf("catalog: data larger than %d bytes in total", MaxTotal)
 		}
 		d, err := ParseDoc(b)
 		if err != nil {
