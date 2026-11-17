@@ -88,6 +88,22 @@ type Config struct {
 	// AutoApply applies after every successful mutation.
 	AutoApply bool
 
+	// ReadOnly: the client reads but never changes the firewall. Every
+	// changing method (Add, Set, Delete, Toggle, Settings.Set, Apply)
+	// returns *ErrReadOnly before anything is sent, and the transport
+	// refuses every POST except a search, independently of those checks.
+	// Call is limited to GET on the get and search operations in the
+	// capability data, plus the paths in ReadOnlyAllow. OPNsense cannot do
+	// this itself: its privileges grant URL patterns, reading and writing
+	// together.
+	ReadOnly bool
+	// ReadOnlyAllow names further paths Call may GET in read-only mode,
+	// for endpoints that are not resource operations (logs, status). An
+	// entry ending in "/*" allows everything below it. Only list endpoints
+	// that change nothing: OPNsense does not mark them, and some change
+	// state even on GET.
+	ReadOnlyAllow []string
+
 	Timeout      time.Duration // per request, default 60s
 	ApplyTimeout time.Duration // apply endpoints, default 5m
 	Logger       *slog.Logger  // debug log: method, path, status, duration; never bodies or credentials
@@ -106,6 +122,8 @@ type Instance struct {
 	// plugin version from another core of the series, and that is used.
 	// Usual after an update; nothing to do.
 	Notes []string
+	// ReadOnly: the client was created with Config.ReadOnly.
+	ReadOnly bool
 	// Warnings: a guess about a release or plugin version the data has
 	// never seen, an incomplete detection, or disabled TLS verification.
 	// Fields newer than the data are refused; read-back still checks every
@@ -150,11 +168,20 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 	} else if err := data.Check(); err != nil {
 		return nil, fmt.Errorf("opnsense: capability data: %w", err)
 	}
+	if cfg.ReadOnly && cfg.AutoApply {
+		return nil, errors.New("opnsense: Config.ReadOnly and Config.AutoApply contradict each other")
+	}
+	for _, p := range cfg.ReadOnlyAllow {
+		if err := transport.CheckPath(strings.TrimSuffix(p, "/*")); err != nil {
+			return nil, fmt.Errorf("opnsense: Config.ReadOnlyAllow: %w", err)
+		}
+	}
 	if cfg.HTTPClient != nil && (cfg.TLS.PinSHA256 != "" || cfg.TLS.CAFile != "" || len(cfg.TLS.CAPEM) > 0 || cfg.TLS.InsecureSkipVerify) {
 		return nil, errors.New("opnsense: Config.HTTPClient replaces the built-in transport and its TLS settings; set either HTTPClient or TLS, not both")
 	}
 	tc := transport.Config{URL: cfg.URL, Key: cfg.Key, Secret: cfg.Secret, Pin: cfg.TLS.PinSHA256,
-		CAPEM: cfg.TLS.CAPEM, Insecure: cfg.TLS.InsecureSkipVerify, Timeout: cfg.Timeout, Logger: cfg.Logger, HTTP: cfg.HTTPClient}
+		CAPEM: cfg.TLS.CAPEM, Insecure: cfg.TLS.InsecureSkipVerify, Timeout: cfg.Timeout, Logger: cfg.Logger, HTTP: cfg.HTTPClient,
+		ReadOnly: cfg.ReadOnly}
 	if cfg.TLS.CAFile != "" {
 		pem, err := os.ReadFile(cfg.TLS.CAFile)
 		if err != nil {
@@ -283,6 +310,7 @@ func (c *Client) detect(ctx context.Context) error {
 	}
 	inst.Warnings = append(inst.Warnings, res.Warnings...)
 	inst.Notes = append(inst.Notes, res.Notes...)
+	inst.ReadOnly = c.cfg.ReadOnly
 	c.inst = inst
 	return nil
 }
@@ -300,8 +328,12 @@ type bound struct {
 	readOnly string // why writes are refused, "" if they are allowed
 }
 
-// writable refuses writes to a package older than its data (ErrReadOnly).
+// writable refuses writes in read-only mode and to a package older than
+// its data (ErrReadOnly).
 func (b *bound) writable() error {
+	if b.c.cfg.ReadOnly {
+		return &ErrReadOnly{Resource: b.id, Package: b.pkg, Have: b.version, Reason: readOnlyModeReason, Mode: true}
+	}
 	if b.readOnly == "" {
 		return nil
 	}
@@ -402,6 +434,9 @@ func (c *Client) Pending() []string {
 // Apply activates saved changes: every pending apply endpoint is called
 // once. Writes alone change only the stored configuration.
 func (c *Client) Apply(ctx context.Context) error {
+	if c.cfg.ReadOnly {
+		return &ErrReadOnly{Resource: "apply", Reason: readOnlyModeReason, Mode: true}
+	}
 	var errs []error
 	for _, p := range c.Pending() {
 		if err := c.applyEndpoint(ctx, p); err != nil {
@@ -415,6 +450,9 @@ func (c *Client) Apply(ctx context.Context) error {
 // is saved while the call runs keeps the endpoint pending: the generation
 // is compared, not just cleared.
 func (c *Client) applyEndpoint(ctx context.Context, p string) error {
+	if c.cfg.ReadOnly {
+		return &ErrReadOnly{Resource: p, Reason: readOnlyModeReason, Mode: true}
+	}
 	defer c.lock("apply:" + p)()
 	c.mu.Lock()
 	gen, ok := c.pending[p]
@@ -466,6 +504,14 @@ func (c *Client) finish(ctx context.Context, apply string, readBack error) error
 // against the capability data, and nothing is read back. method is GET or
 // POST; body is sent as JSON with POST.
 func (c *Client) Call(ctx context.Context, method, path string, body, out any) error {
+	if c.cfg.ReadOnly {
+		if method != http.MethodGet {
+			return &ErrReadOnly{Resource: method + " " + path, Reason: readOnlyModeReason + "; Call sends only GET (use Entries.List for a search)", Mode: true}
+		}
+		if !c.readAllowed(path) {
+			return &ErrReadOnly{Resource: "GET " + path, Reason: readOnlyModeReason + "; not a get or search operation in the capability data (add it to Config.ReadOnlyAllow if it changes nothing)", Mode: true}
+		}
+	}
 	switch method {
 	case http.MethodGet:
 		if body != nil {
@@ -476,4 +522,40 @@ func (c *Client) Call(ctx context.Context, method, path string, body, out any) e
 		return c.t.Post(ctx, path, body, out, 0)
 	}
 	return fmt.Errorf("opnsense: method %q not supported", method)
+}
+
+const readOnlyModeReason = "the client is in read-only mode (Config.ReadOnly)"
+
+// readAllowed: in read-only mode, Call may GET the get and search
+// operations of the resources this firewall has (with arguments below
+// them, such as an entry ID), and the paths in Config.ReadOnlyAllow.
+func (c *Client) readAllowed(path string) bool {
+	under := func(p, base string) bool { return p == base || strings.HasPrefix(p, base+"/") }
+	for _, a := range c.cfg.ReadOnlyAllow {
+		if base, ok := strings.CutSuffix(a, "/*"); ok {
+			if under(path, base) {
+				return true
+			}
+		} else if path == a {
+			return true
+		}
+	}
+	for pkg, d := range c.data.Docs {
+		res := c.inst.Resolved.Packages[pkg]
+		if res == nil || res.Fragment == "" {
+			continue
+		}
+		for _, r := range d.Resources {
+			api := r.APIFor(res.Fragment)
+			if api == nil {
+				continue
+			}
+			for _, name := range []string{"get", "search"} {
+				if op := api.Operations[name]; op != nil && under(path, op.Path) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

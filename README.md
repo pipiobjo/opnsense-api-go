@@ -57,6 +57,7 @@ is the client's job.
 | Situation | Result |
 |---|---|
 | Resource not installed or not in this version | `*ErrNotAvailable` with the versions that have it; `PluginsUnknown` when the API key may not read the plugin list |
+| Any changing call with `Config.ReadOnly` | `*ErrReadOnly` (`Mode` set); nothing is sent |
 | Firewall on a series the data does not cover (e.g. 27.1 with data up to 26.7) | `New` fails with `*ErrSeriesNotInData` (`Newer` set): update the capability data. Not guessed, because a series change can change the framework the API comes from |
 | Installed package older than every version of its series in the data | reading works; every write fails with `*ErrReadOnly`, because the data may describe fields that version lacks |
 | Wrong resource kind, or an operation the resource does not have | `*ErrWrongKind`, `*ErrNoOperation` |
@@ -83,6 +84,26 @@ nearest older known version is used, never newer data (a version older
 than all data is read-only, see above). `UnknownVersion: opnsense.Refuse`
 turns notes and warnings into errors, also for a package the data has but
 not for this series. Read-back still protects every write.
+
+### Read-only mode
+
+`Config.ReadOnly` makes a client that reads but never changes the
+firewall, for analysis tools or an assistant that helps configure without
+touching anything. Every changing call (`Add`, `Set`, `Delete`, `Toggle`,
+`Settings.Set`, `Apply`) returns `*ErrReadOnly` with `Mode` set
+(`errors.Is(err, opnsense.ErrWriteRefused)`), before anything is sent. A
+second check in the transport refuses every POST except a search with a
+fixed body, so a mistake in the first cannot send a write. `Call` may
+then only GET the get and search operations in the capability data;
+other endpoints (logs, status) must be listed in `Config.ReadOnlyAllow`,
+because OPNsense does not mark which endpoints change nothing, and some
+change state even on GET.
+
+OPNsense cannot enforce this itself: a privilege grants URL patterns,
+reading and writing together (of 195 privileges with API access in
+26.7.9, none covers configuration read-only). Use both: an API user with
+only the privileges the tool needs limits *where* it can act, read-only
+mode makes sure it changes nothing there.
 
 ### Capability data
 

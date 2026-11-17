@@ -157,3 +157,23 @@ func TestRecordedBehaviour(t *testing.T) {
 		}
 	})
 }
+
+// body GETs path and returns the answer unparsed (status 200 required).
+func (r *raw) body(path string) []byte {
+	r.t.Helper()
+	req, err := http.NewRequest(http.MethodGet, r.base+path, nil)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	req.SetBasicAuth(r.key, r.sec)
+	resp, err := r.http.Do(req)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		r.t.Fatalf("GET %s: HTTP %d", path, resp.StatusCode)
+	}
+	return b
+}

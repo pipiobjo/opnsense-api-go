@@ -45,6 +45,9 @@ type Config struct {
 	Timeout  time.Duration
 	Logger   *slog.Logger // method, path, status and duration only
 	HTTP     *http.Client // replaces the built-in client (tests); redirects are still refused
+	// ReadOnly refuses every POST except Search. The client checks its
+	// own methods first; this is the second line, independent of them.
+	ReadOnly bool
 }
 
 // Transport sends requests. It is safe for concurrent use.
@@ -55,7 +58,12 @@ type Transport struct {
 	timeout time.Duration
 	log     *slog.Logger
 	hc      *http.Client
+	ro      bool
 }
+
+// ErrWriteRefused: the transport is read-only and the request could change
+// the firewall; it was not sent.
+var ErrWriteRefused = errors.New("opnsense: read-only mode: request refused before sending")
 
 // ErrUnauthorized: the firewall rejected key and secret (HTTP 401).
 var ErrUnauthorized = errors.New("opnsense: authentication failed (check API key and secret)")
@@ -97,7 +105,7 @@ func New(c Config) (*Transport, error) {
 	if c.Key == "" || c.Secret == "" {
 		return nil, errors.New("opnsense: key and secret are required")
 	}
-	t := &Transport{base: u, key: c.Key, secret: c.Secret, timeout: c.Timeout, log: c.Logger}
+	t := &Transport{base: u, key: c.Key, secret: c.Secret, timeout: c.Timeout, log: c.Logger, ro: c.ReadOnly}
 	if t.timeout == 0 {
 		t.timeout = 60 * time.Second
 	}
@@ -201,10 +209,27 @@ func (t *Transport) Get(ctx context.Context, path string, query url.Values, out 
 // Post sends a JSON body (nil sends "{}") and decodes the response. Never
 // retried: a mutation may have been applied even if the answer was lost.
 func (t *Transport) Post(ctx context.Context, path string, body, out any, timeout time.Duration) error {
+	if t.ro {
+		return fmt.Errorf("%w: POST %s", ErrWriteRefused, path)
+	}
 	if timeout == 0 {
 		timeout = t.timeout
 	}
 	_, err := t.do(ctx, http.MethodPost, path, nil, body, out, timeout)
+	return err
+}
+
+// Search lists all rows of an entry list: a POST with the fixed body
+// {"current": 1, "rowCount": -1}, for search endpoints that accept only
+// POST. Allowed in read-only mode, so nothing a caller passes ends up in
+// the body, and the last path segment must name a search ("search...", as
+// every search operation in the capability data does).
+func (t *Transport) Search(ctx context.Context, path string, out any) error {
+	last := path[strings.LastIndex(path, "/")+1:]
+	if !strings.HasPrefix(strings.ToLower(last), "search") {
+		return fmt.Errorf("%w: %s is not a search endpoint", ErrWriteRefused, path)
+	}
+	_, err := t.do(ctx, http.MethodPost, path, nil, map[string]any{"current": 1, "rowCount": -1}, out, t.timeout)
 	return err
 }
 

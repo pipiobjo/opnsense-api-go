@@ -168,9 +168,24 @@ type ErrSeriesNotInData = capability.ErrSeriesNotInData
 // series in the capability data. The data may describe fields that version
 // lacks, so writes are refused; reading works. Update the package, or use
 // capability data that covers its version.
+// Also returned for every changing call in read-only mode (Config.ReadOnly),
+// then with Mode set; errors.Is(err, ErrWriteRefused) is true for those.
 type ErrReadOnly struct {
 	Resource, Package, Have string
 	Reason                  string
+	Mode                    bool // refused because of Config.ReadOnly
+}
+
+// ErrWriteRefused: a request that could change the firewall was refused in
+// read-only mode before it was sent.
+var ErrWriteRefused = transport.ErrWriteRefused
+
+// Unwrap makes errors.Is(err, ErrWriteRefused) true in read-only mode.
+func (e *ErrReadOnly) Unwrap() error {
+	if e.Mode {
+		return ErrWriteRefused
+	}
+	return nil
 }
 
 func (e *ErrReadOnly) Error() string {

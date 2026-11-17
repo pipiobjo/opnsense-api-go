@@ -33,6 +33,12 @@ import (
 
 func client(t *testing.T) *opnsense.Client {
 	t.Helper()
+	return clientWith(t, nil)
+}
+
+// clientWith is client with changes to the configuration (mod may be nil).
+func clientWith(t *testing.T, mod func(*opnsense.Config)) *opnsense.Client {
+	t.Helper()
 	raw := os.Getenv("OPNSENSE_URL")
 	u, err := url.Parse(raw)
 	if err != nil || u.Hostname() != "127.0.0.1" {
@@ -55,8 +61,12 @@ func client(t *testing.T) *opnsense.Client {
 	conn.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	c, err := opnsense.New(ctx, opnsense.Config{URL: raw, Key: key.Key, Secret: key.Secret,
-		TLS: opnsense.TLS{PinSHA256: hex.EncodeToString(sum[:])}, CapabilityDir: os.Getenv("OPNSENSE_CAPABILITIES")})
+	cfg := opnsense.Config{URL: raw, Key: key.Key, Secret: key.Secret,
+		TLS: opnsense.TLS{PinSHA256: hex.EncodeToString(sum[:])}, CapabilityDir: os.Getenv("OPNSENSE_CAPABILITIES")}
+	if mod != nil {
+		mod(&cfg)
+	}
+	c, err := opnsense.New(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -39,7 +39,8 @@ stable across all supported series.
 
 `Entries.Add` and `Set`, `Settings.Set`:
 
-1. `writable`: refuse if the package is read-only (older than the data).
+1. `writable`: refuse in read-only mode, or if the package is read-only
+   (older than the data).
 2. `op`: the operation exists for this resource kind and fragment
    (`ErrWrongKind`, `ErrNoOperation`).
 3. `encode`: every field exists in this fragment, the value has the right
@@ -117,7 +118,13 @@ removed.
    a series change can change the framework, so it is not guessed.
    Versions are ordered by `CompareVersions`, the same function with the
    same test table as in opnsense-api-spec.
-10. **Read-back exceptions**: `write_only` fields are not compared (never
+10. **Read-only mode** (`Config.ReadOnly`): two independent checks. The
+    API methods refuse every change with `ErrReadOnly` before anything is
+    built; the transport refuses every POST except `Search`, whose body is
+    fixed and whose path must name a search (all 229 search operations in
+    the data do). `Call` is limited to GET on get and search operations
+    plus `ReadOnlyAllow`.
+11. **Read-back exceptions**: `write_only` fields are not compared (never
     returned); volatile fields are refused before sending (never stored);
     transformed fields only must not come back empty. `Toggle` reads the
     entry again and fails if `enabled` did not change.

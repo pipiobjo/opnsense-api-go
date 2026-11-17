@@ -20,6 +20,7 @@ series (25.7, 26.1, 26.7), core and plugins:
 | K6 | Credentials stay secret and the connection is authenticated: TLS verified by default, pin or CA as configured, no redirects, credentials never in errors or logs, no input can leave the API path. | Q2 |
 | K7 | Crafted capability data or crafted answers cannot crash the client or make it read outside its data directory. | Q2 |
 | K8 | What the fake firewall in the unit tests assumes about OPNsense is still true. | Q1 |
+| K9 | In read-only mode nothing that changes the firewall is sent, by two independent checks (the API methods and the transport), and every read keeps working. | F7 |
 
 ## Test layers
 
@@ -45,6 +46,7 @@ refuse any other target.
 | K5 | `TestBadIDsAreRefused`, `TestNonUUIDIDsAreAccepted`, `TestBlankTemplateIsNotAnEntry`, `TestGetFullTemplateIsNotFound`, `TestListPagesAndGetOnlySearch`, `TestListNoticesMissingRows`, `TestSearchWithUncountedRows`, `TestApplyAcceptsResultOK`, `TestSetPath`, `TestCall` |
 | K6 | `TestTLSPinAndAuth`, `TestTLSWithCA`, `TestHTTPClientWithTLSIsRefused`, `TestCredentialsNeverInErrorsOrLogs`, `TestConfigChecks`, `TestQueryRedirectAndSize`, `TestErrorsAndRequestShape`, `TestGetIsRetriedPostIsNot`, `TestUnauthorizedAndForbiddenDiffer`, `TestCheckPath`, `FuzzCheckPath`, `FuzzCheckID` |
 | K7 | `TestLoadBounded`, `TestCapabilityDirSymlinkOutside`, `TestLoadRefusesEscapingFileNames`, `TestLoadRefusesOtherFormat`, `TestCheckFindsBrokenReferences`, `TestCheckNullEntriesWithoutPanic`, `TestBrokenDataIsAnErrorNotAPanic`, `TestModelMatchesSchema`, `FuzzLoad`, `FuzzWireDecode` |
+| K9 | `TestReadOnlyMode` (every changing method refused, only GETs and the search POST reach the fake, its state unchanged), `TestReadOnlyConfig`, `TestReadOnlyTransport` (the transport alone refuses every other POST); on the VM `TestReadOnlyClientChangesNothing` (every resource read, every change refused, `config.xml` byte-identical afterwards) |
 | K8 | `TestRecordedBehaviour` (unknown keys ignored with "saved", `[]` for an unknown UUID, set creates under an unknown UUID, GET with `Content-Type` rejected, search totals, apply answer), `TestFakeSpeaksHTTP2` |
 
 Error messages, which a provider shows its users, are checked by
@@ -57,7 +59,9 @@ A test that cannot fail proves nothing (Q1). Every rule was introduced
 with a test that was seen failing first, and every new or changed check is
 broken on purpose once: the code under test is changed so the claim
 becomes false, the test must go red, then the change is reverted. Examples
-from the history: removing the container check from `setPath`, letting the
+from the history: removing either check of the read-only mode (the other
+one still holds; with both removed, the fake and the VM report the
+writes), removing the container check from `setPath`, letting the
 transport log the secret or put the key into an error, accepting a CA that
 did not sign the server certificate, a renamed JSON key in the data model.
 Commit messages record these checks ("seen failing for ...").

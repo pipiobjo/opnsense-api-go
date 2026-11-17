@@ -287,7 +287,7 @@ func (e *Entries) List(ctx context.Context) ([]string, error) {
 		Total *int `json:"total"`
 	}
 	if hasMethod(op, "POST") {
-		err = b.c.t.Post(ctx, op.Path, map[string]any{"current": 1, "rowCount": -1}, &resp, 0)
+		err = b.c.t.Search(ctx, op.Path, &resp)
 	} else {
 		err = b.c.t.Get(ctx, op.Path, url.Values{"current": {"1"}, "rowCount": {"-1"}}, &resp)
 	}
