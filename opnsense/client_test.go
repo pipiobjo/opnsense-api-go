@@ -219,34 +219,61 @@ func TestNothingIsSentThatTheVersionDoesNotHave(t *testing.T) {
 	}
 }
 
-// A field that exists in another version only: the OSPF area of os-frr
-// 1.x is free text, in 2.x a relation. Here the resource exists, but a
-// field of another version must be named with the versions that have it.
+// A field that exists in other versions of the package only: the resource
+// is there, but sending the field would be ignored by OPNsense, so it is
+// refused, naming the versions that have it, and nothing is sent. The data
+// is changed so that carp_demote of quagga/ospfsettings exists in every
+// fragment except the one of os-frr 2.1 (the real data has no such field
+// for the versions the fake runs, so the test would otherwise prove
+// nothing).
 func TestFieldOfAnotherVersion(t *testing.T) {
-	f := newFake(t)
-	f.plugins["os-frr"] = "1.45"
-	f.core = "25.7"
-	c := mustConnect(t, f)
-	s, err := c.Settings("quagga/ospfsettings")
+	s, err := capability.Load(os.DirFS("capability/testdata/catalog")) // private copy
 	if err != nil {
 		t.Fatal(err)
 	}
-	have := s.Fields()
-	all := data(t).Docs["os-frr"].Resources["quagga/ospfsettings"].Fields
-	var missing string
-	for name := range all {
-		if have[name] == nil {
-			missing = name
-			break
+	frag := frrFragment(t, s)
+	r := s.Docs["os-frr"].Resources["quagga/ospfsettings"]
+	v := r.FieldFor("carp_demote", frag)
+	if v == nil {
+		t.Fatal("test data: carp_demote missing in os-frr 2.1")
+	}
+	var others []string
+	for _, h := range r.In {
+		if h != frag {
+			others = append(others, h)
 		}
 	}
-	if missing == "" {
-		t.Skip("no field missing in 1.45")
+	other := *v
+	other.In = capability.In{Hashes: others}
+	r.Fields["carp_demote"] = []*capability.Field{&other}
+
+	f := newFake(t)
+	c, err := connect(t, f, func(cfg *Config) { cfg.Capabilities = s })
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = s.Set(context.Background(), Values{missing: "1"})
+	st, err := c.Settings("quagga/ospfsettings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Info().Fields["carp_demote"]; ok {
+		t.Fatal("carp_demote must not be a field of this version")
+	}
+	f.mu.Lock()
+	f.calls = nil
+	f.mu.Unlock()
+	err = st.Set(context.Background(), Values{"carp_demote": true})
 	var na *ErrFieldNotAvailable
-	if !errors.As(err, &na) || len(na.AvailableIn) == 0 || na.Have != "1.45" {
-		t.Errorf("field %s of another version: %v", missing, err)
+	if !errors.As(err, &na) || na.Field != "carp_demote" || na.Have != "2.1" || len(na.AvailableIn) == 0 {
+		t.Fatalf("field of another version: %v", err)
+	}
+	if err := st.Check(Values{"carp_demote": true}); !errors.As(err, &na) {
+		t.Errorf("Check: %v", err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.calls) != 0 {
+		t.Errorf("requests were sent: %v", f.calls)
 	}
 }
 

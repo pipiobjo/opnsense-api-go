@@ -4,6 +4,7 @@
 package capability
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -162,6 +163,44 @@ func TestResolveNearestOlderCore(t *testing.T) {
 	}
 	if _, err := s.Resolve("26.1.4", map[string]string{"os-x": "2.2_3"}, Refuse); err == nil {
 		t.Error("Refuse must fail for case c")
+	}
+}
+
+// The core is never resolved to newer data when older data of the same
+// release or series exists (newer data may describe fields the firewall
+// lacks): between two releases the older one is assumed, between two
+// hotfix revisions of the release the older revision is the nearest.
+func TestResolveCoreNeverNewer(t *testing.T) {
+	set := func(cores ...string) *Set {
+		s := &Set{Catalog: &Catalog{Format: 1, Cores: map[string]Core{}}, Docs: map[string]*Doc{
+			CorePackage: {Select: map[string]map[string]string{}, Fragments: map[string]FragmentInfo{}}}}
+		for i, v := range cores {
+			fw, frag := fmt.Sprintf("f%d", i), fmt.Sprintf("c%d", i)
+			s.Catalog.Cores[v] = Core{Release: ReleaseOf(v), Series: SeriesOf(v), Framework: fw}
+			s.Docs[CorePackage].Select[fw] = map[string]string{v: frag}
+			s.Docs[CorePackage].Fragments[frag] = FragmentInfo{}
+		}
+		return s
+	}
+	for _, c := range []struct {
+		data      []string
+		firewall  string
+		used      string
+		match     Match
+		writeable bool
+	}{
+		{[]string{"26.1.1", "26.1.3"}, "26.1.2", "26.1.1", MatchAssumed, true},
+		{[]string{"26.1.2", "26.1.2_3"}, "26.1.2_1", "26.1.2", MatchNearest, true},
+		{[]string{"26.1.2_1", "26.1.2_3", "26.1.4"}, "26.1.2_2", "26.1.2_1", MatchNearest, true},
+	} {
+		r, err := set(c.data...).Resolve(c.firewall, nil, AssumeNewestInSeries)
+		if err != nil {
+			t.Fatalf("%s with data %v: %v", c.firewall, c.data, err)
+		}
+		core := r.Packages[CorePackage]
+		if r.CoreUsed != c.used || core.Match != c.match || core.ReadOnly == c.writeable {
+			t.Errorf("%s with data %v: used %s (%s, read-only %v), want %s (%s)", c.firewall, c.data, r.CoreUsed, core.Match, core.ReadOnly, c.used, c.match)
+		}
 	}
 }
 
