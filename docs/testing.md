@@ -119,6 +119,11 @@ Code not reached by unit tests is mostly string formatting
   rely on the data, the resolver tests and read-back at run time.
 - Option lists that OPNsense fills at run time (interfaces, certificates)
   are not checked before sending; the firewall's validation reports them.
+- A plugin that does not install on the test VM is a warning, not a
+  failure: its resources are not tested in that run, the run summary
+  names it, and its complete firmware log is kept as the artifact
+  `logs-<release>`. (One such case so far, 2026-11-17, 25.7.11: two
+  plugins; the next run installed all.)
 - Business editions are not tested (no public images).
 
 ## Running the tests
