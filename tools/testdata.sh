@@ -9,7 +9,8 @@
 #
 # Keeps the whole catalog (all releases and cores, for the resolver
 # tests), the core document without resources (detection), and os-frr
-# with its OSPF resources (the fake firewall's resources). Tests refer to
+# with its OSPF resources (the fake firewall's resources), and the JSON
+# Schema of the format. Tests refer to
 # fragments by package and version (fragmentOf), never by hash, so a
 # refresh after a generator change needs no test change.
 set -euo pipefail
@@ -20,4 +21,6 @@ jq '.packages |= {opnsense: .opnsense, "os-frr": .["os-frr"]}' "$SRC/catalog.jso
 jq 'del(.actions) | .resources = {}' "$SRC/capabilities/opnsense.json" > "$OUT/capabilities/opnsense.json"
 jq 'del(.actions) | .resources |= with_entries(select(.key | startswith("quagga/ospfsettings")))' \
   "$SRC/capabilities/os-frr.json" > "$OUT/capabilities/os-frr.json"
+# the format's JSON Schema: schema_test.go checks the model against it
+cp "$SRC/capability.schema.json" "$OUT/"
 echo "test data refreshed from $SRC: $(jq -r .generator "$OUT/catalog.json")"
