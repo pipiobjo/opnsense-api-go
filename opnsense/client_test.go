@@ -30,6 +30,29 @@ func data(t *testing.T) *capability.Set {
 	return realData
 }
 
+// frrFragment: the fragment the data selects for the fake firewall's
+// os-frr 2.1 on 26.7.9_1, read from the raw data; tests never name hashes,
+// so a refreshed test data set (tools/testdata.sh) needs no test change.
+func frrFragment(t *testing.T, s *capability.Set) string {
+	t.Helper()
+	h := s.Docs["os-frr"].Select[s.Catalog.Cores["26.7.9_1"].Framework]["2.1"]
+	if h == "" {
+		t.Fatal("os-frr 2.1 on 26.7.9_1 is not in the test data")
+	}
+	return h
+}
+
+// newestCore26_7: the newest 26.7 core of the test data.
+func newestCore26_7(s *capability.Set) string {
+	newest := ""
+	for v, c := range s.Catalog.Cores {
+		if c.Series == "26.7" && (newest == "" || capability.CompareVersions(v, newest) > 0) {
+			newest = v
+		}
+	}
+	return newest
+}
+
 func connect(t *testing.T, f *fakeFirewall, mod ...func(*Config)) (*Client, error) {
 	t.Helper()
 	cfg := Config{URL: f.srv.URL, Key: "key", Secret: "secret", TLS: TLS{PinSHA256: f.pin()}, Capabilities: data(t)}
@@ -58,7 +81,7 @@ func TestDetectExact(t *testing.T) {
 	if len(inst.Warnings) != 0 {
 		t.Errorf("warnings for an exact match: %v", inst.Warnings)
 	}
-	if r := inst.Resolved.Packages["os-frr"]; r.Match != capability.MatchExact || r.Fragment != "b04bde19061e2dec" {
+	if r := inst.Resolved.Packages["os-frr"]; r.Match != capability.MatchExact || r.Fragment != frrFragment(t, data(t)) {
 		t.Errorf("os-frr: %+v", r)
 	}
 }
@@ -76,7 +99,7 @@ func TestDetectAssumedAndRefused(t *testing.T) {
 	f := newFake(t)
 	f.core = "26.7.10"
 	c := mustConnect(t, f)
-	if w := strings.Join(c.Instance().Warnings, "|"); !strings.Contains(w, "assuming 26.7.9_1") {
+	if w := strings.Join(c.Instance().Warnings, "|"); !strings.Contains(w, "assuming "+newestCore26_7(data(t))) {
 		t.Errorf("want a warning about the assumed core, got %q", w)
 	}
 	if _, err := connect(t, f, func(c *Config) { c.UnknownVersion = Refuse }); err == nil {
@@ -273,17 +296,17 @@ func TestReadBackCause(t *testing.T) {
 		{"unexplained", func(*capability.Resource, string) {}, "", nil},
 		{"field converts", func(r *capability.Resource, frag string) {
 			r.FieldFor("description", frag).Gaps = []string{"custom-write"}
-		}, "custom-write", []string{"description: its field type converts values", "custom-write"}},
+		}, CauseCustomWrite, []string{"description: its field type converts values", "custom-write"}},
 		{"resource stored by own code", func(r *capability.Resource, frag string) {
 			r.APIFor(frag).Gaps = []string{"custom-save"}
-		}, "custom-save", []string{"through its own code", "custom-save"}},
+		}, CauseCustomSave, []string{"through its own code", "custom-save"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			s, err := capability.Load(os.DirFS("capability/testdata/catalog")) // a private copy: marks stay in this test
 			if err != nil {
 				t.Fatal(err)
 			}
-			const frag = "b04bde19061e2dec" // os-frr 2.1 in the test data
+			frag := frrFragment(t, s)
 			c.mark(s.Docs["os-frr"].Resources[neighbors], frag)
 			f := newFake(t)
 			f.dropSets["description"] = true
@@ -361,5 +384,19 @@ func TestAutoApply(t *testing.T) {
 	}
 	if f.applied != 1 || len(c.Pending()) != 0 {
 		t.Errorf("auto apply: applied %d, pending %v", f.applied, c.Pending())
+	}
+}
+
+// The fake speaks HTTP/2, as the firewall does (the transport prefers it,
+// because OPNsense cuts large HTTP/1.1 answers).
+func TestFakeSpeaksHTTP2(t *testing.T) {
+	f := newFake(t)
+	resp, err := f.srv.Client().Get(f.srv.URL + "/api/core/firmware/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.ProtoMajor != 2 {
+		t.Errorf("fake answers %s, want HTTP/2", resp.Proto)
 	}
 }

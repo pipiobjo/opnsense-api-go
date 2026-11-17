@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -318,7 +319,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 						ids, err := e.List(ctx)
 						if err != nil {
 							t.Errorf("list: %v", err)
-						} else if !contains(ids, uid) {
+						} else if !slices.Contains(ids, uid) {
 							t.Errorf("list does not contain the new entry %s", uid)
 						}
 						unlock()
@@ -326,7 +327,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 							t.Fatalf("delete: %v", err)
 						}
 						deleted = true
-						if ids, err := e.List(ctx); err == nil && contains(ids, uid) {
+						if ids, err := e.List(ctx); err == nil && slices.Contains(ids, uid) {
 							t.Errorf("entry %s still listed after delete", uid)
 						}
 					}
@@ -417,7 +418,7 @@ func flippable(cur opnsense.Values, fields map[string]*capability.Field) (string
 	sort.Strings(names)
 	for _, n := range names {
 		f := fields[n]
-		if f.ServerSet() || f.WriteOnly() || f.Volatile || len(f.Gaps) > 0 {
+		if f.ServerSet || f.WriteOnly || f.Volatile || len(f.Gaps) > 0 {
 			continue
 		}
 		if b, ok := cur[n].(bool); ok {
@@ -434,7 +435,7 @@ func expectedDiffs(t *testing.T, na *opnsense.ErrNotApplied, chosen map[string]b
 	t.Helper()
 	n := 0
 	for _, d := range na.Diffs {
-		if d.Cause == "custom-save" && !chosen[d.Field] {
+		if d.Cause == opnsense.CauseCustomSave && !chosen[d.Field] {
 			t.Logf("tolerated (custom-save): %s sent %q, read %q", d.Field, d.Sent, d.Got)
 			n++
 			continue
@@ -449,7 +450,7 @@ func expectedDiffs(t *testing.T, na *opnsense.ErrNotApplied, chosen map[string]b
 func descriptionField(fields map[string]*capability.Field, set *capability.Operation) string {
 	for _, n := range []string{"description", "descr"} {
 		f := fields[n]
-		if f == nil || f.ServerSet() || f.WriteOnly() {
+		if f == nil || f.ServerSet || f.WriteOnly {
 			continue
 		}
 		if set == nil {
@@ -468,15 +469,6 @@ func descriptionField(fields map[string]*capability.Field, set *capability.Opera
 func rejects(v *opnsense.ErrValidation, field string) bool {
 	for k := range v.Fields {
 		if k == field || strings.HasSuffix(k, "."+field) {
-			return true
-		}
-	}
-	return false
-}
-
-func contains(list []string, v string) bool {
-	for _, x := range list {
-		if x == v {
 			return true
 		}
 	}
@@ -505,14 +497,14 @@ func sampleValues(sample map[string]any, fields map[string]*capability.Field, ad
 			}
 			s, ok := x.(string)
 			f := fields[name]
-			if ok && f != nil && f.WriteOnly() {
+			if ok && f != nil && f.WriteOnly {
 				// the firewall never returns a write-only value (a
 				// password), so the sample cannot hold it: send a value of
 				// letters and digits, which the client does not compare
 				out[name] = "Integration1pw"
 				continue
 			}
-			if !ok || s == "" || f == nil || f.ServerSet() {
+			if !ok || s == "" || f == nil || f.ServerSet {
 				continue
 			}
 			if _, overwritten := add.Overwrites(name); overwritten {

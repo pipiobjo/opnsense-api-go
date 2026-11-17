@@ -15,7 +15,7 @@ var (
 	optF    = &Field{Type: "OptionField", Base: "BaseListField", ReadShape: "select", Options: []Option{{Value: "a"}, {Value: "b"}}}
 	multiF  = &Field{Type: "OptionField", Base: "BaseListField", ReadShape: "select", Multiple: true, Options: []Option{{Value: "a"}, {Value: "b"}, {Value: "c"}}}
 	relF    = &Field{Type: "ModelRelationField", Base: "BaseListField", ReadShape: "select"} // dynamic options
-	writeF  = &Field{Type: "UpdateOnlyTextField", Base: "UpdateOnlyTextField"}
+	writeF  = &Field{Type: "UpdateOnlyTextField", Base: "UpdateOnlyTextField", WriteOnly: true}
 	numberF = &Field{Type: "NumericField", Base: "NumericField"}
 )
 
@@ -106,7 +106,7 @@ func TestSameWire(t *testing.T) {
 	if textF.SameWire("a,b", "b,a") {
 		t.Error("text compares exactly")
 	}
-	if !writeF.WriteOnly() || textF.WriteOnly() {
+	if !writeF.WriteOnly || textF.WriteOnly {
 		t.Error("WriteOnly")
 	}
 }

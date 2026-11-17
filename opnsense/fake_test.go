@@ -57,8 +57,11 @@ func newFake(t *testing.T) *fakeFirewall {
 		ospf: map[string]string{"enabled": "0", "routerid": "", "costreference": "", "logadjacencychanges": "0",
 			"carp_demote": "0", "originate": "0", "originatealways": "0", "originatemetric": ""},
 		nbrs: map[string]map[string]string{}, dropSets: map[string]bool{}}
-	f.srv = httptest.NewTLSServer(http.HandlerFunc(f.serve))
+	// EnableHTTP2 must be set before the server starts, as on OPNsense,
+	// whose web server answers HTTP/2
+	f.srv = httptest.NewUnstartedServer(http.HandlerFunc(f.serve))
 	f.srv.EnableHTTP2 = true
+	f.srv.StartTLS()
 	t.Cleanup(f.srv.Close)
 	return f
 }

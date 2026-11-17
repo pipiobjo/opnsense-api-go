@@ -22,24 +22,61 @@ func loadReal(t *testing.T) *Set {
 	return s
 }
 
+// fragFor: the fragment the raw data selects for a package version on a
+// core (read from Select, not through the resolver under test). Tests name
+// versions, never hashes: a generator change changes every hash.
+func fragFor(t testing.TB, s *Set, core, pkg, version string) string {
+	t.Helper()
+	c, ok := s.Catalog.Cores[core]
+	if !ok {
+		t.Fatalf("core %s not in the test data", core)
+	}
+	h := s.Docs[pkg].Select[c.Framework][version]
+	if h == "" {
+		t.Fatalf("%s %s not seen on core %s in the test data", pkg, version, core)
+	}
+	return h
+}
+
+// newestCore: the newest core of a series in the data.
+func newestCore(s *Set, series string) string {
+	newest := ""
+	for v, c := range s.Catalog.Cores {
+		if c.Series == series && (newest == "" || CompareVersions(v, newest) > 0) {
+			newest = v
+		}
+	}
+	return newest
+}
+
+// versionOf: the package versions of a fragment, for checks that only care
+// which version's data was chosen.
+func versionsOf(s *Set, pkg, frag string) string {
+	return strings.Join(s.Docs[pkg].Fragments[frag].Versions, ",")
+}
+
 func TestResolveReal(t *testing.T) {
 	s := loadReal(t)
+	newest := newestCore(s, "26.7")
+	exact := fragFor(t, s, "26.7.9_1", "os-frr", "2.1")
 	cases := []struct {
-		name        string
-		core, frr   string
-		coreUsed    string
-		coreMatch   Match
-		frrMatch    Match
-		frrFragment string
-		warn, note  string
+		name       string
+		core, frr  string
+		coreUsed   string
+		coreMatch  Match
+		frrMatch   Match
+		frrVersion string // the data of this os-frr version is used
+		frrExact   string // and, where it matters, exactly this fragment
+		warn, note string
 	}{
-		{"exact", "26.7.9_1", "2.1", "26.7.9_1", MatchExact, MatchExact, "b04bde19061e2dec", "", ""},
+		{"exact", "26.7.9_1", "2.1", "26.7.9_1", MatchExact, MatchExact, "2.1", exact, "", ""},
 		// usual after an update: a note, not a warning
-		{"other hotfix revision of a known release", "26.7.9", "2.1", "26.7.9_1", MatchNearest, MatchExact, "b04bde19061e2dec", "", "same release, other hotfix revision"},
-		{"newer release of a known series", "26.7.10", "2.1", "26.7.9_1", MatchAssumed, MatchExact, "b04bde19061e2dec", "assuming 26.7.9_1", ""},
+		{"other hotfix revision of a known release", "26.7.9", "2.1", "26.7.9_1", MatchNearest, MatchExact, "2.1", exact, "", "same release, other hotfix revision"},
+		{"newer release of a known series", "26.7.10", "2.1", newest, MatchAssumed, MatchExact, "2.1", fragFor(t, s, newest, "os-frr", "2.1"), "assuming " + newest, ""},
 		// seen only on other cores (same API everywhere): a note, not "exact"
-		{"same plugin version, other framework, same fragment", "26.7.9_1", "1.55", "26.7.9_1", MatchExact, MatchNearest, "1debf887d1d01f6e", "", "its API was the same on every core"},
-		{"unknown plugin version", "26.7.9_1", "9.9", "26.7.9_1", MatchExact, MatchAssumed, "b04bde19061e2dec", "os-frr 9.9 is not in the data", ""},
+		{"same plugin version, other framework, same fragment", "26.7.9_1", "1.55", "26.7.9_1", MatchExact, MatchNearest, "1.55", "", "", "its API was the same on every core"},
+		// unknown: the nearest older known version's data
+		{"unknown plugin version", "26.7.9_1", "9.9", "26.7.9_1", MatchExact, MatchAssumed, "2.1", "", "os-frr 9.9 is not in the data", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -48,11 +85,12 @@ func TestResolveReal(t *testing.T) {
 				t.Fatal(err)
 			}
 			if r.CoreUsed != c.coreUsed || r.Packages[CorePackage].Match != c.coreMatch {
-				t.Errorf("core: used %s match %s", r.CoreUsed, r.Packages[CorePackage].Match)
+				t.Errorf("core: used %s match %s, want %s %s", r.CoreUsed, r.Packages[CorePackage].Match, c.coreUsed, c.coreMatch)
 			}
 			f := r.Packages["os-frr"]
-			if f.Match != c.frrMatch || f.Fragment != c.frrFragment {
-				t.Errorf("os-frr: %s %s", f.Match, f.Fragment)
+			if f.Match != c.frrMatch || !strings.Contains(","+versionsOf(s, "os-frr", f.Fragment)+",", ","+c.frrVersion+",") ||
+				(c.frrExact != "" && f.Fragment != c.frrExact) {
+				t.Errorf("os-frr: %s %s (versions %s), want %s data of %s %s", f.Match, f.Fragment, versionsOf(s, "os-frr", f.Fragment), c.frrMatch, c.frrVersion, c.frrExact)
 			}
 			if c.warn == "" && len(r.Warnings) > 0 {
 				t.Errorf("unexpected warnings: %v", r.Warnings)
@@ -161,12 +199,21 @@ func TestRealDataFieldsAndVariants(t *testing.T) {
 	s := loadReal(t)
 	r := s.Docs["os-frr"].Resources["quagga/ospfsettings#networks.network"]
 	// OSPF area: free text in 1.x, a relation to an area entry in 2.x
-	old := r.FieldFor("area", "70ea32d17d684e96") // 1.45
-	cur := r.FieldFor("area", "b04bde19061e2dec") // 2.1
+	var v145 string
+	for h, info := range s.Docs["os-frr"].Fragments {
+		for _, v := range info.Versions {
+			if v == "1.45" {
+				v145 = h
+			}
+		}
+	}
+	v21 := fragFor(t, s, "26.7.9_1", "os-frr", "2.1")
+	old := r.FieldFor("area", v145)
+	cur := r.FieldFor("area", v21)
 	if old == nil || cur == nil || old.Type != "TextField" || cur.Type != "ModelRelationField" || cur.ReadShape != "select" {
 		t.Fatalf("area variants: %+v / %+v", old, cur)
 	}
-	if a := r.APIFor("b04bde19061e2dec"); a == nil || a.Operations["get"].Wrapper != "network" {
+	if a := r.APIFor(v21); a == nil || a.Operations["get"].Wrapper != "network" {
 		t.Errorf("operation wrapper: %+v", a)
 	}
 	if r.FieldFor("area", "0000000000000000") != nil {

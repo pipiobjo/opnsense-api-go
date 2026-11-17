@@ -195,7 +195,7 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 	if r, _ := resp["result"].(string); r == "not found" {
 		return ErrNotFound
 	}
-	if _, answered := resp["result"]; answered || !hasGap(op, "result-not-returned") {
+	if _, answered := resp["result"]; answered || !op.HasGap(capability.GapResultNotReturned) {
 		if err := b.result(resp, "deleted", "del", id); err != nil {
 			return err
 		}
@@ -376,15 +376,6 @@ func (b *bound) path(op *capability.Operation, args ...string) string {
 	return op.Path + "/" + strings.Join(args, "/")
 }
 
-func hasGap(op *capability.Operation, code string) bool {
-	for _, g := range op.Gaps {
-		if g == code {
-			return true
-		}
-	}
-	return false
-}
-
 func hasMethod(op *capability.Operation, m string) bool {
 	for _, x := range op.Methods {
 		if strings.EqualFold(x, m) {
@@ -414,7 +405,7 @@ func (b *bound) encode(v Values, op *capability.Operation) (map[string]any, map[
 			return nil, nil, &ErrFieldNotAvailable{Resource: b.id, Field: name, Package: b.pkg, Have: b.version,
 				AvailableIn: b.c.versions(b.pkg, b.fieldFragments(name))}
 		}
-		if f.ServerSet() {
+		if f.ServerSet {
 			problems[name] = "set by the firewall; it cannot be written"
 			continue
 		}
@@ -558,7 +549,7 @@ func (b *bound) exists(ctx context.Context, id string) error {
 // incomplete: the object lacks fields every entry of this resource has.
 func (b *bound) incomplete(obj map[string]any) bool {
 	for name, f := range b.res.FieldsFor(b.frag) {
-		if f.WriteOnly() || f.Volatile {
+		if f.WriteOnly || f.Volatile {
 			continue
 		}
 		if _, ok := lookup(obj, name); !ok {
@@ -575,7 +566,7 @@ func (b *bound) decode(obj map[string]any) (Values, error) {
 	out := Values{}
 	bad := map[string]string{}
 	for name, f := range b.res.FieldsFor(b.frag) {
-		if f.WriteOnly() {
+		if f.WriteOnly {
 			continue
 		}
 		raw, ok := lookup(obj, name)
@@ -615,14 +606,14 @@ func (b *bound) readBack(ctx context.Context, id string, sent map[string]string,
 	sort.Strings(names)
 	for _, name := range names {
 		f := b.res.FieldFor(name, b.frag)
-		if f.WriteOnly() || f.Volatile {
+		if f.WriteOnly || f.Volatile {
 			continue
 		}
 		if op != nil && op.Transforms(name) {
 			// stored in another form: the value cannot be compared, but a
 			// value sent must not come back empty
 			if raw, ok := lookup(obj, name); sent[name] != "" && (!ok || raw == nil || raw == "") {
-				diffs = append(diffs, FieldDiff{Field: name, Sent: sent[name], Got: "", Cause: "transformed"})
+				diffs = append(diffs, FieldDiff{Field: name, Sent: sent[name], Got: "", Cause: CauseTransformed})
 			}
 			continue
 		}
@@ -638,9 +629,9 @@ func (b *bound) readBack(ctx context.Context, id string, sent map[string]string,
 			d := FieldDiff{Field: name, Sent: sent[name], Got: got}
 			switch {
 			case f.CustomWrite():
-				d.Cause = "custom-write"
+				d.Cause = CauseCustomWrite
 			case b.api.CustomSave():
-				d.Cause = "custom-save"
+				d.Cause = CauseCustomSave
 			}
 			diffs = append(diffs, d)
 		}
@@ -648,14 +639,14 @@ func (b *bound) readBack(ctx context.Context, id string, sent map[string]string,
 	if len(diffs) > 0 {
 		e := &ErrNotApplied{Resource: b.id, ID: id, Diffs: diffs}
 		var hints []string
-		if op != nil && hasGap(op, "overlay-unknown") {
+		if op.HasGap(capability.GapOverlayUnknown) {
 			hints = append(hints, op.Path+" overwrites fields it does not declare (gap overlay-unknown)")
 		}
 		for _, d := range diffs {
 			switch d.Cause {
-			case "custom-write":
+			case CauseCustomWrite:
 				hints = append(hints, d.Field+": its field type converts values on write (gap custom-write)")
-			case "custom-save":
+			case CauseCustomSave:
 				hints = append(hints, "the firewall stores "+b.id+" through its own code, which may change or drop values that do not apply to the rest of the entry (gap custom-save)")
 			}
 		}
@@ -690,15 +681,6 @@ func (b *bound) result(resp map[string]any, want, op, id string) error {
 	}
 	b.c.markPending(b.api.Apply)
 	return &ErrUnexpectedAnswer{Resource: b.id, Operation: op, ID: id, Answer: fmt.Sprint(resp)}
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // uniq keeps the first occurrence of each string, in order.

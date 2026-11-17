@@ -17,6 +17,7 @@ import (
 	"io"
 	"io/fs"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -109,7 +110,11 @@ type FragmentInfo struct {
 
 // Resource is a settings model or an entry list.
 type Resource struct {
-	Kind       string                `json:"kind"` // settings, entries
+	Kind string `json:"kind"` // settings, entries
+	// Family: one of several resources on the same model path, told apart
+	// by their own add and search endpoints (bind primary, secondary and
+	// forward domains); the identifier ends in "@<family>".
+	Family     string                `json:"family,omitempty"`
 	In         []string              `json:"in"`
 	API        []*API                `json:"api"`
 	Fields     map[string][]*Field   `json:"fields"`
@@ -133,7 +138,21 @@ type API struct {
 
 // CustomSave reports whether the firewall stores this resource through
 // its own code (gap custom-save).
-func (a *API) CustomSave() bool { return a != nil && has(a.Gaps, "custom-save") }
+func (a *API) CustomSave() bool { return a != nil && slices.Contains(a.Gaps, GapCustomSave) }
+
+// Gap codes of the capability data that change what the client does. The
+// spec repository defines all codes (internal/gap, docs/concepts.md);
+// codes not listed here are carried in the data but do not change
+// behaviour.
+const (
+	GapCustomSave        = "custom-save"         // stored or loaded through own code: read-back may differ
+	GapCustomWrite       = "custom-write"        // the field type converts values on write
+	GapOverlayUnknown    = "overlay-unknown"     // the endpoint overwrites fields it does not declare
+	GapResultNotReturned = "result-not-returned" // the endpoint answers nothing; the list decides
+)
+
+// HasGap reports whether the operation carries the gap code.
+func (o *Operation) HasGap(code string) bool { return o != nil && slices.Contains(o.Gaps, code) }
 
 // Operation is one endpoint of a resource.
 type Operation struct {
@@ -178,13 +197,19 @@ func (o *Operation) Overwrites(field string) (string, bool) {
 
 // Field is one variant of a field.
 type Field struct {
-	In          In                `json:"in"`
-	Type        string            `json:"type"`
-	Base        string            `json:"base,omitempty"`
-	ReadShape   string            `json:"read_shape,omitempty"`
-	Multiple    bool              `json:"multiple,omitempty"`
-	Required    bool              `json:"required,omitempty"`
-	Volatile    bool              `json:"volatile,omitempty"`
+	In        In     `json:"in"`
+	Type      string `json:"type"`
+	Base      string `json:"base,omitempty"`
+	ReadShape string `json:"read_shape,omitempty"`
+	Multiple  bool   `json:"multiple,omitempty"`
+	Required  bool   `json:"required,omitempty"`
+	Volatile  bool   `json:"volatile,omitempty"`
+	// ServerSet: the firewall fills the field itself and ignores a value
+	// sent (unique ids, auto numbers, audit fields); WriteOnly: stored but
+	// never returned (passwords). Both come from the data, so the client
+	// keeps no list of field types.
+	ServerSet   bool              `json:"server_set,omitempty"`
+	WriteOnly   bool              `json:"write_only,omitempty"`
 	Default     *string           `json:"default,omitempty"`
 	Options     []Option          `json:"options,omitempty"`
 	Relations   []Relation        `json:"relations,omitempty"`
@@ -505,13 +530,4 @@ func (s *Set) Check() error {
 		}
 	}
 	return errors.Join(errs...)
-}
-
-func has(list []string, v string) bool {
-	for _, x := range list {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }

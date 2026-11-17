@@ -1,82 +1,9 @@
 {
   "format": 1,
   "package": "os-frr",
-  "generator": "0.7.0",
+  "generator": "0.9.3",
   "fragments": {
-    "0040f798f0a8652f": {
-      "versions": [
-        "1.52"
-      ],
-      "cores": [
-        "26.1.8_5",
-        "26.1.9"
-      ],
-      "releases": [
-        "26.1.8",
-        "26.1.9"
-      ],
-      "order": 7
-    },
-    "015478501eca5afd": {
-      "versions": [
-        "1.53_1",
-        "1.53_3"
-      ],
-      "cores": [
-        "26.1.10",
-        "26.1.11_10",
-        "26.7",
-        "26.7.1_1"
-      ],
-      "releases": [
-        "26.1.10",
-        "26.1.11",
-        "26.7",
-        "26.7.1"
-      ],
-      "order": 8
-    },
-    "0f322a91c218b03c": {
-      "versions": [
-        "1.50_1"
-      ],
-      "cores": [
-        "25.7.11_9",
-        "26.1.1",
-        "26.1.2_5",
-        "26.1.3",
-        "26.1.4",
-        "26.1_4"
-      ],
-      "releases": [
-        "25.7.11",
-        "26.1.1",
-        "26.1.2",
-        "26.1.3",
-        "26.1.4",
-        "26.1"
-      ],
-      "order": 5
-    },
-    "1debf887d1d01f6e": {
-      "versions": [
-        "1.55"
-      ],
-      "cores": [
-        "26.7.3_11",
-        "26.7.4_1",
-        "26.7.5",
-        "26.7.6_3"
-      ],
-      "releases": [
-        "26.7.3",
-        "26.7.4",
-        "26.7.5",
-        "26.7.6"
-      ],
-      "order": 10
-    },
-    "48ee87c87938d808": {
+    "255b3c2fdaa68268": {
       "versions": [
         "2.0_2",
         "2.0_4"
@@ -91,7 +18,50 @@
       ],
       "order": 11
     },
-    "53709f8922e3729c": {
+    "3163436f2f320ab6": {
+      "versions": [
+        "2.1"
+      ],
+      "cores": [
+        "26.7.9_3"
+      ],
+      "releases": [
+        "26.7.9"
+      ],
+      "order": 13
+    },
+    "6150142a67e18641": {
+      "versions": [
+        "1.45",
+        "1.45_1"
+      ],
+      "cores": [
+        "25.7",
+        "25.7.1_1"
+      ],
+      "releases": [
+        "25.7",
+        "25.7.1"
+      ],
+      "order": 0
+    },
+    "622cd7174181cd5c": {
+      "versions": [
+        "1.47_1"
+      ],
+      "cores": [
+        "25.7.4",
+        "25.7.5",
+        "25.7.6"
+      ],
+      "releases": [
+        "25.7.4",
+        "25.7.5",
+        "25.7.6"
+      ],
+      "order": 3
+    },
+    "62baa425cd0059d4": {
       "versions": [
         "1.54"
       ],
@@ -103,7 +73,21 @@
       ],
       "order": 9
     },
-    "5bbc4416ef87c213": {
+    "685b2ce25535cae9": {
+      "versions": [
+        "1.52"
+      ],
+      "cores": [
+        "26.1.8_5",
+        "26.1.9"
+      ],
+      "releases": [
+        "26.1.8",
+        "26.1.9"
+      ],
+      "order": 7
+    },
+    "7675282bd568612b": {
       "versions": [
         "1.48",
         "1.49"
@@ -122,50 +106,7 @@
       ],
       "order": 4
     },
-    "70ea32d17d684e96": {
-      "versions": [
-        "1.45",
-        "1.45_1"
-      ],
-      "cores": [
-        "25.7",
-        "25.7.1_1"
-      ],
-      "releases": [
-        "25.7",
-        "25.7.1"
-      ],
-      "order": 0
-    },
-    "9d6562d8932a0042": {
-      "versions": [
-        "1.47_1"
-      ],
-      "cores": [
-        "25.7.4",
-        "25.7.5",
-        "25.7.6"
-      ],
-      "releases": [
-        "25.7.4",
-        "25.7.5",
-        "25.7.6"
-      ],
-      "order": 3
-    },
-    "b04bde19061e2dec": {
-      "versions": [
-        "2.1"
-      ],
-      "cores": [
-        "26.7.9_1"
-      ],
-      "releases": [
-        "26.7.9"
-      ],
-      "order": 12
-    },
-    "badff28d1c624f77": {
+    "7e6d2543fc9edbb9": {
       "versions": [
         "1.46"
       ],
@@ -177,7 +118,78 @@
       ],
       "order": 1
     },
-    "e233e28972969f80": {
+    "8259be67f862e47b": {
+      "versions": [
+        "2.1"
+      ],
+      "cores": [
+        "26.7.9_1"
+      ],
+      "releases": [
+        "26.7.9"
+      ],
+      "order": 12
+    },
+    "874aee4f8bf6065b": {
+      "versions": [
+        "1.53_1",
+        "1.53_3"
+      ],
+      "cores": [
+        "26.1.10",
+        "26.1.11_10",
+        "26.7",
+        "26.7.1_1"
+      ],
+      "releases": [
+        "26.1.10",
+        "26.1.11",
+        "26.7",
+        "26.7.1"
+      ],
+      "order": 8
+    },
+    "9632d127d669672f": {
+      "versions": [
+        "1.55"
+      ],
+      "cores": [
+        "26.7.3_11",
+        "26.7.4_1",
+        "26.7.5",
+        "26.7.6_3"
+      ],
+      "releases": [
+        "26.7.3",
+        "26.7.4",
+        "26.7.5",
+        "26.7.6"
+      ],
+      "order": 10
+    },
+    "c1a08acdc0467060": {
+      "versions": [
+        "1.50_1"
+      ],
+      "cores": [
+        "25.7.11_9",
+        "26.1_4",
+        "26.1.1",
+        "26.1.2_5",
+        "26.1.3",
+        "26.1.4"
+      ],
+      "releases": [
+        "25.7.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.1.3",
+        "26.1.4"
+      ],
+      "order": 5
+    },
+    "e1bf312e36d451ac": {
       "versions": [
         "1.51"
       ],
@@ -193,7 +205,7 @@
       ],
       "order": 6
     },
-    "f150f6f6496ac4c9": {
+    "e589b44040e6087b": {
       "versions": [
         "1.47"
       ],
@@ -208,95 +220,96 @@
   },
   "select": {
     "046fc254f30f1892": {
-      "1.50_1": "0f322a91c218b03c"
+      "1.50_1": "c1a08acdc0467060"
     },
     "0ddc5c264e9d3b78": {
-      "1.54": "53709f8922e3729c"
+      "1.54": "62baa425cd0059d4"
     },
     "13556b5fde9fcb23": {
-      "1.53_3": "015478501eca5afd"
+      "1.53_3": "874aee4f8bf6065b"
     },
     "3474b58a4fd11c99": {
-      "1.50_1": "0f322a91c218b03c"
+      "1.50_1": "c1a08acdc0467060"
     },
     "46ca311bb5a3e6b7": {
-      "1.55": "1debf887d1d01f6e"
+      "1.55": "9632d127d669672f"
     },
     "4da8f2c1ce7d5bc5": {
-      "1.52": "0040f798f0a8652f",
-      "1.53_1": "015478501eca5afd"
+      "1.52": "685b2ce25535cae9",
+      "1.53_1": "874aee4f8bf6065b"
     },
     "5ddba6daa11749ca": {
-      "1.53_3": "015478501eca5afd"
+      "1.53_3": "874aee4f8bf6065b"
     },
     "698003d800c002af": {
-      "1.47_1": "9d6562d8932a0042",
-      "1.48": "5bbc4416ef87c213",
-      "1.49": "5bbc4416ef87c213"
+      "1.47_1": "622cd7174181cd5c",
+      "1.48": "7675282bd568612b",
+      "1.49": "7675282bd568612b"
     },
     "7d70a768bf0554d5": {
-      "1.55": "1debf887d1d01f6e",
-      "2.0_2": "48ee87c87938d808"
+      "1.55": "9632d127d669672f",
+      "2.0_2": "255b3c2fdaa68268"
     },
     "8d844312ac36d0a2": {
-      "1.50_1": "0f322a91c218b03c"
+      "1.50_1": "c1a08acdc0467060"
     },
     "93e880c3fbfaf59f": {
-      "1.47_1": "9d6562d8932a0042"
+      "1.47_1": "622cd7174181cd5c"
     },
     "995b248bda3c7fc2": {
-      "1.49": "5bbc4416ef87c213"
+      "1.49": "7675282bd568612b"
     },
     "9ed4f877dda47bf3": {
-      "1.50_1": "0f322a91c218b03c"
+      "1.50_1": "c1a08acdc0467060"
     },
     "a1c0499916701a33": {
-      "2.0_4": "48ee87c87938d808"
+      "2.0_4": "255b3c2fdaa68268"
     },
     "a88377a837781ae9": {
-      "1.55": "1debf887d1d01f6e"
+      "1.55": "9632d127d669672f"
     },
     "aa8feee739c43325": {
-      "1.51": "e233e28972969f80"
+      "1.51": "e1bf312e36d451ac"
     },
     "ba313549fdfa9a3d": {
-      "1.47": "f150f6f6496ac4c9"
+      "1.47": "e589b44040e6087b"
     },
     "bc8fbac28b9fda48": {
-      "1.51": "e233e28972969f80"
+      "1.51": "e1bf312e36d451ac"
     },
     "dec042dcaed26347": {
-      "1.45_1": "70ea32d17d684e96",
-      "1.46": "badff28d1c624f77"
+      "1.45_1": "6150142a67e18641",
+      "1.46": "7e6d2543fc9edbb9"
     },
     "fa28675742c33421": {
-      "1.50_1": "0f322a91c218b03c",
-      "1.51": "e233e28972969f80"
+      "1.50_1": "c1a08acdc0467060",
+      "1.51": "e1bf312e36d451ac"
     },
     "fb3734b94bf5416f": {
-      "2.1": "b04bde19061e2dec"
+      "2.1": "3163436f2f320ab6"
     },
     "ff8724da663dda9f": {
-      "1.45": "70ea32d17d684e96"
+      "1.45": "6150142a67e18641"
     }
   },
   "resources": {
     "quagga/ospfsettings": {
       "kind": "settings",
       "in": [
-        "70ea32d17d684e96",
-        "badff28d1c624f77",
-        "f150f6f6496ac4c9",
-        "9d6562d8932a0042",
-        "5bbc4416ef87c213",
-        "0f322a91c218b03c",
-        "e233e28972969f80",
-        "0040f798f0a8652f",
-        "015478501eca5afd",
-        "53709f8922e3729c",
-        "1debf887d1d01f6e",
-        "48ee87c87938d808",
-        "b04bde19061e2dec"
+        "6150142a67e18641",
+        "7e6d2543fc9edbb9",
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
       ],
       "api": [
         {
@@ -402,17 +415,17 @@
         "passiveinterfaces": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "InterfaceField",
             "base": "BaseListField",
@@ -427,17 +440,17 @@
         "routerid": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -448,8 +461,23 @@
           },
           {
             "in": [
-              "48ee87c87938d808",
-              "b04bde19061e2dec"
+              "255b3c2fdaa68268",
+              "3163436f2f320ab6"
+            ],
+            "type": "NetworkField",
+            "base": "BaseSetField",
+            "read_shape": "string",
+            "constraints": {
+              "AddressFamily": "ipv4",
+              "NetMaskAllowed": "N"
+            },
+            "gaps": [
+              "custom-write"
+            ]
+          },
+          {
+            "in": [
+              "8259be67f862e47b"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -462,45 +490,1011 @@
         ]
       },
       "verified": {
-        "015478501eca5afd": {
+        "3163436f2f320ab6": {
+          "release": "26.7.9",
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back"
+          ]
+        },
+        "874aee4f8bf6065b": {
           "release": "26.1.11",
           "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:04Z",
-          "read": "ok"
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back"
+          ]
         },
-        "0f322a91c218b03c": {
+        "c1a08acdc0467060": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:18Z",
-          "read": "ok"
-        },
-        "b04bde19061e2dec": {
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back"
+          ]
+        }
+      }
+    },
+    "quagga/ospfsettings#areas.area": {
+      "kind": "entries",
+      "in": [
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
+      ],
+      "api": [
+        {
+          "in": "*",
+          "model": "OPNsense\\Quagga\\OSPF",
+          "model_path": "areas.area",
+          "wrapper": "area",
+          "apply": "/api/quagga/service/reconfigure",
+          "operations": {
+            "add": {
+              "path": "/api/quagga/ospfsettings/addArea",
+              "methods": [
+                "POST"
+              ],
+              "wrapper": "area",
+              "source": "base-call"
+            },
+            "del": {
+              "path": "/api/quagga/ospfsettings/delArea",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            },
+            "get": {
+              "path": "/api/quagga/ospfsettings/getArea",
+              "methods": [
+                "GET"
+              ],
+              "params": [
+                "uuid?"
+              ],
+              "wrapper": "area",
+              "source": "base-call"
+            },
+            "search": {
+              "path": "/api/quagga/ospfsettings/searchArea",
+              "methods": [
+                "GET",
+                "POST"
+              ],
+              "source": "base-call"
+            },
+            "set": {
+              "path": "/api/quagga/ospfsettings/setArea",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "wrapper": "area",
+              "source": "base-call"
+            },
+            "toggle": {
+              "path": "/api/quagga/ospfsettings/toggleArea",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            }
+          }
+        }
+      ],
+      "fields": {
+        "enabled": [
+          {
+            "in": "*",
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string",
+            "required": true,
+            "default": "1"
+          }
+        ],
+        "id": [
+          {
+            "in": [
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f",
+              "255b3c2fdaa68268",
+              "3163436f2f320ab6"
+            ],
+            "type": "NetworkField",
+            "base": "BaseSetField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "AddressFamily": "ipv4",
+              "Constraints": "(structured)",
+              "NetMaskAllowed": "N"
+            },
+            "gaps": [
+              "custom-write"
+            ]
+          },
+          {
+            "in": [
+              "8259be67f862e47b"
+            ],
+            "type": "NetworkField",
+            "base": "BaseSetField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "AddressFamily": "ipv4",
+              "Constraints": "(structured)",
+              "NetMaskAllowed": "N"
+            }
+          }
+        ],
+        "linkedPrefixlistIn": [
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "GroupedModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "prefixlists.prefixlist"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          }
+        ],
+        "linkedPrefixlistOut": [
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "GroupedModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "prefixlists.prefixlist"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          }
+        ],
+        "ranges": [
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "3163436f2f320ab6"
+            ],
+            "type": "NetworkField",
+            "base": "BaseSetField",
+            "read_shape": "select",
+            "constraints": {
+              "AddressFamily": "ipv4",
+              "AsList": "Y"
+            },
+            "gaps": [
+              "custom-write"
+            ]
+          },
+          {
+            "in": [
+              "8259be67f862e47b"
+            ],
+            "type": "NetworkField",
+            "base": "BaseSetField",
+            "read_shape": "select",
+            "constraints": {
+              "AddressFamily": "ipv4",
+              "AsList": "Y"
+            }
+          }
+        ],
+        "type": [
+          {
+            "in": [
+              "e589b44040e6087b"
+            ],
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "required": true,
+            "default": "standard",
+            "options": [
+              {
+                "value": "standard",
+                "label": "standard"
+              },
+              {
+                "value": "stub",
+                "label": "stub"
+              },
+              {
+                "value": "stub no-summary",
+                "label": "stub no-summary"
+              },
+              {
+                "value": "nssa",
+                "label": "nssa"
+              },
+              {
+                "value": "nssa no-summary",
+                "label": "nssa no-summary"
+              }
+            ]
+          },
+          {
+            "in": [
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
+            ],
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "required": true,
+            "default": "stub",
+            "options": [
+              {
+                "value": "stub",
+                "label": "stub"
+              },
+              {
+                "value": "stub no-summary",
+                "label": "stub no-summary"
+              },
+              {
+                "value": "nssa",
+                "label": "nssa"
+              },
+              {
+                "value": "nssa no-summary",
+                "label": "nssa no-summary"
+              }
+            ]
+          },
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "options": [
+              {
+                "value": "stub",
+                "label": "stub"
+              },
+              {
+                "value": "stub no-summary",
+                "label": "stub no-summary"
+              },
+              {
+                "value": "nssa",
+                "label": "nssa"
+              },
+              {
+                "value": "nssa no-summary",
+                "label": "nssa no-summary"
+              }
+            ]
+          }
+        ]
+      },
+      "verified": {
+        "3163436f2f320ab6": {
           "release": "26.7.9",
-          "composition": "26.7.9_1~74eecaac799a",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:38Z",
-          "read": "ok"
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "ranges": "",
+            "type": ""
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ]
+        },
+        "874aee4f8bf6065b": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ]
+        },
+        "c1a08acdc0467060": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ]
+        }
+      }
+    },
+    "quagga/ospfsettings#interfaces.interface": {
+      "kind": "entries",
+      "in": [
+        "6150142a67e18641",
+        "7e6d2543fc9edbb9",
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
+      ],
+      "api": [
+        {
+          "in": "*",
+          "model": "OPNsense\\Quagga\\OSPF",
+          "model_path": "interfaces.interface",
+          "wrapper": "interface",
+          "apply": "/api/quagga/service/reconfigure",
+          "operations": {
+            "add": {
+              "path": "/api/quagga/ospfsettings/addInterface",
+              "methods": [
+                "POST"
+              ],
+              "wrapper": "interface",
+              "source": "base-call"
+            },
+            "del": {
+              "path": "/api/quagga/ospfsettings/delInterface",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            },
+            "get": {
+              "path": "/api/quagga/ospfsettings/getInterface",
+              "methods": [
+                "GET"
+              ],
+              "params": [
+                "uuid?"
+              ],
+              "wrapper": "interface",
+              "source": "base-call"
+            },
+            "search": {
+              "path": "/api/quagga/ospfsettings/searchInterface",
+              "methods": [
+                "GET",
+                "POST"
+              ],
+              "source": "base-call"
+            },
+            "set": {
+              "path": "/api/quagga/ospfsettings/setInterface",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "wrapper": "interface",
+              "source": "base-call"
+            },
+            "toggle": {
+              "path": "/api/quagga/ospfsettings/toggleInterface",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            }
+          }
+        }
+      ],
+      "fields": {
+        "area": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
+            ],
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string",
+            "constraints": {
+              "Mask": "/^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$/"
+            }
+          },
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "ModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "areas.area"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          }
+        ],
+        "authkey": [
+          {
+            "in": "*",
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string",
+            "constraints": {
+              "Mask": "/^\\S+$/"
+            }
+          }
+        ],
+        "authkey_id": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "required": true,
+            "default": "1",
+            "constraints": {
+              "MaximumValue": "255",
+              "MinimumValue": "1"
+            }
+          }
+        ],
+        "authtype": [
+          {
+            "in": "*",
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "options": [
+              {
+                "value": "message-digest",
+                "label": "MD5"
+              },
+              {
+                "value": "plain",
+                "label": "plain"
+              }
+            ]
+          }
+        ],
+        "bfd": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9"
+            ],
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string",
+            "default": "0"
+          },
+          {
+            "in": [
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f",
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string"
+          }
+        ],
+        "carp_depend_on": [
+          {
+            "in": "*",
+            "type": "VirtualIPField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "constraints": {
+              "type": "carp"
+            }
+          }
+        ],
+        "cost": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "65535",
+              "MinimumValue": "1"
+            }
+          }
+        ],
+        "cost_demoted": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9"
+            ],
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "default": "65535",
+            "constraints": {
+              "MaximumValue": "65535",
+              "MinimumValue": "1"
+            }
+          },
+          {
+            "in": [
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f",
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "65535",
+              "MinimumValue": "1"
+            }
+          }
+        ],
+        "deadinterval": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "4294967295",
+              "MinimumValue": "0"
+            }
+          }
+        ],
+        "enabled": [
+          {
+            "in": "*",
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string",
+            "required": true,
+            "default": "1"
+          }
+        ],
+        "hellointerval": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "4294967295",
+              "MinimumValue": "0"
+            }
+          }
+        ],
+        "interfacename": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
+            ],
+            "type": "InterfaceField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "constraints": {
+              "AllowDynamic": "Y",
+              "filters": "(structured)"
+            }
+          },
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "InterfaceField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "required": true,
+            "constraints": {
+              "AllowDynamic": "Y",
+              "filters": "(structured)"
+            }
+          }
+        ],
+        "networktype": [
+          {
+            "in": "*",
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "options": [
+              {
+                "value": "broadcast",
+                "label": "Broadcast multi-access network"
+              },
+              {
+                "value": "non-broadcast",
+                "label": "NBMA network"
+              },
+              {
+                "value": "point-to-multipoint",
+                "label": "Point-to-multipoint network"
+              },
+              {
+                "value": "point-to-point",
+                "label": "Point-to-point network"
+              }
+            ]
+          }
+        ],
+        "p2mpoptions": [
+          {
+            "in": [
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f",
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "options": [
+              {
+                "value": "delay-reflood",
+                "label": "Delay reflood"
+              },
+              {
+                "value": "non-broadcast",
+                "label": "Non-broadcast"
+              }
+            ]
+          }
+        ],
+        "passive": [
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string",
+            "required": true,
+            "default": "0"
+          }
+        ],
+        "priority": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "4294967295",
+              "MinimumValue": "0"
+            }
+          }
+        ],
+        "retransmitinterval": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "4294967295",
+              "MinimumValue": "0"
+            }
+          }
+        ],
+        "transmitdelay": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "4294967295",
+              "MinimumValue": "0"
+            }
+          }
+        ]
+      },
+      "verified": {
+        "3163436f2f320ab6": {
+          "release": "26.7.9",
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "lan",
+            "networktype": "",
+            "p2mpoptions": "",
+            "passive": "0",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          },
+          "generated": [
+            "interfacename"
+          ],
+          "runtime_required": [
+            "interfacename"
+          ]
+        },
+        "874aee4f8bf6065b": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          }
+        },
+        "c1a08acdc0467060": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          }
         }
       }
     },
     "quagga/ospfsettings#neighbors.neighbor": {
       "kind": "entries",
       "in": [
-        "70ea32d17d684e96",
-        "badff28d1c624f77",
-        "f150f6f6496ac4c9",
-        "9d6562d8932a0042",
-        "5bbc4416ef87c213",
-        "0f322a91c218b03c",
-        "e233e28972969f80",
-        "0040f798f0a8652f",
-        "015478501eca5afd",
-        "53709f8922e3729c",
-        "1debf887d1d01f6e",
-        "48ee87c87938d808",
-        "b04bde19061e2dec"
+        "6150142a67e18641",
+        "7e6d2543fc9edbb9",
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
       ],
       "api": [
         {
@@ -575,27 +1569,46 @@
         "address": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
             "read_shape": "string",
-            "required": true
+            "required": true,
+            "gaps": [
+              "custom-write"
+            ]
           },
           {
             "in": [
-              "48ee87c87938d808",
-              "b04bde19061e2dec"
+              "255b3c2fdaa68268",
+              "3163436f2f320ab6"
+            ],
+            "type": "NetworkField",
+            "base": "BaseSetField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "AddressFamily": "ipv4",
+              "NetMaskAllowed": "N"
+            },
+            "gaps": [
+              "custom-write"
+            ]
+          },
+          {
+            "in": [
+              "8259be67f862e47b"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -651,46 +1664,88 @@
         ]
       },
       "verified": {
-        "015478501eca5afd": {
+        "3163436f2f320ab6": {
+          "release": "26.7.9",
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ]
+        },
+        "874aee4f8bf6065b": {
           "release": "26.1.11",
           "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:04Z",
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
           "read": "ok",
-          "write": "skipped",
-          "runtime_required": [
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
             "address"
           ],
-          "findings": [
-            "add with server defaults rejected; runtime-required: neighbor.address"
+          "runtime_required": [
+            "address"
           ]
         },
-        "0f322a91c218b03c": {
+        "c1a08acdc0467060": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:18Z",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
           "read": "ok",
-          "write": "skipped",
-          "runtime_required": [
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
             "address"
           ],
-          "findings": [
-            "add with server defaults rejected; runtime-required: neighbor.address"
-          ]
-        },
-        "b04bde19061e2dec": {
-          "release": "26.7.9",
-          "composition": "26.7.9_1~74eecaac799a",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:38Z",
-          "read": "ok",
-          "write": "skipped",
           "runtime_required": [
             "address"
-          ],
-          "findings": [
-            "add with server defaults rejected; runtime-required: neighbor.address"
           ]
         }
       }
@@ -698,19 +1753,20 @@
     "quagga/ospfsettings#networks.network": {
       "kind": "entries",
       "in": [
-        "70ea32d17d684e96",
-        "badff28d1c624f77",
-        "f150f6f6496ac4c9",
-        "9d6562d8932a0042",
-        "5bbc4416ef87c213",
-        "0f322a91c218b03c",
-        "e233e28972969f80",
-        "0040f798f0a8652f",
-        "015478501eca5afd",
-        "53709f8922e3729c",
-        "1debf887d1d01f6e",
-        "48ee87c87938d808",
-        "b04bde19061e2dec"
+        "6150142a67e18641",
+        "7e6d2543fc9edbb9",
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
       ],
       "api": [
         {
@@ -785,17 +1841,17 @@
         "area": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -807,13 +1863,20 @@
           },
           {
             "in": [
-              "48ee87c87938d808",
-              "b04bde19061e2dec"
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
             "read_shape": "select",
             "required": true,
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "areas.area"
+              }
+            ],
             "constraints": {
               "Model": "(structured)"
             },
@@ -825,21 +1888,24 @@
         "arearange": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
-            "read_shape": "string"
+            "read_shape": "string",
+            "gaps": [
+              "custom-write"
+            ]
           }
         ],
         "enabled": [
@@ -855,17 +1921,17 @@
         "ipaddr": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -877,8 +1943,24 @@
           },
           {
             "in": [
-              "48ee87c87938d808",
-              "b04bde19061e2dec"
+              "255b3c2fdaa68268",
+              "3163436f2f320ab6"
+            ],
+            "type": "NetworkField",
+            "base": "BaseSetField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "AddressFamily": "ipv4",
+              "NetMaskAllowed": "N"
+            },
+            "gaps": [
+              "custom-write"
+            ]
+          },
+          {
+            "in": [
+              "8259be67f862e47b"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -893,21 +1975,27 @@
         "linkedPrefixlistIn": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
             "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "prefixlists.prefixlist"
+              }
+            ],
             "constraints": {
               "Model": "(structured)"
             },
@@ -919,21 +2007,27 @@
         "linkedPrefixlistOut": [
           {
             "in": [
-              "70ea32d17d684e96",
-              "badff28d1c624f77",
-              "f150f6f6496ac4c9",
-              "9d6562d8932a0042",
-              "5bbc4416ef87c213",
-              "0f322a91c218b03c",
-              "e233e28972969f80",
-              "0040f798f0a8652f",
-              "015478501eca5afd",
-              "53709f8922e3729c",
-              "1debf887d1d01f6e"
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
             "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "prefixlists.prefixlist"
+              }
+            ],
             "constraints": {
               "Model": "(structured)"
             },
@@ -958,49 +2052,1006 @@
         ]
       },
       "verified": {
-        "015478501eca5afd": {
+        "3163436f2f320ab6": {
+          "release": "26.7.9",
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "9500bc18-a5a2-430e-b268-d8bf41b9630c",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ]
+        },
+        "874aee4f8bf6065b": {
           "release": "26.1.11",
           "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:04Z",
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
           "read": "ok",
-          "write": "skipped",
-          "runtime_required": [
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
             "area",
             "ipaddr"
           ],
-          "findings": [
-            "add with server defaults rejected; runtime-required: network.area, network.ipaddr"
+          "runtime_required": [
+            "area",
+            "ipaddr"
           ]
         },
-        "0f322a91c218b03c": {
+        "c1a08acdc0467060": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:18Z",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
           "read": "ok",
-          "write": "skipped",
-          "runtime_required": [
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
             "area",
             "ipaddr"
           ],
-          "findings": [
-            "add with server defaults rejected; runtime-required: network.area, network.ipaddr"
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ]
+        }
+      }
+    },
+    "quagga/ospfsettings#prefixlists.prefixlist": {
+      "kind": "entries",
+      "in": [
+        "6150142a67e18641",
+        "7e6d2543fc9edbb9",
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
+      ],
+      "api": [
+        {
+          "in": "*",
+          "model": "OPNsense\\Quagga\\OSPF",
+          "model_path": "prefixlists.prefixlist",
+          "wrapper": "prefixlist",
+          "apply": "/api/quagga/service/reconfigure",
+          "operations": {
+            "add": {
+              "path": "/api/quagga/ospfsettings/addPrefixlist",
+              "methods": [
+                "POST"
+              ],
+              "wrapper": "prefixlist",
+              "source": "base-call"
+            },
+            "del": {
+              "path": "/api/quagga/ospfsettings/delPrefixlist",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            },
+            "get": {
+              "path": "/api/quagga/ospfsettings/getPrefixlist",
+              "methods": [
+                "GET"
+              ],
+              "params": [
+                "uuid?"
+              ],
+              "wrapper": "prefixlist",
+              "source": "base-call"
+            },
+            "search": {
+              "path": "/api/quagga/ospfsettings/searchPrefixlist",
+              "methods": [
+                "GET",
+                "POST"
+              ],
+              "source": "base-call"
+            },
+            "set": {
+              "path": "/api/quagga/ospfsettings/setPrefixlist",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "wrapper": "prefixlist",
+              "source": "base-call"
+            },
+            "toggle": {
+              "path": "/api/quagga/ospfsettings/togglePrefixlist",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            }
+          }
+        }
+      ],
+      "fields": {
+        "action": [
+          {
+            "in": "*",
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "required": true,
+            "options": [
+              {
+                "value": "permit",
+                "label": "Permit"
+              },
+              {
+                "value": "deny",
+                "label": "Deny"
+              }
+            ]
+          }
+        ],
+        "enabled": [
+          {
+            "in": "*",
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string",
+            "required": true,
+            "default": "1"
+          }
+        ],
+        "name": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
+            ],
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "Mask": "/^([0-9a-zA-Z\\._\\-]){1,64}$/u"
+            }
+          },
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "Mask": "/^[a-zA-Z0-9._-]{1,64}$/"
+            }
+          }
+        ],
+        "network": [
+          {
+            "in": "*",
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string",
+            "required": true
+          }
+        ],
+        "seqnumber": [
+          {
+            "in": "*",
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "MaximumValue": "99",
+              "MinimumValue": "10"
+            }
+          }
+        ]
+      },
+      "verified": {
+        "3163436f2f320ab6": {
+          "release": "26.7.9",
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
           ]
         },
-        "b04bde19061e2dec": {
-          "release": "26.7.9",
-          "composition": "26.7.9_1~74eecaac799a",
-          "generator": "0.6.0",
-          "date": "2026-11-15T10:53:38Z",
+        "874aee4f8bf6065b": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
           "read": "ok",
-          "write": "skipped",
-          "runtime_required": [
-            "area",
-            "ipaddr"
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
           ],
-          "findings": [
-            "add with server defaults rejected; runtime-required: network.area, network.ipaddr"
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ]
+        },
+        "c1a08acdc0467060": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ]
+        }
+      }
+    },
+    "quagga/ospfsettings#redistributions.redistribution": {
+      "kind": "entries",
+      "in": [
+        "6150142a67e18641",
+        "7e6d2543fc9edbb9",
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
+      ],
+      "api": [
+        {
+          "in": "*",
+          "model": "OPNsense\\Quagga\\OSPF",
+          "model_path": "redistributions.redistribution",
+          "wrapper": "redistribution",
+          "apply": "/api/quagga/service/reconfigure",
+          "operations": {
+            "add": {
+              "path": "/api/quagga/ospfsettings/addRedistribution",
+              "methods": [
+                "POST"
+              ],
+              "wrapper": "redistribution",
+              "source": "base-call"
+            },
+            "del": {
+              "path": "/api/quagga/ospfsettings/delRedistribution",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            },
+            "get": {
+              "path": "/api/quagga/ospfsettings/getRedistribution",
+              "methods": [
+                "GET"
+              ],
+              "params": [
+                "uuid?"
+              ],
+              "wrapper": "redistribution",
+              "source": "base-call"
+            },
+            "search": {
+              "path": "/api/quagga/ospfsettings/searchRedistribution",
+              "methods": [
+                "GET",
+                "POST"
+              ],
+              "source": "base-call"
+            },
+            "set": {
+              "path": "/api/quagga/ospfsettings/setRedistribution",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "wrapper": "redistribution",
+              "source": "base-call"
+            },
+            "toggle": {
+              "path": "/api/quagga/ospfsettings/toggleRedistribution",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            }
+          }
+        }
+      ],
+      "fields": {
+        "description": [
+          {
+            "in": "*",
+            "type": "DescriptionField",
+            "base": "DescriptionField",
+            "read_shape": "string"
+          }
+        ],
+        "enabled": [
+          {
+            "in": "*",
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string",
+            "required": true,
+            "default": "1"
+          }
+        ],
+        "linkedRoutemap": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
+            ],
+            "type": "ModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "routemaps.routemap"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          },
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "GroupedModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "routemaps.routemap"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          }
+        ],
+        "redistribute": [
+          {
+            "in": "*",
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "required": true,
+            "default": "connected",
+            "options": [
+              {
+                "value": "bgp",
+                "label": "Border Gateway Protocol (BGP)"
+              },
+              {
+                "value": "connected",
+                "label": "Connected routes (directly attached subnet or host)"
+              },
+              {
+                "value": "kernel",
+                "label": "Kernel routes (not installed via the zebra RIB)"
+              },
+              {
+                "value": "rip",
+                "label": "Routing Information Protocol (RIP)"
+              },
+              {
+                "value": "static",
+                "label": "Statically configured routes"
+              }
+            ]
+          }
+        ]
+      },
+      "verified": {
+        "3163436f2f320ab6": {
+          "release": "26.7.9",
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          }
+        },
+        "874aee4f8bf6065b": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          }
+        },
+        "c1a08acdc0467060": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          }
+        }
+      }
+    },
+    "quagga/ospfsettings#routemaps.routemap": {
+      "kind": "entries",
+      "in": [
+        "6150142a67e18641",
+        "7e6d2543fc9edbb9",
+        "e589b44040e6087b",
+        "622cd7174181cd5c",
+        "7675282bd568612b",
+        "c1a08acdc0467060",
+        "e1bf312e36d451ac",
+        "685b2ce25535cae9",
+        "874aee4f8bf6065b",
+        "62baa425cd0059d4",
+        "9632d127d669672f",
+        "255b3c2fdaa68268",
+        "8259be67f862e47b",
+        "3163436f2f320ab6"
+      ],
+      "api": [
+        {
+          "in": "*",
+          "model": "OPNsense\\Quagga\\OSPF",
+          "model_path": "routemaps.routemap",
+          "wrapper": "routemap",
+          "apply": "/api/quagga/service/reconfigure",
+          "operations": {
+            "add": {
+              "path": "/api/quagga/ospfsettings/addRoutemap",
+              "methods": [
+                "POST"
+              ],
+              "wrapper": "routemap",
+              "source": "base-call"
+            },
+            "del": {
+              "path": "/api/quagga/ospfsettings/delRoutemap",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            },
+            "get": {
+              "path": "/api/quagga/ospfsettings/getRoutemap",
+              "methods": [
+                "GET"
+              ],
+              "params": [
+                "uuid?"
+              ],
+              "wrapper": "routemap",
+              "source": "base-call"
+            },
+            "search": {
+              "path": "/api/quagga/ospfsettings/searchRoutemap",
+              "methods": [
+                "GET",
+                "POST"
+              ],
+              "source": "base-call"
+            },
+            "set": {
+              "path": "/api/quagga/ospfsettings/setRoutemap",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "wrapper": "routemap",
+              "source": "base-call"
+            },
+            "toggle": {
+              "path": "/api/quagga/ospfsettings/toggleRoutemap",
+              "methods": [
+                "POST"
+              ],
+              "params": [
+                "uuid"
+              ],
+              "source": "base-call"
+            }
+          }
+        }
+      ],
+      "fields": {
+        "action": [
+          {
+            "in": "*",
+            "type": "OptionField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "required": true,
+            "options": [
+              {
+                "value": "permit",
+                "label": "Permit"
+              },
+              {
+                "value": "deny",
+                "label": "Deny"
+              }
+            ]
+          }
+        ],
+        "enabled": [
+          {
+            "in": "*",
+            "type": "BooleanField",
+            "base": "BooleanField",
+            "read_shape": "string",
+            "required": true,
+            "default": "1"
+          }
+        ],
+        "id": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "62baa425cd0059d4",
+              "9632d127d669672f",
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "MaximumValue": "99",
+              "MinimumValue": "10"
+            }
+          },
+          {
+            "in": [
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b"
+            ],
+            "type": "IntegerField",
+            "base": "IntegerField",
+            "read_shape": "string",
+            "constraints": {
+              "MaximumValue": "99",
+              "MinimumValue": "10"
+            }
+          }
+        ],
+        "match2": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9"
+            ],
+            "type": "ModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "prefixlists.prefixlist"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          },
+          {
+            "in": [
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
+            ],
+            "type": "ModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "multiple": true,
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "prefixlists.prefixlist"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          },
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "GroupedModelRelationField",
+            "base": "BaseListField",
+            "read_shape": "select",
+            "multiple": true,
+            "relations": [
+              {
+                "source": "OPNsense.quagga.ospf",
+                "items": "prefixlists.prefixlist"
+              }
+            ],
+            "constraints": {
+              "Model": "(structured)"
+            },
+            "gaps": [
+              "custom-read-shape"
+            ]
+          }
+        ],
+        "name": [
+          {
+            "in": [
+              "6150142a67e18641",
+              "7e6d2543fc9edbb9",
+              "e589b44040e6087b",
+              "622cd7174181cd5c",
+              "7675282bd568612b",
+              "c1a08acdc0467060",
+              "e1bf312e36d451ac",
+              "685b2ce25535cae9",
+              "874aee4f8bf6065b",
+              "62baa425cd0059d4",
+              "9632d127d669672f"
+            ],
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string",
+            "required": true
+          },
+          {
+            "in": [
+              "255b3c2fdaa68268",
+              "8259be67f862e47b",
+              "3163436f2f320ab6"
+            ],
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string",
+            "required": true,
+            "constraints": {
+              "Mask": "/^[a-zA-Z0-9._-]{1,64}$/"
+            }
+          }
+        ],
+        "set": [
+          {
+            "in": "*",
+            "type": "TextField",
+            "base": "TextField",
+            "read_shape": "string"
+          }
+        ]
+      },
+      "verified": {
+        "3163436f2f320ab6": {
+          "release": "26.7.9",
+          "composition": "26.7.9_3~f6af0703c1a6",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:48:42Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "10",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "id",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "id",
+            "name"
+          ]
+        },
+        "874aee4f8bf6065b": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.9.3",
+          "date": "2026-11-17T05:47:22Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "name"
+          ]
+        },
+        "c1a08acdc0467060": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.9.3",
+          "date": "2026-11-17T06:26:56Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "name"
           ]
         }
       }

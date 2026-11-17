@@ -104,6 +104,13 @@ type FieldDiff struct {
 	Cause string
 }
 
+// Causes of a read-back difference (FieldDiff.Cause).
+const (
+	CauseCustomWrite = capability.GapCustomWrite // the field's type converts values on write
+	CauseCustomSave  = capability.GapCustomSave  // the resource is stored through own code
+	CauseTransformed = "transformed"             // stored in another form, and came back empty
+)
+
 // ErrNotApplied: the firewall answered "saved", but reading the object
 // back shows other values. Typical causes: the field does not exist in this
 // version after all, or the server normalises the value.

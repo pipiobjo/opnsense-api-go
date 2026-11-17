@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
+# SPDX-License-Identifier: BSD-2-Clause
+# Refresh the unit tests' capability data from real data of
+# opnsense-api-spec, trimmed to what the tests use:
+#
+#   tools/testdata.sh SRC      SRC: an unpacked catalog (catalog.json and
+#                              capabilities/), e.g. from tools/ci/catalog.sh
+#
+# Keeps the whole catalog (all releases and cores, for the resolver
+# tests), the core document without resources (detection), and os-frr
+# with its OSPF resources (the fake firewall's resources). Tests refer to
+# fragments by package and version (fragmentOf), never by hash, so a
+# refresh after a generator change needs no test change.
+set -euo pipefail
+SRC="${1:?usage: tools/testdata.sh SRC}"
+OUT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/opnsense/capability/testdata/catalog"
+rm -rf "$OUT"; mkdir -p "$OUT/capabilities"
+jq '.packages |= {opnsense: .opnsense, "os-frr": .["os-frr"]}' "$SRC/catalog.json" > "$OUT/catalog.json"
+jq 'del(.actions) | .resources = {}' "$SRC/capabilities/opnsense.json" > "$OUT/capabilities/opnsense.json"
+jq 'del(.actions) | .resources |= with_entries(select(.key | startswith("quagga/ospfsettings")))' \
+  "$SRC/capabilities/os-frr.json" > "$OUT/capabilities/os-frr.json"
+echo "test data refreshed from $SRC: $(jq -r .generator "$OUT/catalog.json")"

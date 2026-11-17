@@ -263,7 +263,7 @@ func TestCall(t *testing.T) {
 
 func TestWriteOnlyFieldsAreNotDecoded(t *testing.T) {
 	r := &capability.Resource{Kind: "entries", In: []string{"h"}, Fields: map[string][]*capability.Field{
-		"password": {{In: capability.In{All: true}, Type: "UpdateOnlyTextField", Base: "UpdateOnlyTextField"}},
+		"password": {{In: capability.In{All: true}, Type: "UpdateOnlyTextField", Base: "UpdateOnlyTextField", WriteOnly: true}},
 		"name":     {{In: capability.In{All: true}, Type: "TextField", Base: "TextField"}},
 	}}
 	b := &bound{id: "x/y#z", frag: "h", res: r}
@@ -323,13 +323,10 @@ func TestBlankTemplateIsNotAnEntry(t *testing.T) {
 }
 
 func TestServerSetFieldsAndOptionLists(t *testing.T) {
-	uid := &capability.Field{Type: "UniqueIdField", Base: "UniqueIdField"}
-	audit := &capability.Field{Type: "JsonAuditField", Base: "JsonAuditField"}
-	if !uid.ServerSet() || !audit.ServerSet() {
-		t.Error("server-set fields")
-	}
+	// which fields are server-set comes from the data (server_set); the
+	// spec repository derives it from the field types
 	r := &capability.Resource{Kind: "entries", In: []string{"h"}, Fields: map[string][]*capability.Field{
-		"id":      {{In: capability.In{All: true}, Type: "UniqueIdField", Base: "UniqueIdField"}},
+		"id":      {{In: capability.In{All: true}, Type: "UniqueIdField", Base: "UniqueIdField", ServerSet: true}},
 		"service": {{In: capability.In{All: true}, Type: "ServiceField", Base: "BaseListField", Options: []capability.Option{{Value: "a"}}}},
 		"mode":    {{In: capability.In{All: true}, Type: "OptionField", Base: "BaseListField", Options: []capability.Option{{Value: "a"}}}},
 	}}
@@ -460,9 +457,9 @@ func TestWriteOnlyFieldIsNotReadBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const frag = "b04bde19061e2dec" // os-frr 2.1 in the test data
+	frag := frrFragment(t, s)
 	fd := s.Docs["os-frr"].Resources[neighbors].FieldFor("description", frag)
-	fd.Type, fd.Base = "UpdateOnlyTextField", "UpdateOnlyTextField"
+	fd.Type, fd.Base, fd.WriteOnly = "UpdateOnlyTextField", "UpdateOnlyTextField", true
 	f := newFake(t)
 	f.writeOnly = map[string]bool{"description": true}
 	c, err := connect(t, f, func(cfg *Config) { cfg.Capabilities = s })

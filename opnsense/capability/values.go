@@ -6,6 +6,7 @@ package capability
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,20 +46,6 @@ func (f *Field) Kind() Kind {
 		return KindInt
 	}
 	return KindString
-}
-
-// WriteOnly reports fields the server accepts but never returns.
-func (f *Field) WriteOnly() bool {
-	return f.Type == "UpdateOnlyTextField" || f.Base == "UpdateOnlyTextField"
-}
-
-// ServerSet reports fields the firewall fills itself and ignores on write.
-func (f *Field) ServerSet() bool {
-	switch f.Base {
-	case "UniqueIdField", "AutoNumberField", "JsonAuditField":
-		return true
-	}
-	return false
 }
 
 // StaticOptions reports whether Options is the complete list of allowed
@@ -275,4 +262,4 @@ func (f *Field) SameWire(sent, got string) bool {
 // CustomWrite reports whether the field's type converts or normalizes
 // values on write (gap custom-write): the stored value may differ from the
 // one sent.
-func (f *Field) CustomWrite() bool { return f != nil && has(f.Gaps, "custom-write") }
+func (f *Field) CustomWrite() bool { return f != nil && slices.Contains(f.Gaps, GapCustomWrite) }

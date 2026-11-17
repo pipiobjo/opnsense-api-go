@@ -62,7 +62,7 @@ func TestVolatileRefusedTransformedChecked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const frag = "b04bde19061e2dec"
+	frag := frrFragment(t, s)
 	r := s.Docs["os-frr"].Resources[neighbors]
 	r.FieldFor("description", frag).Volatile = true
 	f := newFake(t)
