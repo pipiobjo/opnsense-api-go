@@ -141,7 +141,7 @@ type Client struct {
 
 	mu        sync.Mutex
 	pending   map[string]uint64         // apply endpoint -> generation of the last mutation
-	locks     map[string]*sync.Mutex    // per model class, and per apply endpoint ("apply:<path>")
+	locks     map[string]chan struct{}  // per model class, and per apply endpoint ("apply:<path>")
 	templates map[string]map[string]any // entry list -> its blank template (get without UUID)
 
 	pluginsUnknown bool // the key may not read the plugin list
@@ -197,7 +197,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		cfg.ApplyTimeout = 5 * time.Minute
 	}
 	c := &Client{cfg: cfg, t: t, data: data, owns: map[string][]string{},
-		pending: map[string]uint64{}, locks: map[string]*sync.Mutex{}, templates: map[string]map[string]any{}}
+		pending: map[string]uint64{}, locks: map[string]chan struct{}{}, templates: map[string]map[string]any{}}
 	for pkg, d := range data.Docs {
 		for id := range d.Resources {
 			c.owns[id] = append(c.owns[id], pkg)
@@ -398,16 +398,24 @@ func (c *Client) versions(pkg string, frags []string) []string {
 	return out
 }
 
-func (c *Client) lock(key string) func() {
+// lock takes the lock for key (a model class, or "apply:<path>") and gives
+// up when ctx ends, so a cancelled caller does not wait behind a long
+// apply. The returned unlock may be called more than once.
+func (c *Client) lock(ctx context.Context, key string) (func(), error) {
 	c.mu.Lock()
 	m := c.locks[key]
 	if m == nil {
-		m = &sync.Mutex{}
+		m = make(chan struct{}, 1)
 		c.locks[key] = m
 	}
 	c.mu.Unlock()
-	m.Lock()
-	return m.Unlock
+	select {
+	case m <- struct{}{}:
+	case <-ctx.Done():
+		return nil, fmt.Errorf("opnsense: waiting for another change to %s: %w", strings.TrimPrefix(key, "apply:"), ctx.Err())
+	}
+	var once sync.Once
+	return func() { once.Do(func() { <-m }) }, nil
 }
 
 func (c *Client) markPending(apply string) {
@@ -470,7 +478,11 @@ func (c *Client) applyEndpoint(ctx context.Context, p string, force bool) error 
 	if p == "" {
 		return nil // the resource has no apply endpoint: saved is active
 	}
-	defer c.lock("apply:" + p)()
+	unlock, err := c.lock(ctx, "apply:"+p)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	c.mu.Lock()
 	gen, ok := c.pending[p]
 	c.mu.Unlock()

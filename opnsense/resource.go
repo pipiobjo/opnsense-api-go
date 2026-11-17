@@ -46,10 +46,14 @@ func (c *Client) Settings(id string) (*Settings, error) {
 // Fields returns the raw field descriptions of the resource in the
 // firewall's version, as copies. Prefer Info().Fields: it does not tie a
 // consumer to the data format.
-func (e *Entries) Fields() map[string]*capability.Field { return cloneFields(e.b.res.FieldsFor(e.b.frag)) }
+func (e *Entries) Fields() map[string]*capability.Field {
+	return cloneFields(e.b.res.FieldsFor(e.b.frag))
+}
 
 // Fields returns copies of the raw field descriptions (see Entries.Fields).
-func (s *Settings) Fields() map[string]*capability.Field { return cloneFields(s.b.res.FieldsFor(s.b.frag)) }
+func (s *Settings) Fields() map[string]*capability.Field {
+	return cloneFields(s.b.res.FieldsFor(s.b.frag))
+}
 
 // Apply calls the apply endpoint of this resource, whether or not this
 // Client saved a change: a change saved by an earlier process (whose apply
@@ -98,7 +102,11 @@ func (e *Entries) Add(ctx context.Context, v Values) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer b.c.lock(b.api.Model)()
+	unlock, err := b.c.lock(ctx, b.api.Model)
+	if err != nil {
+		return "", err
+	}
+	defer unlock()
 	var resp map[string]any
 	if err := b.c.post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, b.api.Apply); err != nil {
 		return "", err
@@ -112,7 +120,9 @@ func (e *Entries) Add(ctx context.Context, v Values) (string, error) {
 		// "saved" without a usable id: the entry was probably created
 		return "", &ErrUnexpectedAnswer{Resource: b.id, Operation: "add", Answer: transport.Trunc([]byte(fmt.Sprint(resp)))}
 	}
-	return id, b.c.finish(ctx, b.api.Apply, b.readBack(ctx, id, sent, op))
+	rb := b.readBack(ctx, id, sent, op)
+	unlock() // an apply can take minutes; other changes to the model need not wait
+	return id, b.c.finish(ctx, b.api.Apply, rb)
 }
 
 // Get reads one entry; ErrNotFound if it does not exist. With an
@@ -162,7 +172,11 @@ func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 	if err != nil {
 		return err
 	}
-	defer b.c.lock(b.api.Model)()
+	unlock, err := b.c.lock(ctx, b.api.Model)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	// The entry must exist: for an unknown UUID OPNsense creates a new entry
 	// under that UUID (seen on 26.7.9), which would silently undo a delete.
 	// The model lock keeps this client's own deletes out of the gap; a
@@ -178,7 +192,9 @@ func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 		return err
 	}
 	b.c.markPending(b.api.Apply)
-	return b.c.finish(ctx, b.api.Apply, b.readBack(ctx, id, sent, op))
+	rb := b.readBack(ctx, id, sent, op)
+	unlock()
+	return b.c.finish(ctx, b.api.Apply, rb)
 }
 
 // Delete removes an entry and confirms it is gone; ErrNotFound if it did
@@ -195,7 +211,11 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	defer b.c.lock(b.api.Model)()
+	unlock, err := b.c.lock(ctx, b.api.Model)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	var resp map[string]any
 	if err := b.c.post(ctx, b.path(op, id), nil, &resp, b.api.Apply); err != nil {
 		return err
@@ -217,6 +237,7 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 			confirm = fmt.Errorf("opnsense: %s %s: confirming the delete: %w", b.id, id, err)
 		}
 	}
+	unlock()
 	return b.c.finish(ctx, b.api.Apply, confirm)
 }
 
@@ -236,7 +257,11 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	if err != nil {
 		return err
 	}
-	defer b.c.lock(b.api.Model)()
+	unlock, err := b.c.lock(ctx, b.api.Model)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	// an unknown UUID must not be trusted either: check and read first
 	if err := b.exists(ctx, id); err != nil {
 		return err
@@ -268,6 +293,7 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	if _, has := lookup(obj, "enabled"); has {
 		after, err := b.getObject(ctx, id)
 		if err != nil {
+			unlock()
 			return b.c.finish(ctx, b.api.Apply, fmt.Errorf("opnsense: %s %s: reading back after the toggle: %w", b.id, id, err))
 		}
 		got, _ := lookup(after, "enabled")
@@ -278,6 +304,7 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 		// no "enabled" field to read: only the answer can tell
 		check = &ErrUnexpectedAnswer{Resource: b.id, Operation: "toggle", ID: id, Answer: transport.Trunc([]byte(fmt.Sprint(resp)))}
 	}
+	unlock()
 	return b.c.finish(ctx, b.api.Apply, check)
 }
 
@@ -349,7 +376,11 @@ func (s *Settings) Set(ctx context.Context, v Values) error {
 	if err != nil {
 		return err
 	}
-	defer b.c.lock(b.api.Model)()
+	unlock, err := b.c.lock(ctx, b.api.Model)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	var resp map[string]any
 	if err := b.c.post(ctx, op.Path, map[string]any{b.wrapper(op): body}, &resp, b.api.Apply); err != nil {
 		return err
@@ -358,7 +389,9 @@ func (s *Settings) Set(ctx context.Context, v Values) error {
 		return err
 	}
 	b.c.markPending(b.api.Apply)
-	return b.c.finish(ctx, b.api.Apply, b.readBack(ctx, "", sent, op))
+	rb := b.readBack(ctx, "", sent, op)
+	unlock()
+	return b.c.finish(ctx, b.api.Apply, rb)
 }
 
 // ---------------------------------------------------------------- helpers

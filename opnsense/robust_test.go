@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pipiobjo/opnsense-api-go/opnsense/capability"
 )
@@ -548,5 +549,52 @@ func TestLostAnswerMarksPending(t *testing.T) {
 	f.srv.Close()
 	if _, err := n.Add(ctx, Values{"address": "192.0.2.12"}); err == nil || errors.Is(err, ErrOutcomeUnknown) || len(c.Pending()) != 0 {
 		t.Errorf("a request that never reached the firewall: %v, pending %v", err, c.Pending())
+	}
+}
+
+// Claim: a long apply does not block other changes to the same model, and
+// a caller whose context ends stops waiting for a lock (a provider's
+// Ctrl-C or timeout must not hang for minutes behind an apply).
+func TestLocksRespectTheContext(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	c, err := connect(t, f, func(cfg *Config) { cfg.AutoApply = true })
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := c.Entries(neighbors)
+	f.applyGate, f.applyStart = make(chan struct{}), make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if _, err := n.Add(ctx, Values{"address": "192.0.2.10"}); err != nil {
+			t.Errorf("first add: %v", err)
+		}
+	}()
+	<-f.applyStart // the first add's apply is running and holds the apply lock
+	short, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	start := time.Now()
+	id, err := n.Add(short, Values{"address": "192.0.2.11"})
+	if id == "" {
+		t.Errorf("the second add was blocked by the first add's apply: %v", err)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("waiting for the apply lock must end with the context: %v", err)
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("the second add waited %v", d)
+	}
+	close(f.applyGate)
+	wg.Wait()
+	f.mu.Lock()
+	stored := len(f.nbrs)
+	f.mu.Unlock()
+	if stored != 2 {
+		t.Errorf("entries stored: %d, want 2", stored)
+	}
+	if p := c.Pending(); len(p) != 1 {
+		t.Errorf("the second add's apply did not run, so it must stay pending: %v", p)
 	}
 }

@@ -4,8 +4,8 @@
 package capability
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
