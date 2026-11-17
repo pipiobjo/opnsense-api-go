@@ -179,11 +179,21 @@ exactly one of them:
   created with it carries `opnsense.InsecureWarning` in
   `Instance().Warnings`.
 
-Redirects are never followed, the URL may not contain credentials, and only
-GET requests are retried (on connection errors, never on certificate
-errors). `Config.HTTPClient` replaces the built-in transport entirely; it
-cannot be combined with these settings (`New` refuses that), so a pin is
-never dropped silently.
+Redirects are never followed and the URL may not contain credentials.
+Only requests that change nothing are retried: GET and the search POST
+(whose body is fixed), after connection errors, cut-off answers and HTTP
+502/503/504, with growing waits for about 30 seconds in total (long enough
+for the web GUI to restart), never after certificate or authentication
+errors and never beyond the context. A change is never retried; see
+`ErrOutcomeUnknown`.
+
+The built-in transport speaks HTTP/2. OPNsense's web server cuts large
+answers over HTTP/1.1 (broken chunked encoding), so if you set
+`Config.HTTPClient`, its transport must use HTTP/2 as well (for an
+`http.Transport` with its own TLS settings: `ForceAttemptHTTP2: true`).
+`Config.HTTPClient` replaces the built-in transport entirely; it cannot be
+combined with the TLS settings (`New` refuses that), so a pin is never
+dropped silently.
 
 ## Status
 

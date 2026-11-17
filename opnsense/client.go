@@ -111,7 +111,9 @@ type Config struct {
 	Logger       *slog.Logger  // debug log: method, path, status, duration; never bodies or credentials
 	// HTTPClient replaces the built-in HTTP client, for example for a proxy
 	// or tracing. Its transport then decides about TLS entirely, so it
-	// cannot be combined with TLS settings (New refuses that).
+	// cannot be combined with TLS settings (New refuses that). It must use
+	// HTTP/2 (ForceAttemptHTTP2 for an http.Transport with its own TLS
+	// config): OPNsense cuts large answers over HTTP/1.1.
 	HTTPClient *http.Client
 }
 

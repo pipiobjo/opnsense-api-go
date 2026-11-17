@@ -25,7 +25,8 @@ func TestEveryTestIsDocumented(t *testing.T) {
 		inDoc[m[1]] = true
 	}
 	inCode := map[string]bool{}
-	fn := regexp.MustCompile(`(?m)^func ((?:Test|Fuzz)[A-Za-z0-9]+)\(`)
+	// tests and fuzz targets, not TestMain (*testing.M)
+	fn := regexp.MustCompile(`(?m)^func ((?:Test|Fuzz)[A-Za-z0-9]+)\(\w+ \*testing\.[TF]\)`)
 	err = filepath.WalkDir("..", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

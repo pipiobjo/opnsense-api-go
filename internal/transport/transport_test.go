@@ -5,6 +5,8 @@ package transport
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // flaky drops the connection of the first request, then answers.
@@ -264,5 +267,87 @@ func TestBrokenJSONIsNotQuoted(t *testing.T) {
 	err := newT(t, srv).Get(context.Background(), "/api/x", nil, &out)
 	if err == nil || strings.Contains(err.Error(), secret) {
 		t.Errorf("broken JSON: %v", err)
+	}
+}
+
+// Reads are retried with growing waits after connection errors and HTTP
+// 502/503/504 (the web GUI restarting), up to len(RetryDelays) times; a
+// search is retried like a GET; other statuses and POST never.
+func TestReadRetries(t *testing.T) {
+	saved := RetryDelays
+	RetryDelays = []time.Duration{time.Millisecond, 2 * time.Millisecond, 4 * time.Millisecond}
+	defer func() { RetryDelays = saved }()
+	ctx := context.Background()
+	var out map[string]any
+	busy := func(failures int32, status int) (*httptest.Server, *atomic.Int32) {
+		var n atomic.Int32
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if n.Add(1) <= failures {
+				w.WriteHeader(status)
+				return
+			}
+			w.Write([]byte(`{"ok":true}`))
+		}))
+		t.Cleanup(srv.Close)
+		return srv, &n
+	}
+	for _, status := range []int{502, 503, 504} {
+		srv, n := busy(3, status)
+		if err := newT(t, srv).Get(ctx, "/api/x", nil, &out); err != nil || n.Load() != 4 {
+			t.Errorf("HTTP %d three times: %v after %d attempts", status, err, n.Load())
+		}
+	}
+	srv, n := busy(10, 503)
+	var he *HTTPError
+	if err := newT(t, srv).Get(ctx, "/api/x", nil, &out); !errors.As(err, &he) || n.Load() != int32(len(RetryDelays)+1) {
+		t.Errorf("busy for good: %v after %d attempts, want %d", err, n.Load(), len(RetryDelays)+1)
+	}
+	srv, n = busy(1, 500)
+	if err := newT(t, srv).Get(ctx, "/api/x", nil, &out); err == nil || n.Load() != 1 {
+		t.Errorf("HTTP 500 must not be retried: %v after %d attempts", err, n.Load())
+	}
+	srv, n = busy(1, 503)
+	if err := newT(t, srv).Search(ctx, "/api/x/searchItem", &out); err != nil || n.Load() != 2 {
+		t.Errorf("search after 503: %v after %d attempts", err, n.Load())
+	}
+	srv, n = busy(1, 503)
+	if err := newT(t, srv).Post(ctx, "/api/x/set", nil, &out, 0); err == nil || n.Load() != 1 {
+		t.Errorf("POST must not be retried: %v after %d attempts", err, n.Load())
+	}
+	srv2, n2 := flaky(t)
+	if err := newT(t, srv2).Search(ctx, "/api/x/searchItem", &out); err != nil || n2.Load() != 2 {
+		t.Errorf("search after a dropped connection: %v after %d attempts", err, n2.Load())
+	}
+	cctx, cancel := context.WithCancel(ctx)
+	cancel()
+	srv, _ = busy(10, 503)
+	if err := newT(t, srv).Get(cctx, "/api/x", nil, &out); !errors.Is(err, context.Canceled) {
+		t.Errorf("a cancelled context ends the retries: %v", err)
+	}
+}
+
+// The built-in transport speaks HTTP/2: OPNsense's web server cuts large
+// answers over HTTP/1.1 (broken chunked encoding). A custom
+// Config.HTTPClient must do the same (README).
+func TestDefaultTransportUsesHTTP2(t *testing.T) {
+	var proto atomic.Int32
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proto.Store(int32(r.ProtoMajor))
+		w.Write([]byte(`{}`))
+	}))
+	srv.EnableHTTP2 = true
+	srv.StartTLS()
+	defer srv.Close()
+	sum := sha256.Sum256(srv.Certificate().Raw)
+	tr, err := New(Config{URL: srv.URL, Key: "k", Secret: "s", Pin: hex.EncodeToString(sum[:])})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := tr.Get(context.Background(), "/api/x", nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	if proto.Load() != 2 {
+		t.Errorf("the built-in transport used HTTP/%d, want HTTP/2", proto.Load())
 	}
 }

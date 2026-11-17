@@ -4,7 +4,8 @@
 // Package transport sends requests to the OPNsense API: basic auth with
 // key and secret, TLS verified against the system roots, a CA or a
 // certificate pin (or deliberately not at all), HTTP/2, no redirects,
-// error mapping, retries only for GET.
+// error mapping, retries only for requests that change nothing (GET and
+// the fixed search POST).
 package transport
 
 import (
@@ -245,22 +246,33 @@ func (t *Transport) Get(ctx context.Context, path string, query url.Values, out 
 	if err := t.mayRead(http.MethodGet, path); err != nil {
 		return err
 	}
+	return t.retrying(ctx, http.MethodGet, path, query, nil, out)
+}
+
+// RetryDelays are the waits between attempts of a read: about 30 seconds
+// in total, long enough for the web GUI or a service to restart (OPNsense
+// answers 502/503 or refuses connections meanwhile). Exported (the package
+// is internal) so that tests of other packages can shorten them.
+var RetryDelays = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 15 * time.Second}
+
+// retrying sends a request that changes nothing (GET, Search) and repeats
+// it after connection errors, cut-off answers and HTTP 502/503/504, with
+// growing waits; never after certificate or authentication errors, and not
+// beyond ctx.
+func (t *Transport) retrying(ctx context.Context, method, path string, query url.Values, body, out any) error {
 	var err error
-	for attempt := 0; attempt < 3; attempt++ {
-		if attempt > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Duration(attempt) * 500 * time.Millisecond):
-			}
-		}
+	for attempt := 0; ; attempt++ {
 		var retry bool
-		retry, err = t.do(ctx, http.MethodGet, path, query, nil, out, t.timeout)
-		if err == nil || !retry {
+		retry, err = t.do(ctx, method, path, query, body, out, t.timeout)
+		if err == nil || !retry || attempt >= len(RetryDelays) {
 			return err
 		}
+		select {
+		case <-ctx.Done():
+			return errors.Join(err, ctx.Err())
+		case <-time.After(RetryDelays[attempt]):
+		}
 	}
-	return err
 }
 
 // Post sends a JSON body (nil sends "{}") and decodes the response. Never
@@ -307,8 +319,8 @@ func (t *Transport) Search(ctx context.Context, path string, out any) error {
 	if err := t.mayRead(http.MethodPost, path); err != nil {
 		return err
 	}
-	_, err := t.do(ctx, http.MethodPost, path, nil, map[string]any{"current": 1, "rowCount": -1}, out, t.timeout)
-	return err
+	// the fixed body changes nothing, so a search is retried like a GET
+	return t.retrying(ctx, http.MethodPost, path, nil, map[string]any{"current": 1, "rowCount": -1}, out)
 }
 
 // CheckPath accepts /api/<segment>/... with segments of letters, digits,
@@ -373,7 +385,8 @@ func (t *Transport) do(ctx context.Context, method, path string, query url.Value
 			"duration", time.Since(start).Round(time.Millisecond))
 	}
 	if err != nil {
-		return method == http.MethodGet, fmt.Errorf("opnsense: %s %s: reading response: %w", method, path, err)
+		// a cut-off answer is retried, a request that ran out of time is not
+		return ctx.Err() == nil, fmt.Errorf("opnsense: %s %s: reading response: %w", method, path, err)
 	}
 	if len(raw) > maxResponse {
 		return false, fmt.Errorf("opnsense: %s %s: response larger than %d bytes", method, path, maxResponse)
@@ -387,7 +400,8 @@ func (t *Transport) do(ctx context.Context, method, path string, query url.Value
 		return false, &HTTPError{Method: method, Path: path, Status: resp.StatusCode,
 			Body: "redirect refused (check the URL; the API is not followed to another location)"}
 	case resp.StatusCode < 200 || resp.StatusCode > 299:
-		return false, &HTTPError{Method: method, Path: path, Status: resp.StatusCode, Body: Trunc(raw)}
+		busy := resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout
+		return busy, &HTTPError{Method: method, Path: path, Status: resp.StatusCode, Body: Trunc(raw)}
 	}
 	if out == nil {
 		return false, nil
