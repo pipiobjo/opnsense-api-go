@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"log/slog"
 	"math/big"
 	"net"
@@ -159,4 +160,56 @@ func otherCA(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+// Claim (README): field values never appear in an error's text. OPNsense
+// marks few secrets as such (most passwords are plain text fields), so a
+// value in Error() would end up in a provider's diagnostics or a CI log.
+// Every path that reports a value is driven with a distinctive one; the
+// values stay reachable through the error's fields.
+func TestValuesNeverInErrorMessages(t *testing.T) {
+	const secret = "PSK-5e1d9a-sentinel"
+	ctx := context.Background()
+	f := newFake(t)
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	s, _ := c.Settings("quagga/ospfsettings")
+	var errs []error
+	note := func(name string, err error) {
+		if err == nil {
+			t.Errorf("%s: no error", name)
+			return
+		}
+		errs = append(errs, err)
+	}
+
+	// read back differently: description is accepted but not stored
+	f.dropSets["description"] = true
+	_, err := n.Add(ctx, Values{"address": "192.0.2.10", "description": secret})
+	var na *ErrNotApplied
+	if !errors.As(err, &na) || len(na.Diffs) != 1 || na.Diffs[0].Sent != secret {
+		t.Errorf("ErrNotApplied must keep the sent value in Diffs: %v", err)
+	}
+	note("not applied", err)
+	f.dropSets["description"] = false
+	// values refused before sending: boolean, integer, list element
+	_, err = n.Add(ctx, Values{"address": "192.0.2.11", "enabled": secret})
+	note("not a boolean", err)
+	_, err = n.Add(ctx, Values{"address": "192.0.2.11", "priority": secret})
+	note("not an integer", err)
+	note("comma", s.Set(ctx, Values{"routerid": []string{secret + ",x"}}))
+	// a value read from the firewall that cannot be decoded
+	f.mu.Lock()
+	f.ospf["enabled"] = secret
+	f.mu.Unlock()
+	_, err = s.Get(ctx)
+	note("decode", err)
+	// constructed: an answer that echoes a value
+	note("unexpected answer", &ErrUnexpectedAnswer{Resource: "r", Operation: "add", Answer: `{"x":"` + secret + `"}`})
+
+	for _, err := range errs {
+		if strings.Contains(err.Error(), secret) {
+			t.Errorf("a value appears in an error: %T %q", err, err.Error())
+		}
+	}
 }

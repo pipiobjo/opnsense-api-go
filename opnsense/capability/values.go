@@ -4,6 +4,7 @@
 package capability
 
 import (
+	"errors"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -68,12 +69,12 @@ func (f *Field) Encode(v any) (string, error) {
 		switch f.Kind() {
 		case KindBool:
 			if s != "" && s != "0" && s != "1" {
-				return "", fmt.Errorf("%q is not a boolean (\"0\" or \"1\")", s)
+				return "", errors.New(`not a boolean ("0" or "1")`)
 			}
 		case KindInt:
 			if s != "" {
 				if _, err := strconv.ParseInt(s, 10, 64); err != nil {
-					return "", fmt.Errorf("%q is not an integer", s)
+					return "", errors.New("not an integer")
 				}
 			}
 		}
@@ -91,9 +92,9 @@ func (f *Field) Encode(v any) (string, error) {
 		if f.Kind() != KindList {
 			return "", fmt.Errorf("list given for a %s field", f.Kind())
 		}
-		for _, e := range x {
+		for i, e := range x {
 			if strings.Contains(e, ",") {
-				return "", fmt.Errorf("list element %q contains a comma", e)
+				return "", fmt.Errorf("list element %d contains a comma", i+1)
 			}
 		}
 		s = strings.Join(x, ",")
@@ -122,9 +123,12 @@ func (f *Field) checkOptions(s string) error {
 	if f.Multiple {
 		vals = strings.Split(s, ",")
 	}
-	for _, v := range vals {
+	for i, v := range vals {
 		if !allowed[v] {
-			return fmt.Errorf("%q is not an option (%s)", v, optionList(f.Options))
+			if f.Multiple {
+				return fmt.Errorf("element %d is not an option (%s)", i+1, optionList(f.Options))
+			}
+			return fmt.Errorf("not an option (%s)", optionList(f.Options))
 		}
 	}
 	return nil
@@ -219,14 +223,14 @@ func (f *Field) Decode(s string) (any, error) {
 		case "0":
 			return false, nil
 		}
-		return nil, fmt.Errorf("boolean field has value %q", s)
+		return nil, errors.New("boolean field has a value other than 0, 1 or empty")
 	case KindInt:
 		if s == "" {
 			return nil, nil
 		}
 		n, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("integer field has value %q", s)
+			return nil, errors.New("integer field has a value that is not an integer")
 		}
 		return n, nil
 	case KindList:

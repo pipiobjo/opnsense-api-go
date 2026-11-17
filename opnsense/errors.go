@@ -100,8 +100,11 @@ func (e *ErrValidation) Error() string {
 
 // FieldDiff is one field that did not read back as written.
 type FieldDiff struct {
-	Field     string
-	Sent, Got string // wire values
+	Field string
+	// Sent and Got are the wire values. They may be secrets (OPNsense marks
+	// few password fields as such), so Error() never contains them; show
+	// them only where the caller knows the field is not sensitive.
+	Sent, Got string
 	// Cause names what the capability data knows about this field:
 	// "custom-write" (its type converts or normalizes values on write),
 	// "custom-save" (the resource is stored through own code that may change
@@ -126,16 +129,21 @@ type ErrNotApplied struct {
 	Hint         string // a likely cause known from the capability data, or ""
 }
 
+// Error names the fields and causes, never their values (see FieldDiff).
 func (e *ErrNotApplied) Error() string {
 	parts := make([]string, 0, len(e.Diffs))
 	for _, d := range e.Diffs {
-		parts = append(parts, fmt.Sprintf("%s: sent %q, read %q", d.Field, d.Sent, d.Got))
+		p := d.Field
+		if d.Cause != "" {
+			p += " (" + d.Cause + ")"
+		}
+		parts = append(parts, p)
 	}
 	id := ""
 	if e.ID != "" {
 		id = " " + e.ID
 	}
-	msg := fmt.Sprintf("opnsense: %s%s saved but not applied as sent: %s", e.Resource, id, strings.Join(parts, "; "))
+	msg := fmt.Sprintf("opnsense: %s%s saved, but these fields read back differently: %s", e.Resource, id, strings.Join(parts, ", "))
 	if e.Hint != "" {
 		msg += " (" + e.Hint + ")"
 	}
@@ -224,7 +232,9 @@ func (e *ErrNoOperation) Error() string {
 // is marked pending. ID is the entry concerned, if known.
 type ErrUnexpectedAnswer struct {
 	Resource, Operation, ID string
-	Answer                  string // at most 300 bytes
+	// Answer is the raw answer, at most 300 bytes. It may echo values, so
+	// Error() leaves it out.
+	Answer string
 }
 
 func (e *ErrUnexpectedAnswer) Error() string {
@@ -232,7 +242,7 @@ func (e *ErrUnexpectedAnswer) Error() string {
 	if e.ID != "" {
 		id = " " + e.ID
 	}
-	return fmt.Sprintf("opnsense: %s%s: unexpected answer to %s: %s", e.Resource, id, e.Operation, transport.Trunc([]byte(e.Answer)))
+	return fmt.Sprintf("opnsense: %s%s: unexpected answer to %s (raw answer in ErrUnexpectedAnswer.Answer)", e.Resource, id, e.Operation)
 }
 
 // ErrStillExists: the firewall answered a delete, but the entry is still

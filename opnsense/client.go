@@ -482,7 +482,7 @@ func (c *Client) applyEndpoint(ctx context.Context, p string, force bool) error 
 		return err
 	}
 	if !applyOK(resp) {
-		return &ErrApply{Endpoint: p, Answer: fmt.Sprint(resp)}
+		return &ErrApply{Endpoint: p, Answer: transport.Trunc([]byte(fmt.Sprint(resp)))}
 	}
 	c.mu.Lock()
 	if cur, ok := c.pending[p]; ok && cur == gen {

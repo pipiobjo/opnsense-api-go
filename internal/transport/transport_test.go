@@ -251,3 +251,18 @@ func TestPostOutcomeUnknown(t *testing.T) {
 		t.Errorf("unreachable server: %v, must not be outcome unknown", err)
 	}
 }
+
+// A cut-off answer may hold configuration secrets: the error names its
+// size, not its content.
+func TestBrokenJSONIsNotQuoted(t *testing.T) {
+	const secret = "PSK-91c2-sentinel"
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ipsec":{"psk":"` + secret))
+	}))
+	defer srv.Close()
+	var out map[string]any
+	err := newT(t, srv).Get(context.Background(), "/api/x", nil, &out)
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Errorf("broken JSON: %v", err)
+	}
+}

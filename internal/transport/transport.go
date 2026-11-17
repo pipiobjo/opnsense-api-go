@@ -355,7 +355,8 @@ func (t *Transport) do(ctx context.Context, method, path string, query url.Value
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber() // keep numbers exact; values are strings on the wire anyway
 	if err := dec.Decode(out); err != nil {
-		return false, fmt.Errorf("opnsense: %s %s: response is not the expected JSON: %w (%s)", method, path, err, Trunc(raw))
+		// the body is left out: a cut-off configuration may contain secrets
+		return false, fmt.Errorf("opnsense: %s %s: response is not the expected JSON (%d bytes): %w", method, path, len(raw), err)
 	}
 	return false, nil
 }

@@ -13,7 +13,8 @@ project without a support contract; fixes are made on a best-effort basis.
 - Anything that makes the client send something other than what the caller
   asked for, or report success for a change the firewall did not make.
 - Credentials: a way for the API key or secret to end up in an error, a
-  log or a request to another host.
+  log or a request to another host; a way for a field value (which may be
+  a password) to end up in an error's text.
 - TLS: a way to talk to a firewall whose certificate was not verified,
   other than the explicit `TLS.InsecureSkipVerify` (which always carries a
   warning).

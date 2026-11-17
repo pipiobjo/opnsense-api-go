@@ -168,7 +168,7 @@ func TestErrorMessages(t *testing.T) {
 		{&ErrInvalid{Resource: "r/x", Problems: map[string]string{"b": "p2", "a": "p1"}}, []string{"r/x", "a: p1; b: p2"}},
 		{&ErrValidation{Resource: "r/x", Fields: map[string]string{"f": "bad"}}, []string{"rejected", "f: bad"}},
 		{&ErrValidation{Resource: "r/x", Body: `{"result":"failed"}`}, []string{"rejected", `{"result":"failed"}`}},
-		{&ErrNotApplied{Resource: "r/x", ID: "u1", Diffs: []FieldDiff{{Field: "f", Sent: "1", Got: "0"}}, Hint: "h"}, []string{"r/x u1", `f: sent "1", read "0"`, "(h)"}},
+		{&ErrNotApplied{Resource: "r/x", ID: "u1", Diffs: []FieldDiff{{Field: "f", Sent: "1", Got: "0"}}, Hint: "h"}, []string{"r/x u1", "read back differently: f", "(h)"}},
 		{&ErrApply{Endpoint: "/api/a/service/reconfigure", Answer: strings.Repeat("x", 1000)}, []string{"/api/a/service/reconfigure", "did not report ok"}},
 		{&ErrDecode{Resource: "r/x", Fields: map[string]string{"f": "shape"}}, []string{"not decoded", "f: shape"}},
 		{&ErrReadOnly{Resource: "r/x", Reason: "older than the data"}, []string{"writes refused", "older than the data"}},

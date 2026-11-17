@@ -108,7 +108,7 @@ func (e *Entries) Add(ctx context.Context, v Values) (string, error) {
 	id, _ := resp["uuid"].(string)
 	if checkID(id) != nil {
 		// "saved" without a usable id: the entry was probably created
-		return "", &ErrUnexpectedAnswer{Resource: b.id, Operation: "add", Answer: fmt.Sprint(resp)}
+		return "", &ErrUnexpectedAnswer{Resource: b.id, Operation: "add", Answer: transport.Trunc([]byte(fmt.Sprint(resp)))}
 	}
 	return id, b.c.finish(ctx, b.api.Apply, b.readBack(ctx, id, sent, op))
 }
@@ -274,7 +274,7 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 		}
 	} else if r, _ := resp["result"].(string); r != map[bool]string{true: "Enabled", false: "Disabled"}[enabled] {
 		// no "enabled" field to read: only the answer can tell
-		check = &ErrUnexpectedAnswer{Resource: b.id, Operation: "toggle", ID: id, Answer: fmt.Sprint(resp)}
+		check = &ErrUnexpectedAnswer{Resource: b.id, Operation: "toggle", ID: id, Answer: transport.Trunc([]byte(fmt.Sprint(resp)))}
 	}
 	return b.c.finish(ctx, b.api.Apply, check)
 }
@@ -685,7 +685,7 @@ func (b *bound) result(resp map[string]any, want, op, id string) error {
 		return e
 	}
 	b.c.markPending(b.api.Apply)
-	return &ErrUnexpectedAnswer{Resource: b.id, Operation: op, ID: id, Answer: fmt.Sprint(resp)}
+	return &ErrUnexpectedAnswer{Resource: b.id, Operation: op, ID: id, Answer: transport.Trunc([]byte(fmt.Sprint(resp)))}
 }
 
 // uniq keeps the first occurrence of each string, in order.
