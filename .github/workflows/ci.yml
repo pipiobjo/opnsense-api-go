@@ -137,7 +137,7 @@ jobs:
           path: catalog
       - name: Test VM ${{ matrix.release }} with all plugins
         id: vm
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@ea0fae464991e73546493e555878605495bb5878 # 2026-11-17 (0.9.3, install evidence)
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@0992a77149fc4f0ba7dab992b4dfbce0a602b811 # 2026-11-17 (0.9.3, install wait fixed)
         with:
           series: ${{ matrix.series }}
           release: ${{ matrix.release }}
@@ -168,7 +168,7 @@ jobs:
           retention-days: 30
       - name: Stop test VM
         if: always()
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@ea0fae464991e73546493e555878605495bb5878 # 2026-11-17 (0.9.3, install evidence)
+        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@0992a77149fc4f0ba7dab992b4dfbce0a602b811 # 2026-11-17 (0.9.3, install wait fixed)
         with:
           command: stop
       # also when the job passed but a plugin did not install: the firmware

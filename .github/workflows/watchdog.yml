@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: pipiobjo/opnsense-api-spec
-          ref: ea0fae464991e73546493e555878605495bb5878 # 2026-11-17
+          ref: 0992a77149fc4f0ba7dab992b4dfbce0a602b811 # 2026-11-17
           path: spec
           persist-credentials: false
       - name: Check
