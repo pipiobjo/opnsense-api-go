@@ -156,35 +156,17 @@ read-back.
 
 ## Tests
 
-```sh
-go test ./...                       # unit tests, fake firewall, real capability test data
-go test -tags integration ./test/integration/   # against a throwaway VM, see the file header
-```
+Unit tests run against a fake firewall that reproduces recorded OPNsense
+behaviour, and against the real capability data of every release.
+Integration tests run the client against a throwaway OPNsense VM with
+every plugin, on the newest release of each supported series, on every
+push and whenever opnsense-api-spec publishes new data. Coverage is
+reported in CI with a floor (unit tests: 91.2%).
 
-The integration test exercises every resource the capability data marks as
-verified on the VM's version: entry lists with the verified sample (add
-and set with read-back, get, list, delete and check that the entry is
-gone), settings by reading them and, where the contract test wrote them
-successfully, writing one field back unchanged, and
-every apply endpoint that became pending. It compares every field it
-sent; the only tolerated difference is one the data explains with
-`custom-save` on a field the contract test did not choose, and each is
-logged. An apply endpoint whose service cannot run on the isolated VM (no
-internet, no real hardware) answers HTTP 500 with OPNsense's message; that
-is logged, any other failure fails. Samples that refer to something only
-the contract test's instance had (a certificate, a device) are skipped with
-the reason.
-
-CI runs them on every push to `main` and every pull request, and again
-whenever opnsense-api-spec has published new data (`spec-update.yml`),
-on the newest verified release of each supported series (25.7, 26.1,
-26.7) with every plugin; `tools/ci/catalog.sh` gets the capability data.
-Fuzz tests (`go test -fuzz=...`) cover answer decoding, data loading, IDs
-and paths; their seeds run with every `go test`.
-
-Integration tests run only against a VM on `127.0.0.1` (the
-[test VM action](https://github.com/pipiobjo/opnsense-api-spec/blob/main/docs/testvm-action.md)
-of opnsense-api-spec); they refuse any other target.
+[docs/testing.md](docs/testing.md) says what has to be true for the client
+to work, which test shows each part, how we know the tests can fail, the
+measured results, and what is not tested. Requirements:
+[opnsense-api-spec/docs/requirements.md](https://github.com/pipiobjo/opnsense-api-spec/blob/main/docs/requirements.md).
 
 ## Layout
 
@@ -194,6 +176,7 @@ opnsense/capability/   capability data model, resolver, value checks (usable on 
 internal/transport/    HTTP, TLS, error mapping
 test/integration/      tests against the throwaway VM
 docs/design.md         layers, request flow, behaviour rules, how to add one
+docs/testing.md        what is tested, how we know it works, coverage, what is not tested
 docs/adr/              decisions (0001 data-driven client, 0002 code only, no routine maintenance)
 ```
 

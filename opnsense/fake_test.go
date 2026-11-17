@@ -27,6 +27,8 @@ type fakeFirewall struct {
 	srv      *httptest.Server
 	mu       sync.Mutex
 	core     string
+	key      string // credentials the fake accepts
+	secret   string
 	plugins  map[string]string
 	ospf     map[string]string            // settings, flat
 	nbrs     map[string]map[string]string // uuid -> neighbor
@@ -53,7 +55,7 @@ type fakeFirewall struct {
 }
 
 func newFake(t *testing.T) *fakeFirewall {
-	f := &fakeFirewall{t: t, core: "26.7.9_1", plugins: map[string]string{"os-frr": "2.1"},
+	f := &fakeFirewall{t: t, key: "key", secret: "secret", core: "26.7.9_1", plugins: map[string]string{"os-frr": "2.1"},
 		ospf: map[string]string{"enabled": "0", "routerid": "", "costreference": "", "logadjacencychanges": "0",
 			"carp_demote": "0", "originate": "0", "originatealways": "0", "originatemetric": ""},
 		nbrs: map[string]map[string]string{}, dropSets: map[string]bool{}}
@@ -80,7 +82,7 @@ func (f *fakeFirewall) serve(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, r.Method+" "+r.URL.Path)
-	if k, s, ok := r.BasicAuth(); !ok || k != "key" || s != "secret" {
+	if k, s, ok := r.BasicAuth(); !ok || k != f.key || s != f.secret {
 		w.WriteHeader(401)
 		fmt.Fprint(w, `{"status":401,"message":"Authentication Failed"}`)
 		return

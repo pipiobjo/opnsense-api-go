@@ -142,10 +142,4 @@ removed.
 
 ## Tests
 
-| Layer | What it proves | Where |
-|---|---|---|
-| Unit tests with a fake firewall | each rule; error mapping; no request before a refused write | `opnsense/*_test.go` |
-| Data tests | the resolver and value checks against real capability data of all releases (trimmed to core and os-frr OSPF; `tools/testdata.sh`) | `opnsense/capability/*_test.go` |
-| Fuzz targets | answer decoding, data loading, IDs and paths never panic or escape; generic, so they need no change when the API changes | `*/fuzz_test.go` |
-| Recorded behaviour | OPNsense still behaves as the rules assume, with raw calls | `test/integration/recorded_test.go` |
-| Integration | every resource the data marks verified, on a VM with every plugin, per series | `test/integration/integration_test.go` |
+What is tested, how, and what is not: [testing.md](testing.md).

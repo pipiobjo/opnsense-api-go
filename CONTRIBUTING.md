@@ -14,8 +14,13 @@ public issue.
 mise install                       # Go toolchain from mise.toml
 test -z "$(gofmt -l .)"
 go vet ./... && go vet -tags integration ./...
-go test -race ./...                # fake firewall, real capability test data
+go test -race -coverpkg=./... -coverprofile=unit.out ./...   # fake firewall, real capability test data
+tools/ci/coverage.sh unit unit.out  # table per package, coverage/unit.html, floor check
 ```
+
+What each test shows and which claim it belongs to:
+[docs/testing.md](docs/testing.md). A new test is named there under its
+claim (`TestEveryTestIsDocumented` checks).
 
 ## Integration tests on a throwaway VM
 
