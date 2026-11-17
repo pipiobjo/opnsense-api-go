@@ -34,6 +34,10 @@ CI uses GitHub's own actions and `jdx/mise-action`, pinned by commit
 hash, and the official CycloneDX generator for Go (`cyclonedx-gomod`) in
 the digest-pinned `golang` image, isolated in rootless Podman. Dependabot
 alerts are on, and Dependabot proposes action updates monthly.
+`tools/ci/vulncheck.sh` (govulncheck) runs in CI, before every release and
+whenever the spec publishes new data: it fails on a vulnerability that the
+client's code reaches and that has a fix (a newer Go patch release, which
+CI picks up by itself), and warns about one without a fix yet.
 
 Review of 2026-11-17 against the OSV database: no known vulnerability;
 the one finding for Go 1.27.3 (HTTP server, not used by the client) is

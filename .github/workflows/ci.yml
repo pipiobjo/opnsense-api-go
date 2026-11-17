@@ -4,7 +4,8 @@
 # Every push to main and every pull request:
 #   test         format, vet, unit tests with the race detector (fake
 #                firewall, real capability test data), coverage with a floor,
-#                SBOM (tools/ci/sbom.sh)
+#                SBOM (tools/ci/sbom.sh), known vulnerabilities in called code
+#                (tools/ci/vulncheck.sh)
 #   data         capability data from opnsense-api-spec (tools/ci/catalog.sh)
 #                and the test matrix: newest verified release of each series
 #   integration  per series: throwaway OPNsense VM on 127.0.0.1 with every
@@ -65,6 +66,10 @@ jobs:
           name: coverage-unit
           path: coverage/
           retention-days: 30
+      # reachable vulnerabilities with a fix fail; without a fix: warning
+      - name: Vulnerabilities (govulncheck)
+        if: matrix.go == '1.27'
+        run: tools/ci/vulncheck.sh
       # the same SBOM step as a release, so it is tested before one
       - name: SBOM
         if: matrix.go == '1.27'
