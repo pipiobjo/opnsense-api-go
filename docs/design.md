@@ -11,7 +11,7 @@ caller: the [README](../README.md#behaviour).
 |---|---|---|
 | `opnsense/capability` | load and check the capability data; resolve an installed package to the fragment that describes it; encode, decode and check values | the data format only; no network. Usable on its own |
 | `opnsense` | detect the firewall; settings and entry operations; read-back; apply; errors | the data (through `capability`) and the API conventions |
-| `internal/transport` | HTTPS with verified TLS, authentication, no redirects, retries of GET only, HTTP status to error | nothing about OPNsense resources |
+| `internal/transport` | HTTPS (HTTP/2) with verified TLS, authentication, no redirects, retries of reads only (GET and the fixed search POST, with backoff), HTTP status to error, `ErrOutcomeUnknown` for a change whose answer was lost, the read list of read-only mode | nothing about OPNsense resources |
 
 Everything a new OPNsense version changes is data. The code holds only
 the API's conventions (how a list is searched, how "saved" and
@@ -34,6 +34,8 @@ stable across all supported series.
    `ErrNotAvailable.PluginsUnknown` says so later.
 4. Resolves each package to a fragment (rule 9 below). Notes and warnings
    go to `Instance()`; `UnknownVersion: Refuse` turns them into errors.
+5. In read-only mode, gives the transport its own list of readable paths
+   (rule 10).
 
 ## A write, step by step
 
@@ -48,17 +50,30 @@ stable across all supported series.
    firewall sets (`server_set`), the endpoint sets (`forced`,
    `computed`) or does not store (`volatile`) are refused. Nothing has
    been sent when any of this fails.
-4. Lock the model (one writer per model in this client).
+4. Lock the model (one writer per model in this client). Waiting for the
+   lock ends with the context.
 5. For `Set` of an entry: confirm the entry exists through the list.
 6. POST with the wrapper key; `result` maps the answer (`saved`,
    validation messages to `ErrValidation`, anything else to
    `ErrUnexpectedAnswer`).
-7. Mark the resource's apply endpoint pending.
+7. Mark the resource's apply endpoint pending. If the POST reached the
+   firewall but its answer was lost, unreadable or HTTP 5xx, the endpoint
+   is marked pending as well and the error matches `ErrOutcomeUnknown`:
+   the change may be saved.
 8. `readBack`: read the object and compare every sent field; lists as
    sets. Differences become `ErrNotApplied`, each with the cause the data
    gives (`custom-write`, `custom-save`, `transformed`) or none.
-9. `finish`: with `AutoApply`, apply after the read-back; both results
-   are returned.
+9. Release the model lock, then `finish`: with `AutoApply`, apply after
+   the read-back; both results are returned. An apply can take minutes;
+   other changes to the model do not wait for it.
+
+The pending list lives only in the `Client`. `Entries.Apply` and
+`Settings.Apply` call their endpoint unconditionally, so a later process
+can activate what an earlier one saved; `Client.Apply` calls the pending
+endpoints. `Check` runs steps 1 to 3 without sending; `Info` describes a
+resource from the data as copies (field kinds, write-only, server-set,
+runtime-required, `shared_with`, verification). Error texts name fields,
+never values: OPNsense marks few secrets as such.
 
 Reads (`Get`, `List`) decode the firewall's shapes into `Values` and
 return the decodable fields together with `ErrDecode` when one field has
@@ -122,8 +137,10 @@ removed.
     API methods refuse every change with `ErrReadOnly` before anything is
     built; the transport refuses every POST except `Search`, whose body is
     fixed and whose path must name a search (all 229 search operations in
-    the data do). `Call` is limited to GET on get and search operations
-    plus `ReadOnlyAllow`.
+    the data do), and every GET or search outside its own read list: the
+    two firmware paths detection needs, then the get and search operations
+    of the resolved data and `ReadOnlyAllow`. `Call` is limited the same
+    way, by its own check.
 11. **Read-back exceptions**: `write_only` fields are not compared (never
     returned); volatile fields are refused before sending (never stored);
     transformed fields only must not come back empty. `Toggle` reads the
