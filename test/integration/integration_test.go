@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"slices"
@@ -182,23 +183,45 @@ func TestSettingsSetAndRestore(t *testing.T) {
 //   - entry lists with the verified sample: add (with read-back), get, set
 //     of the description (with read-back), list, delete, and the entry is
 //     gone from the list afterwards;
-//   - settings: get, then set of one field to its current value (with
-//     read-back; nothing changes on the firewall).
+//   - settings the contract test wrote: get, then one boolean field set to
+//     the other value and back (each with read-back), so a stored write is
+//     told from an ignored one; settings it only read: get.
 //
-// Apply runs at the end for every endpoint that became pending. This makes
-// the client a second consumer of the spec repository's contract test
-// results, and a stricter one: it compares every field it sent.
+// Apply runs at the end for every endpoint that became pending; only the
+// endpoints in apply-failures.json (services that cannot run on the
+// isolated VM, per series) may fail. This makes the client a second
+// consumer of the spec repository's contract test results, and a stricter
+// one: it compares every field it sent.
 //
 // A read-back difference fails the test, with one exception: on a resource
 // the data marks custom-save (stored through own code that drops values
 // not applying to the rest of the entry, such as DHCPv6 options on an
 // interface without DHCPv6), a field the contract test did not choose on
-// purpose may come back different. Each such difference is logged.
+// purpose, and that this test did not change on purpose, may come back
+// different. Each such difference is logged.
+//
+// Only subtests that ran to the end without failing count as tested;
+// skipped ones are counted apart. The tested count must reach the floor of
+// the series in tested-floor.txt, so lost verification data cannot leave
+// a green run that tested nothing.
 func TestEveryVerifiedResource(t *testing.T) {
 	c := client(t)
 	ctx := context.Background()
 	inst := c.Instance()
-	var tested, skipped, tolerated int
+	// tested: ran and passed; readOnly: settings the contract test only
+	// read (passed); skippedRun: a subtest that skipped itself; noSample:
+	// entry lists without a usable sample; unverified: not verified here
+	var tested, readOnly, skippedRun, noSample, unverified, tolerated int
+	count := func(passed, skipped, onlyRead bool) {
+		switch {
+		case skipped:
+			skippedRun++
+		case passed && onlyRead:
+			readOnly++
+		case passed:
+			tested++
+		}
+	}
 	for pkg, d := range c.Data().Docs {
 		res := inst.Resolved.Packages[pkg]
 		if res == nil || res.Fragment == "" {
@@ -212,13 +235,16 @@ func TestEveryVerifiedResource(t *testing.T) {
 			switch r.Kind {
 			case "settings":
 				if v == nil || v.Read != "ok" {
+					unverified++
 					continue
 				}
 				// the contract test wrote it back successfully; otherwise
 				// (model invalid by default, not a configuration save) the
 				// client only reads it
 				writable := v.Write == "ok"
+				var passed, skipped bool
 				t.Run(id, func(t *testing.T) {
+					defer func() { passed, skipped = !t.Failed(), t.Skipped() }()
 					s, err := c.Settings(id)
 					if err != nil {
 						t.Fatal(err)
@@ -233,16 +259,33 @@ func TestEveryVerifiedResource(t *testing.T) {
 					// a different value, then the original again: writing the
 					// current value back could not tell a stored write from an
 					// ignored one
-					name, val, ok := flippable(cur, s.Fields())
-					if !ok {
+					cands := flippable(cur, s.Fields())
+					if len(cands) == 0 {
 						t.Skip("no boolean field to change and restore")
 					}
 					var na *opnsense.ErrNotApplied
 					var val2 *opnsense.ErrValidation
-					err = s.Set(ctx, opnsense.Values{name: !val})
+					// a resource stored through own code (custom-save) may
+					// ignore a field that does not apply in its current state:
+					// then the next boolean field is tried; only a field that
+					// is stored counts
+					var name string
+					var val bool
+					for i, cand := range cands {
+						name, val = cand.name, cand.val
+						err = s.Set(ctx, opnsense.Values{name: !val})
+						if !errors.As(err, &na) || !ignored(na, name) {
+							break
+						}
+						t.Logf("%s=%v not stored (custom-save); trying the next boolean field", name, !val)
+						if i == len(cands)-1 {
+							t.Skipf("the firewall's own save code ignored every boolean field (%d)", len(cands))
+						}
+					}
 					switch {
 					case errors.As(err, &na):
-						tolerated += expectedDiffs(t, na, nil)
+						// the changed field itself must read back as sent
+						tolerated += expectedDiffs(t, na, map[string]bool{name: true})
 					case errors.As(err, &val2) && !rejects(val2, name):
 						// as in the contract test: the model is not valid in
 						// its default state on this instance (the recorded
@@ -256,17 +299,21 @@ func TestEveryVerifiedResource(t *testing.T) {
 					case err != nil:
 						t.Errorf("set %s to %v: %v", name, !val, err)
 					}
-					if err := s.Set(ctx, opnsense.Values{name: val}); err != nil && !errors.As(err, &na) {
+					if err := s.Set(ctx, opnsense.Values{name: val}); errors.As(err, &na) {
+						tolerated += expectedDiffs(t, na, map[string]bool{name: true})
+					} else if err != nil {
 						t.Errorf("restore %s to %v: %v", name, val, err)
 					}
 				})
-				tested++
+				count(passed, skipped, !writable)
 			case "entries":
 				if v == nil || v.Write != "ok" || len(v.Sample) == 0 || hasReference(v.Sample) {
-					skipped++
+					noSample++
 					continue
 				}
+				var passed, skipped bool
 				t.Run(id, func(t *testing.T) {
+					defer func() { passed, skipped = !t.Failed(), t.Skipped() }()
 					e, err := c.Entries(id)
 					if err != nil {
 						t.Fatal(err)
@@ -342,33 +389,46 @@ func TestEveryVerifiedResource(t *testing.T) {
 						}
 					}
 				})
-				tested++
+				count(passed, skipped, false)
 			}
 		}
 	}
-	t.Logf("tested %d resources, skipped %d entry lists (no verified sample, or the sample refers to other entries); %d read-back differences tolerated (custom-save, not chosen by the contract test)", tested, skipped, tolerated)
+	t.Logf("tested %d resources (written and read back), %d settings only read (the contract test did not write them), %d skipped themselves, %d entry lists without a usable sample, %d settings not verified on this version; %d read-back differences tolerated (custom-save, not chosen)",
+		tested, readOnly, skippedRun, noSample, unverified, tolerated)
+	if floor := testedFloor(t, inst.Resolved.Series); tested < floor {
+		t.Errorf("tested %d resources, the floor for series %s is %d (tested-floor.txt): verification data or plugins went missing", tested, inst.Resolved.Series, floor)
+	}
 	// apply through the client: every pending endpoint once; afterwards only
 	// those that failed may still be pending
 	t.Run("apply", func(t *testing.T) {
 		before := c.Pending()
 		err := c.Apply(ctx)
+		allowed := applyFailures(t, inst.Resolved.Series)
 		failed := map[string]bool{}
 		for _, e := range unwrap(err) {
 			var he *opnsense.HTTPError
 			var ea *opnsense.ErrApply
+			var path, what string
 			switch {
 			case errors.As(e, &he) && he.Status == 500 && strings.Contains(he.Body, `"errorMessage"`):
-				// the endpoint exists and the service reports why it cannot
-				// run here: the test VM has no internet and no real hardware
-				t.Logf("service cannot run on the test VM: %s", he.Body)
-				failed[he.Path] = true
+				// the service reports why it cannot run
+				path, what = he.Path, he.Body
 			case errors.As(e, &ea):
-				// an explicit failure status from a service that cannot run on
-				// the isolated VM
-				t.Logf("apply reports a failure: %v", ea)
-				failed[ea.Endpoint] = true
+				path, what = ea.Endpoint, ea.Answer
 			default:
 				t.Errorf("apply: %v", e)
+				continue
+			}
+			failed[path] = true
+			if reason, ok := allowed[path]; ok {
+				t.Logf("apply %s failed as expected on the test VM (%s): %s", path, reason, what)
+			} else {
+				t.Errorf("apply %s failed and is not in apply-failures.json for series %s: %s", path, inst.Resolved.Series, what)
+			}
+		}
+		for p := range allowed {
+			if slices.Contains(before, p) && !failed[p] {
+				t.Logf("apply %s is listed in apply-failures.json but worked: remove the entry", p)
 			}
 		}
 		for _, p := range c.Pending() {
@@ -378,6 +438,52 @@ func TestEveryVerifiedResource(t *testing.T) {
 		}
 		t.Logf("applied %d endpoints, %d could not run on the test VM", len(before), len(failed))
 	})
+}
+
+// testedFloor is the minimum tested count of a series (tested-floor.txt:
+// lines "<series> <count>"); 0 for a series without a line.
+func testedFloor(t *testing.T, series string) int {
+	t.Helper()
+	b, err := os.ReadFile("tested-floor.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 2 && f[0] == series {
+			var n int
+			if _, err := fmt.Sscan(f[1], &n); err != nil {
+				t.Fatalf("tested-floor.txt: %q", line)
+			}
+			return n
+		}
+	}
+	t.Logf("tested-floor.txt has no floor for series %s", series)
+	return 0
+}
+
+// applyFailures: the apply endpoints that may fail on the isolated VM of a
+// series, with the reason (apply-failures.json).
+func applyFailures(t *testing.T, series string) map[string]string {
+	t.Helper()
+	b, err := os.ReadFile("apply-failures.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var list map[string]struct {
+		Series []string `json:"series"`
+		Reason string   `json:"reason"`
+	}
+	if err := json.Unmarshal(b, &list); err != nil {
+		t.Fatalf("apply-failures.json: %v", err)
+	}
+	out := map[string]string{}
+	for p, e := range list {
+		if strings.HasPrefix(p, "/api/") && e.Reason != "" && slices.Contains(e.Series, series) {
+			out[p] = e.Reason
+		}
+	}
+	return out
 }
 
 // unwrap lists the errors joined by errors.Join (or the error itself).
@@ -418,24 +524,42 @@ func refersToInstance(v *opnsense.ErrValidation, fields map[string]*capability.F
 	return true
 }
 
-// flippable: a boolean field of a settings object with its current value,
-// to change and restore; fields the firewall sets itself are left out.
-func flippable(cur opnsense.Values, fields map[string]*capability.Field) (string, bool, bool) {
+type flip struct {
+	name string
+	val  bool
+}
+
+// flippable: the boolean fields of a settings object with their current
+// values, to change and restore, in name order; fields the firewall sets
+// itself are left out.
+func flippable(cur opnsense.Values, fields map[string]*capability.Field) []flip {
 	names := make([]string, 0, len(fields))
 	for n := range fields {
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	var out []flip
 	for _, n := range names {
 		f := fields[n]
 		if f.ServerSet || f.WriteOnly || f.Volatile || len(f.Gaps) > 0 {
 			continue
 		}
 		if b, ok := cur[n].(bool); ok {
-			return n, b, true
+			out = append(out, flip{n, b})
 		}
 	}
-	return "", false, false
+	return out
+}
+
+// ignored: the read-back shows that the firewall's own save code
+// (custom-save) did not store this field.
+func ignored(na *opnsense.ErrNotApplied, field string) bool {
+	for _, d := range na.Diffs {
+		if d.Field == field && d.Cause == opnsense.CauseCustomSave {
+			return true
+		}
+	}
+	return false
 }
 
 // expectedDiffs reports the differences of a read-back: those the data

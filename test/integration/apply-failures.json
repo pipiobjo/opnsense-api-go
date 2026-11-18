@@ -1,0 +1,30 @@
+{
+  "/api/hwprobe/service/reconfigure": {
+    "series": ["25.7", "26.1", "26.7"],
+    "reason": "os-hw-probe: \"Template generation failed for internal service hwprobe\" (HTTP 500); the probe needs real hardware"
+  },
+  "/api/qfeeds/settings/reconfigure": {
+    "series": ["25.7", "26.1", "26.7"],
+    "reason": "os-q-feeds-connector: fetches its license list from api.qfeeds.com (HTTP 500 \"output filename locked or missing\"); the test VM has no internet"
+  },
+  "/api/proxy/acl/apply": {
+    "series": ["25.7", "26.1", "26.7"],
+    "reason": "os-OPNProxy: the ACL apply answers \"Error (1)\" on the isolated VM (no upstream, no proxy started); seen in every run since 2026-11-16"
+  },
+  "/api/ipsec/service/reconfigure": {
+    "series": ["26.7"],
+    "reason": "\"Service ipsec failed to stop\": strongSwan is not running on the VM (no tunnels); 26.7 reports the stop failure, older series do not"
+  },
+  "/api/nginx/service/reconfigure": {
+    "series": ["26.7"],
+    "reason": "\"Service nginx failed to stop\": nginx is not running on the VM; 26.7 reports the stop failure"
+  },
+  "/api/openconnect/service/reconfigure": {
+    "series": ["26.7"],
+    "reason": "\"Service openconnect failed to stop\": no VPN server to connect to; 26.7 reports the stop failure"
+  },
+  "/api/qemuguestagent/service/reconfigure": {
+    "series": ["26.7"],
+    "reason": "\"Service qemuguestagent failed to start\": the test VM has no guest-agent channel"
+  }
+}

@@ -75,25 +75,50 @@ public API:
 
 - entry lists with the verified sample: add, get, set with read-back,
   list, delete, and a check that the entry is gone;
-- settings: read; where the spec's contract test wrote them, write one
-  field back unchanged and read it back;
+- settings the spec's contract test wrote: read, then set one boolean
+  field to the other value and back, each with read-back, so a stored
+  write is told from an ignored one. If the resource is stored through its
+  own code (`custom-save`) and that ignores the field in its current
+  state, the next boolean field is tried; each attempt is logged;
+- settings the contract test only read: read;
 - every apply endpoint that became pending.
 
 It compares every field it sent. The only tolerated difference is one the
-data explains with `custom-save` on a field the contract test did not
-choose; each is logged. An apply whose service cannot run on the isolated
-VM (no internet, no hardware) answers HTTP 500 with OPNsense's message;
-that is logged, any other apply failure fails. Samples that refer to
-something only the contract test's instance had are skipped with the
-reason.
+data explains with `custom-save` on a field neither the contract test nor
+this test chose on purpose; each is logged. Apply endpoints may fail only
+if they are listed with a reason and series in
+[`test/integration/apply-failures.json`](../test/integration/apply-failures.json)
+(services that cannot run on the isolated VM: no internet, no hardware); an
+entry that works is reported for removal. Samples that refer to something
+only the contract test's instance had are skipped with the reason.
 
-Results of the most recent full run (spec data 0.9.3, every plugin):
+Only subtests that ran to the end without failing count as tested; a
+subtest that skips itself is counted apart. The tested count must reach
+the floor of the series in
+[`test/integration/tested-floor.txt`](../test/integration/tested-floor.txt)
+(about 95 % of the last full run), so a run that lost verification data
+or plugins fails instead of passing with little tested.
 
-| Release | Resources tested | Entry lists skipped (no sample) | Tolerated differences | Failures |
-|---|---:|---:|---:|---:|
-| 25.7.11_9 | 299 | 46 | 1 | 0 |
-| 26.1.11_10 | 307 | 48 | 1 | 0 |
-| 26.7.9_3 | 314 | 53 | 2 | 0 |
+The read-only test reads every resource; a read that fails in read-only
+mode but works without it fails the test (the transport's read list would
+be too narrow).
+
+Results of the most recent full run (local VMs with KVM, every plugin
+installed, spec data 0.9.3, 2026-11-18). Earlier figures (299, 307, 314
+"resources tested") also counted settings that were only read and
+subtests that skipped themselves; they are not comparable.
+
+| Release | Written and read back | Settings only read | Skipped themselves | Entry lists without a usable sample | Tolerated differences | Read-only test: reads | Failures |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 25.7.11_9 | 222 | 72 | 5 | 46 | 0 | 350 | 0 |
+| 26.1.11_10 | 226 | 75 | 6 | 48 | 0 | 357 | 0 |
+| 26.7.9_3 | 230 | 79 | 5 | 53 | 1 | 369 | 0 |
+
+The subtests that skip themselves do so with a reason in the log: no
+boolean field to change (`firewall/alias`, the plugin authentication
+settings), the model not valid in its default state on the VM
+(`core/initial_setup`, whose own save code also ignores most boolean
+fields), or a sample that refers to the contract test's instance.
 
 ## Coverage
 
@@ -106,7 +131,7 @@ drops below its floor in `tools/ci/coverage-floor.txt`.
 | Profile | Statements covered | Floor |
 |---|---:|---:|
 | unit | 91.2% | 91% |
-| integration (per release, alone; includes the read-only test) | 62.9% to 65.9% | 62% |
+| integration (per release, alone; includes the read-only test) | 62.9% to 65.9% (26.7.9: 64.9% on 2026-11-18) | 62% |
 | unit and integration together | 91.9% | — |
 
 Coverage says which code ran, not whether its result was checked; the

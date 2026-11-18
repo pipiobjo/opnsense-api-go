@@ -1,0 +1,7 @@
+# Minimum number of resources TestEveryVerifiedResource must test (written
+# and read back) per series: about 95 % of the last full run. A run below
+# it lost verification data or plugins. Raise it when the count grows.
+# <series> <count>
+25.7 211
+26.1 214
+26.7 218

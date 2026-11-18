@@ -18,7 +18,9 @@ import (
 
 // Claim K9 on a real firewall: a read-only client reads every resource of
 // the instance and is refused every change, and the firewall's
-// configuration is byte-identical afterwards. The configuration is fetched
+// configuration is byte-identical afterwards. A read that fails in
+// read-only mode but works with a normal client is an error (the
+// transport's read list would be too narrow). The configuration is fetched
 // with raw calls (core/backup/download/this, the current config.xml),
 // bypassing the client; on the VM, its checksum is stable across reads and
 // changes with any saved write (checked 2026-11-17 on 26.7.9_3).
@@ -46,25 +48,47 @@ func TestReadOnlyClientChangesNothing(t *testing.T) {
 		}
 	}
 	sort.Strings(ids)
+	rw := client(t)
+	// readFails: the read failed in read-only mode; it is an error when the
+	// same read works without read-only mode
+	readFails := func(what string, roErr, rwErr error) {
+		t.Helper()
+		if errors.Is(roErr, opnsense.ErrWriteRefused) || rwErr == nil {
+			t.Errorf("%s: fails in read-only mode (%v) but works without", what, roErr)
+		}
+	}
 	var entries, settings, read int
 	for _, id := range ids {
 		if e, err := c.Entries(id); err == nil {
 			entries++
-			if list, err := e.List(ctx); err == nil {
+			list, err := e.List(ctx)
+			if err != nil {
+				re, _ := rw.Entries(id)
+				_, rwErr := re.List(ctx)
+				readFails(id+" List", err, rwErr)
+			} else {
 				read++
 				if len(list) > 0 {
-					_, _ = e.Get(ctx, list[0])
+					if _, err := e.Get(ctx, list[0]); err != nil {
+						re, _ := rw.Entries(id)
+						_, rwErr := re.Get(ctx, list[0])
+						readFails(id+" Get", err, rwErr)
+					}
 					refusedOK(id+" Set", e.Set(ctx, list[0], opnsense.Values{}))
 					refusedOK(id+" Delete", e.Delete(ctx, list[0]))
 				}
 			}
-			_, err := e.Add(ctx, opnsense.Values{})
+			_, err = e.Add(ctx, opnsense.Values{})
 			refusedOK(id+" Add", err)
 			refusedOK(id+" Apply", e.Apply(ctx))
 		} else if s, err := c.Settings(id); err == nil {
 			settings++
 			if _, err := s.Get(ctx); err == nil {
 				read++
+			} else {
+				rs, _ := rw.Settings(id)
+				_, rwErr := rs.Get(ctx)
+				readFails(id+" Settings.Get", err, rwErr)
 			}
 			refusedOK(id+" Settings.Set", s.Set(ctx, opnsense.Values{}))
 		}
