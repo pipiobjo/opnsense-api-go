@@ -129,10 +129,8 @@ tar --zstd -xf capabilities.tar.zst
 ```
 
 `Instance().DataID` reports the state in use; name it in bug reports.
-`tools/ci/catalog.sh DIR` does the same (`CATALOG_TAG` pins a state).
-While the releases are not published yet, it builds the data from the
-spec repository's pipeline state and warns that this source is not
-attested.
+`tools/ci/catalog.sh DIR` does the same (`CATALOG_TAG` pins a state,
+e.g. `catalog-v1-<data_id>`) and fails if a check fails.
 
 You do not have to update it for every OPNsense release: with older data
 the client keeps working on a newer firewall of the same series and refuses
