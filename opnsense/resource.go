@@ -778,7 +778,14 @@ func (b *bound) matches(ctx context.Context, r searchRow, want map[string]string
 		if !ok || !b.searchShows(name) {
 			if obj == nil {
 				var err error
-				if obj, err = b.getObject(ctx, r.id); err != nil {
+				obj, err = b.getObject(ctx, r.id)
+				if errors.Is(err, ErrNotFound) {
+					// a row that is no stored entry: 26.1's firewall/d_nat
+					// search adds anti-lockout rules ("lockout_0") get
+					// does not know
+					return false, nil
+				}
+				if err != nil {
 					return false, fmt.Errorf("opnsense: %s %s: reading a field the search does not show: %w", b.id, r.id, err)
 				}
 			}

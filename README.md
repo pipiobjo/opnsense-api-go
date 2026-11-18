@@ -225,7 +225,7 @@ dropped silently.
 | Part | State |
 |---|---|
 | Transport, wire encodings, detection, resolver, value checks, settings, entry lists, toggle, apply, read-back | implemented; unit tests against a fake firewall built from recorded behaviour (each rule has a test that fails without it) |
-| Integration tests, newest release of each series with every plugin | local runs with spec data 0.9.3 (2026-11-18): resources written and read back 222 (25.7.11_9), 226 (26.1.11_10), 230 (26.7.9_3), plus 72 to 79 settings only read; 0 failures; each series must reach its floor (`test/integration/tested-floor.txt`). Details in [docs/testing.md](docs/testing.md). CI runs the same matrix on every push and after new spec data |
+| Integration tests, newest release of each series with every plugin | local runs with spec data 0.9.3 (2026-11-18): resources written and read back 221 (25.7.11_9), 226 (26.1.11_10), 230 (26.7.9_3), plus 72 to 79 settings only read; `Rows`, `Find` and existence after delete checked on every written entry list; 0 failures; each series must reach its floor (`test/integration/tested-floor.txt`). Details in [docs/testing.md](docs/testing.md). CI runs the same matrix on every push and after new spec data |
 | Typed Go structs per plugin | not planned |
 
 Supported: OPNsense 25.7 and newer, core and official plugins, as far as the
@@ -240,7 +240,7 @@ behaviour, and against the real capability data of every release.
 Integration tests run the client against a throwaway OPNsense VM with
 every plugin, on the newest release of each supported series, on every
 push and whenever opnsense-api-spec publishes new data. Coverage is
-reported in CI with a floor (unit tests: 91.2%).
+reported in CI with a floor (unit tests: 92.0%).
 
 [docs/testing.md](docs/testing.md) says what has to be true for the client
 to work, which test shows each part, how we know the tests can fail, the

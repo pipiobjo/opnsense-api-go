@@ -168,6 +168,13 @@ func TestFind(t *testing.T) {
 	if rows, err := n.Find(ctx, Values{"priority": int64(7)}); err != nil || !reflect.DeepEqual(ids(rows), []string{b}) {
 		t.Errorf("field not in the search: %v %v", ids(rows), err)
 	}
+	// rows the search adds without a stored entry (26.1 d_nat anti-lockout
+	// rules) and without the field: get does not know them, so no match
+	f.virtualRows = []string{"lockout_0"}
+	if rows, err := n.Find(ctx, Values{"priority": int64(7)}); err != nil || !reflect.DeepEqual(ids(rows), []string{b}) {
+		t.Errorf("uncounted rows without the field: %v %v", ids(rows), err)
+	}
+	f.virtualRows = nil
 	f.searchColumns = nil
 	var na *ErrFieldNotAvailable
 	if _, err := n.Find(ctx, Values{"bogus": "x"}); !errors.As(err, &na) {

@@ -132,15 +132,24 @@ mode but works without it fails the test (the transport's read list would
 be too narrow).
 
 Results of the most recent full run (local VMs with KVM, every plugin
-installed, spec data 0.9.3, 2026-11-18). Earlier figures (299, 307, 314
+installed, spec data 0.9.3 (data_id f79a4c510ffefa42), 2026-11-18). Earlier figures (299, 307, 314
 "resources tested") also counted settings that were only read and
 subtests that skipped themselves; they are not comparable.
 
-| Release | Written and read back | Settings only read | Skipped themselves | Entry lists without a usable sample | Tolerated differences | Read-only test: reads | Failures |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| 25.7.11_9 | 222 | 72 | 5 | 46 | 0 | 350 | 0 |
-| 26.1.11_10 | 226 | 75 | 6 | 48 | 0 | 357 | 0 |
-| 26.7.9_3 | 230 | 79 | 5 | 53 | 1 | 369 | 0 |
+| Release | Written and read back | Settings only read | Skipped themselves (all on the allowlist) | Entry lists without a usable sample | Settings not verified: not decoded / read failed | Tolerated differences | Read-only test: reads | Failures |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 25.7.11_9 | 221 | 72 | 6 | 46 | 21: 0 / 14 | 0 | 350 | 0 |
+| 26.1.11_10 | 226 | 75 | 6 | 48 | 20: 0 / 14 | 0 | 357 | 0 |
+| 26.7.9_3 | 230 | 79 | 5 | 53 | 21: 0 / 14 | 1 | 369 | 0 |
+
+Every written entry list also passed the `Rows`, `Find` and
+after-delete checks. The 14 failed reads of settings the contract test
+did not verify are known gaps in the data, the same on every series: the
+answer's wrapper key differs from the data (freeradius, siproxd,
+zerotier, relayd), `proxy/template` answers with something other than
+JSON, and four acmeclient resources have no get operation. The number
+that skips itself moves by one between runs (`tor/general`,
+`ndproxy/general`: whether their default state validates).
 
 The subtests that skip themselves do so with a reason in the log: no
 boolean field to change (`firewall/alias`, the plugin authentication
@@ -158,9 +167,9 @@ drops below its floor in `tools/ci/coverage-floor.txt`.
 
 | Profile | Statements covered | Floor |
 |---|---:|---:|
-| unit | 91.2% | 91% |
-| integration (per release, alone; includes the read-only test) | 62.9% to 65.9% (26.7.9: 64.9% on 2026-11-18) | 62% |
-| unit and integration together | 91.9% | — |
+| unit | 92.0% | 92% |
+| integration (per release, alone; includes the read-only test) | 65.2% (25.7.11) to 66.0% (26.7.9), 2026-11-18 | 65% |
+| unit and integration together | not measured on 2026-11-18 | — |
 
 Coverage says which code ran, not whether its result was checked; the
 claims and the deliberate breaks above are what make the tests count.

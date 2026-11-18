@@ -6,7 +6,7 @@
 # Unit tests have no entry: a unit test never skips.
 TestEveryVerifiedResource/core/initial_setup                  the wizard model is not valid in its default state on the VM (needs a configured DHCP server), and its own save code ignores most boolean fields
 TestEveryVerifiedResource/ndproxy/general                     25.7: not valid in its default state (required MAC address and interfaces)
-TestEveryVerifiedResource/tor/general                         26.1 and newer: not valid in its default state (empty log levels are not in the option list)
+TestEveryVerifiedResource/tor/general                         not valid in its default state on some runs (empty log levels are not in the option list)
 TestEveryVerifiedResource/firewall/alias                      the settings have no boolean field to change and restore
 TestEveryVerifiedResource/netbird/authentication              the settings have no boolean field to change and restore
 TestEveryVerifiedResource/tailscale/authentication            the settings have no boolean field to change and restore
