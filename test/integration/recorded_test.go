@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -81,7 +82,7 @@ func TestRecordedBehaviour(t *testing.T) {
 	r := newRaw(t)
 	const p = "/api/quagga/ospfsettings/"
 	if code, _ := r.do("GET", p+"searchNeighbor", nil, false); code == 404 {
-		t.Skip("os-frr not installed")
+		missing(t, errors.New("os-frr not installed"))
 	}
 	const unknown = "00000000-0000-4000-8000-0000000000ff"
 	cleanup := func(id string) { r.do("POST", p+"delNeighbor/"+id, nil, false) }

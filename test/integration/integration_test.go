@@ -10,6 +10,12 @@
 //
 //	OPNSENSE_URL=https://127.0.0.1:18443 OPNSENSE_KEYFILE=.../apikey.json \
 //	OPNSENSE_CAPABILITIES=.../catalog go test -tags integration ./test/integration/
+//
+// OPNSENSE_PLUGINS=all says every plugin was requested for the VM: then a
+// resource of a plugin that is missing fails the tests that need it
+// instead of skipping them. TESTVM_SLOW (default 1) is how many times
+// slower the VM is than with hardware virtualisation (software emulation:
+// 6, as tools/testvm.sh); request timeouts are stretched by it.
 package integration
 
 import (
@@ -22,8 +28,10 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"reflect"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -60,10 +68,12 @@ func clientWith(t *testing.T, mod func(*opnsense.Config)) *opnsense.Client {
 	}
 	sum := sha256.Sum256(conn.ConnectionState().PeerCertificates[0].Raw)
 	conn.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	f := slow(t)
+	ctx, cancel := context.WithTimeout(context.Background(), f*time.Minute)
 	defer cancel()
 	cfg := opnsense.Config{URL: raw, Key: key.Key, Secret: key.Secret,
-		TLS: opnsense.TLS{PinSHA256: hex.EncodeToString(sum[:])}, CapabilityDir: os.Getenv("OPNSENSE_CAPABILITIES")}
+		TLS: opnsense.TLS{PinSHA256: hex.EncodeToString(sum[:])}, CapabilityDir: os.Getenv("OPNSENSE_CAPABILITIES"),
+		Timeout: f * opnsense.DefaultTimeout, ApplyTimeout: f * opnsense.DefaultApplyTimeout}
 	if mod != nil {
 		mod(&cfg)
 	}
@@ -72,6 +82,32 @@ func clientWith(t *testing.T, mod func(*opnsense.Config)) *opnsense.Client {
 		t.Fatal(err)
 	}
 	return c
+}
+
+// slow is the factor TESTVM_SLOW (default 1) by which the VM is slower
+// than with hardware virtualisation.
+func slow(t *testing.T) time.Duration {
+	t.Helper()
+	v := os.Getenv("TESTVM_SLOW")
+	if v == "" {
+		return 1
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		t.Fatalf("TESTVM_SLOW=%q: want a whole number of at least 1", v)
+	}
+	return time.Duration(n)
+}
+
+// missing ends a test whose resource is not on the VM: a failure when
+// every plugin was requested (OPNSENSE_PLUGINS=all), since the plugin then
+// failed to install and its resources went untested; a skip otherwise.
+func missing(t *testing.T, err error) {
+	t.Helper()
+	if os.Getenv("OPNSENSE_PLUGINS") == "all" {
+		t.Fatalf("every plugin was requested, but: %v", err)
+	}
+	t.Skip(err)
 }
 
 // TestDetectionResolves: the VM runs a release of the data, possibly with a
@@ -99,7 +135,7 @@ func TestOSPFNeighborCycle(t *testing.T) {
 	ctx := context.Background()
 	n, err := c.Entries("quagga/ospfsettings#neighbors.neighbor")
 	if err != nil {
-		t.Skip(err) // os-frr not installed
+		missing(t, err) // os-frr not installed
 	}
 	id, err := n.Add(ctx, opnsense.Values{"address": "192.0.2.10", "description": "integration", "priority": int64(7)})
 	if err != nil {
@@ -152,7 +188,7 @@ func TestSettingsSetAndRestore(t *testing.T) {
 	ctx := context.Background()
 	s, err := c.Settings("quagga/ospfsettings")
 	if err != nil {
-		t.Skip(err)
+		missing(t, err) // os-frr not installed
 	}
 	before, err := s.Get(ctx)
 	if err != nil {
@@ -210,8 +246,11 @@ func TestEveryVerifiedResource(t *testing.T) {
 	inst := c.Instance()
 	// tested: ran and passed; readOnly: settings the contract test only
 	// read (passed); skippedRun: a subtest that skipped itself; noSample:
-	// entry lists without a usable sample; unverified: not verified here
-	var tested, readOnly, skippedRun, noSample, unverified, tolerated int
+	// entry lists without a usable sample; unverified: settings whose read
+	// was not verified on this version (the contract test found a known
+	// gap, or has no result), of them undecodable: read with *ErrDecode,
+	// readFailed: the read failed
+	var tested, readOnly, skippedRun, noSample, unverified, undecodable, readFailed, tolerated int
 	count := func(passed, skipped, onlyRead bool) {
 		switch {
 		case skipped:
@@ -235,6 +274,31 @@ func TestEveryVerifiedResource(t *testing.T) {
 			switch r.Kind {
 			case "settings":
 				if v == nil || v.Read != "ok" {
+					// not verified, so not written; still read through the
+					// client, and what fails is counted and logged: the
+					// contract test found the answer's shape different
+					// (known-gap) or has no result, so a failure here is
+					// expected data, not a client fault
+					status := "no result"
+					if v != nil {
+						status = v.Read
+					}
+					t.Run("unverified/"+id, func(t *testing.T) {
+						s, err := c.Settings(id)
+						if err != nil {
+							t.Fatal(err)
+						}
+						_, err = s.Get(ctx)
+						var de *opnsense.ErrDecode
+						switch {
+						case errors.As(err, &de):
+							undecodable++
+							t.Logf("contract test read: %s; not decoded: %v", status, de)
+						case err != nil:
+							readFailed++
+							t.Logf("contract test read: %s; read failed: %v", status, err)
+						}
+					})
 					unverified++
 					continue
 				}
@@ -379,6 +443,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 						} else if !slices.Contains(ids, uid) {
 							t.Errorf("list does not contain the new entry %s", uid)
 						}
+						rowsAgree(t, ctx, e, uid, vals)
 						unlock()
 						if err := e.Delete(ctx, uid); err != nil {
 							t.Fatalf("delete: %v", err)
@@ -387,14 +452,16 @@ func TestEveryVerifiedResource(t *testing.T) {
 						if ids, err := e.List(ctx); err == nil && slices.Contains(ids, uid) {
 							t.Errorf("entry %s still listed after delete", uid)
 						}
+						_, canSet := r.APIFor(res.Fragment).Operations["set"]
+						goneStaysGone(t, ctx, e, uid, canSet)
 					}
 				})
 				count(passed, skipped, false)
 			}
 		}
 	}
-	t.Logf("tested %d resources (written and read back), %d settings only read (the contract test did not write them), %d skipped themselves, %d entry lists without a usable sample, %d settings not verified on this version; %d read-back differences tolerated (custom-save, not chosen)",
-		tested, readOnly, skippedRun, noSample, unverified, tolerated)
+	t.Logf("tested %d resources (written and read back), %d settings only read (the contract test did not write them), %d skipped themselves, %d entry lists without a usable sample, %d settings not verified on this version (read through the client: %d with fields not decoded, %d failed); %d read-back differences tolerated (custom-save, not chosen)",
+		tested, readOnly, skippedRun, noSample, unverified, undecodable, readFailed, tolerated)
 	if floor := testedFloor(t, inst.Resolved.Series); tested < floor {
 		t.Errorf("tested %d resources, the floor for series %s is %d (tested-floor.txt): verification data or plugins went missing", tested, inst.Resolved.Series, floor)
 	}
@@ -438,6 +505,75 @@ func TestEveryVerifiedResource(t *testing.T) {
 		}
 		t.Logf("applied %d endpoints, %d could not run on the test VM", len(before), len(failed))
 	})
+}
+
+// rowsAgree: the new entry is in Rows with the values Get returns, for
+// every field both show, and Find with the values Add sent that the rows
+// show (as Get returns them) finds it.
+func rowsAgree(t *testing.T, ctx context.Context, e *opnsense.Entries, uid string, sent opnsense.Values) {
+	t.Helper()
+	got, err := e.Get(ctx, uid)
+	if err != nil {
+		t.Errorf("get: %v", err)
+		return
+	}
+	rows, err := e.Rows(ctx)
+	if err != nil {
+		t.Errorf("rows: %v", err)
+		return
+	}
+	i := slices.IndexFunc(rows, func(r opnsense.Row) bool { return r.ID == uid })
+	if i < 0 {
+		t.Errorf("rows lack the new entry %s", uid)
+		return
+	}
+	for name, rv := range rows[i].Values {
+		if gv, ok := got[name]; ok && !reflect.DeepEqual(rv, gv) {
+			t.Errorf("rows: %s is %#v, get says %#v", name, rv, gv)
+		}
+	}
+	match := opnsense.Values{}
+	for name := range sent {
+		_, shown := rows[i].Values[name]
+		if v, ok := got[name]; ok && shown {
+			match[name] = v
+		}
+	}
+	found, err := e.Find(ctx, match)
+	if err != nil {
+		t.Errorf("find by %v: %v", keys(match), err)
+	} else if !slices.ContainsFunc(found, func(r opnsense.Row) bool { return r.ID == uid }) {
+		t.Errorf("find by %v does not return the new entry", keys(match))
+	}
+}
+
+// goneStaysGone: after a delete the entry reads as not found, and a set
+// (where the list has one) is refused instead of creating it again under
+// the same ID.
+func goneStaysGone(t *testing.T, ctx context.Context, e *opnsense.Entries, uid string, canSet bool) {
+	t.Helper()
+	if _, err := e.Get(ctx, uid); !errors.Is(err, opnsense.ErrNotFound) {
+		t.Errorf("get after delete: %v, want ErrNotFound", err)
+	}
+	if !canSet {
+		return
+	}
+	if err := e.Set(ctx, uid, opnsense.Values{}); !errors.Is(err, opnsense.ErrNotFound) {
+		t.Errorf("set after delete: %v, want ErrNotFound", err)
+		if ids, _ := e.List(ctx); slices.Contains(ids, uid) {
+			t.Errorf("set after delete created %s again", uid)
+			_ = e.Delete(ctx, uid)
+		}
+	}
+}
+
+func keys(v opnsense.Values) []string {
+	out := make([]string, 0, len(v))
+	for k := range v {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // testedFloor is the minimum tested count of a series (tested-floor.txt:

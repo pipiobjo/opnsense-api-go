@@ -36,11 +36,17 @@ tools/ci/catalog.sh catalog        # capability data; prints the test matrix
 # in a checkout of opnsense-api-spec:
 tools/testvm.sh start 26.7 --release 26.7.9 --plugins all   # writes .cache/vm/state.env
 # back here, with url and keyfile from that state.env:
-OPNSENSE_URL=<url> OPNSENSE_KEYFILE=<keyfile> \
-OPNSENSE_CAPABILITIES=catalog go test -tags integration -count=1 ./test/integration/
+OPNSENSE_URL=<url> OPNSENSE_KEYFILE=<keyfile> OPNSENSE_PLUGINS=all \
+OPNSENSE_CAPABILITIES=catalog go test -tags integration -count=1 -v ./test/integration/ | tee integration.log
+tools/ci/skips.sh integration.log  # only the skips in tools/ci/skip-allowlist.txt
 # in opnsense-api-spec:
 tools/testvm.sh down
 ```
+
+`OPNSENSE_PLUGINS=all` says the VM has every plugin, so a test that needs
+a missing one fails instead of skipping. Without hardware virtualisation
+(`TESTVM_ACCEL=tcg`) set `TESTVM_SLOW=6` as well: it stretches the request
+timeouts as `testvm.sh` stretches its waits.
 
 Run it for each supported series (25.7, 26.1, 26.7) with the release the
 matrix names. A change is done when all three pass; CI repeats this on
