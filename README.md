@@ -225,7 +225,7 @@ dropped silently.
 | Part | State |
 |---|---|
 | Transport, wire encodings, detection, resolver, value checks, settings, entry lists, toggle, apply, read-back | implemented; unit tests against a fake firewall built from recorded behaviour (each rule has a test that fails without it) |
-| Integration tests, newest release of each series with every plugin | local runs with spec data 0.9.3 (2026-11-18): resources written and read back 221 (25.7.11_9), 226 (26.1.11_10), 230 (26.7.9_3), plus 72 to 79 settings only read; `Rows`, `Find` and existence after delete checked on every written entry list; 0 failures; each series must reach its floor (`test/integration/tested-floor.txt`). Details in [docs/testing.md](docs/testing.md). CI runs the same matrix on every push and after new spec data |
+| Integration tests, newest release of each series with every plugin | local runs with spec data 0.9.4 built locally (2026-11-18): resources written and read back 223 (25.7.11_9), 228 (26.1.11_10), 231 (26.7.9_3), plus 79 to 86 settings only read and 6 to 7 settings read whose shape the data marks as not derived; `Rows`, `Find` and existence after delete checked on every written entry list; 0 failures; each series must reach its floor (`test/integration/tested-floor.txt`). Details in [docs/testing.md](docs/testing.md). CI runs the same matrix on every push and after new spec data |
 | Typed Go structs per plugin | not planned |
 
 Supported: OPNsense 25.7 and newer, core and official plugins, as far as the

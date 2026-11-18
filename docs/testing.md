@@ -124,30 +124,40 @@ or plugins fails instead of passing with little tested.
 `TestRecordedBehaviour` need os-frr. With `OPNSENSE_PLUGINS=all` (CI, and
 the commands in CONTRIBUTING.md) a missing os-frr fails them; only a run
 that did not ask for every plugin may skip them. Request timeouts are the
-client's defaults times `TESTVM_SLOW` (6 on a VM without hardware
-virtualisation), so a slow runner does not look like a slow firewall.
+client's defaults times `TESTVM_SLOW`, so a slow runner does not look
+like a slow firewall. CI sets it from the `slow` output of the spec's test
+VM action: the factor the harness stretched its own waits by (1 with KVM,
+6 under software emulation).
 
 The read-only test reads every resource; a read that fails in read-only
 mode but works without it fails the test (the transport's read list would
 be too narrow).
 
 Results of the most recent full run (local VMs with KVM, every plugin
-installed, spec data 0.9.3 (data_id f79a4c510ffefa42), 2026-11-18). Earlier figures (299, 307, 314
-"resources tested") also counted settings that were only read and
-subtests that skipped themselves; they are not comparable.
+installed, 2026-11-18), on capability data built locally from spec
+generator 0.9.4 (data_id 9ae8601d7d860f17, not yet published; CI uses
+the published data until the spec's next live run). Earlier figures
+(299, 307, 314 "resources tested") also counted settings that were only
+read and subtests that skipped themselves; they are not comparable.
 
 | Release | Written and read back | Settings only read | Skipped themselves (all on the allowlist) | Entry lists without a usable sample | Settings not verified: not decoded / read failed | Tolerated differences | Read-only test: reads | Failures |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25.7.11_9 | 221 | 72 | 6 | 46 | 21: 0 / 14 | 0 | 350 | 0 |
-| 26.1.11_10 | 226 | 75 | 6 | 48 | 20: 0 / 14 | 0 | 357 | 0 |
-| 26.7.9_3 | 230 | 79 | 5 | 53 | 21: 0 / 14 | 1 | 369 | 0 |
+| 25.7.11_9 | 223 | 79 | 4 | 46 | 7: 0 / 0 | 0 | 357 | 0 |
+| 26.1.11_10 | 228 | 82 | 4 | 48 | 6: 0 / 0 | 0 | 364 | 0 |
+| 26.7.9_3 | 231 | 86 | 4 | 53 | 7: 0 / 0 | 1 | 376 | 0 |
 
 Every written entry list also passed the `Rows`, `Find` and
-after-delete checks. The 14 failed reads of settings the contract test
-did not verify are known gaps in the data, the same on every series: the
-answer's wrapper key differs from the data (freeradius, siproxd,
-zerotier, relayd), `proxy/template` answers with something other than
-JSON, and four acmeclient resources have no get operation. The number
+after-delete checks. The settings the contract test did not verify are
+those whose answer differs inside the root key where the data marks a
+gap (on 26.7.9: `kea/dhcpv4`, `kea/dhcpv6`, `firewall/source_nat`, `stunnel/services`,
+`ids/settings`, `ipsec/settings`, `dyndns/settings`); all of them are read
+and decoded. With the published 0.9.3 data the same VMs gave 14 failed
+reads per series (222/227/230 written, 72/75/79 only read): the data
+named a wrong root key for nine settings with their own controller code
+(freeradius, siproxd, zerotier, relayd), `proxy/template` answers a zip
+file, and four acmeclient controllers had a settings `set` without `get`.
+Spec 0.9.4 reads the key from the controller code, and lists what has no
+derivable key, or no `get`, as actions instead of settings. The number
 that skips itself moves by one between runs (`tor/general`,
 `ndproxy/general`: whether their default state validates).
 

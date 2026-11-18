@@ -45,8 +45,10 @@ tools/testvm.sh down
 
 `OPNSENSE_PLUGINS=all` says the VM has every plugin, so a test that needs
 a missing one fails instead of skipping. Without hardware virtualisation
-(`TESTVM_ACCEL=tcg`) set `TESTVM_SLOW=6` as well: it stretches the request
-timeouts as `testvm.sh` stretches its waits.
+(`TESTVM_ACCEL=tcg`) set `TESTVM_SLOW` to the `slow` value `testvm.sh`
+wrote to `.cache/vm/state.env` (6 by default): it stretches the request
+timeouts as `testvm.sh` stretches its waits. CI takes it from the test VM
+action's `slow` output.
 
 Run it for each supported series (25.7, 26.1, 26.7) with the release the
 matrix names. A change is done when all three pass; CI repeats this on

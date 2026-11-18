@@ -175,11 +175,11 @@ jobs:
           OPNSENSE_CAPABILITIES: ${{ github.workspace }}/catalog
           # every plugin was requested: a test that needs a missing one fails
           OPNSENSE_PLUGINS: all
-          # request timeouts stretched like the VM's own waits: 6 under
-          # software emulation, as tools/testvm.sh of the spec
-          TESTVM_SLOW: ${{ steps.vm.outputs.acceleration == 'tcg' && '6' || '1' }}
+          # request timeouts stretched by the factor the VM harness used for
+          # its own waits (an output of the spec's test VM action)
+          TESTVM_SLOW: ${{ steps.vm.outputs.slow }}
         run: |
-          echo "instance ${{ steps.vm.outputs.version }}, ${{ steps.vm.outputs.acceleration }}, plugins not installed: ${{ steps.vm.outputs.failed || 'none' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "instance ${{ steps.vm.outputs.version }}, ${{ steps.vm.outputs.acceleration }} (waits x${{ steps.vm.outputs.slow }}), plugins not installed: ${{ steps.vm.outputs.failed || 'none' }}" >> "$GITHUB_STEP_SUMMARY"
           go test -count=1 -tags integration -timeout 150m -v \
             -coverpkg=github.com/pipiobjo/opnsense-api-go/... -coverprofile=integration.out \
             ./test/integration/ 2>&1 | tee integration.log
