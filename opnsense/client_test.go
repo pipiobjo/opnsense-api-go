@@ -86,6 +86,22 @@ func TestDetectExact(t *testing.T) {
 	}
 }
 
+// The data state in use is reported, so a bug report names it.
+func TestInstanceReportsDataID(t *testing.T) {
+	s, err := capability.Load(os.DirFS("capability/testdata/catalog")) // private copy
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Catalog.DataID = "0123456789abcdef"
+	c, err := connect(t, newFake(t), func(cfg *Config) { cfg.Capabilities = s })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.Instance().DataID; got != "0123456789abcdef" {
+		t.Errorf("Instance().DataID = %q", got)
+	}
+}
+
 func TestDetectHotfixIsANote(t *testing.T) {
 	f := newFake(t)
 	f.core = "26.7.9"

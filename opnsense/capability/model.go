@@ -34,13 +34,17 @@ type Set struct {
 
 // Catalog is catalog.json.
 type Catalog struct {
-	Format    int                 `json:"format"`
-	Generator string              `json:"generator"`
-	Cores     map[string]Core     `json:"cores"`
-	Releases  []Release           `json:"releases"`
-	Packages  map[string]PkgEntry `json:"packages"`
-	once      sync.Once
-	coresBy   map[string][]coreRef // series -> cores sorted by version, see series()
+	Format    int    `json:"format"`
+	Generator string `json:"generator"`
+	// DataID identifies the data state (opnsense-api-spec
+	// docs/capabilities.md, "Identity and releases"); empty in data built
+	// before it existed.
+	DataID   string              `json:"data_id,omitempty"`
+	Cores    map[string]Core     `json:"cores"`
+	Releases []Release           `json:"releases"`
+	Packages map[string]PkgEntry `json:"packages"`
+	once     sync.Once
+	coresBy  map[string][]coreRef // series -> cores sorted by version, see series()
 }
 
 // Core maps a core package version to its release and framework.

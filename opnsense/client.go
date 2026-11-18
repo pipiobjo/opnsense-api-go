@@ -128,6 +128,9 @@ type Instance struct {
 	Notes []string
 	// ReadOnly: the client was created with Config.ReadOnly.
 	ReadOnly bool
+	// DataID: the capability data state in use (catalog-v1-<DataID> is its
+	// release); report it with every bug. Empty for data built before IDs.
+	DataID string
 	// Warnings: a guess about a release or plugin version the data has
 	// never seen, an incomplete detection, or disabled TLS verification.
 	// Fields newer than the data are refused; read-back still checks every
@@ -324,6 +327,7 @@ func (c *Client) detect(ctx context.Context) error {
 	inst.Warnings = append(inst.Warnings, res.Warnings...)
 	inst.Notes = append(inst.Notes, res.Notes...)
 	inst.ReadOnly = c.cfg.ReadOnly
+	inst.DataID = c.data.Catalog.DataID
 	c.inst = inst
 	return nil
 }

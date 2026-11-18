@@ -115,19 +115,24 @@ mode makes sure it changes nothing there.
 ### Capability data
 
 The client carries no data ([ADR 0002](docs/adr/0002-operation-without-maintenance.md)).
-Get it from the release `catalog` of opnsense-api-spec and verify it:
+Get it from opnsense-api-spec and verify it. `catalog` is the newest
+state; `catalog-v1-<data_id>` is one fixed state that never changes (pin
+that one when you embed the data):
 
 ```sh
 gh release download catalog -R pipiobjo/opnsense-api-spec -D catalog
 cd catalog && sha256sum -c SHA256SUMS
-gh attestation verify SHA256SUMS -R pipiobjo/opnsense-api-spec
+gh attestation verify SHA256SUMS -R pipiobjo/opnsense-api-spec \
+  --signer-workflow pipiobjo/opnsense-api-spec/.github/workflows/pipeline.yml \
+  --source-ref refs/heads/main
 tar --zstd -xf capabilities.tar.zst
 ```
 
-The `catalog` release is not published yet: its format is final only
-after the planned OpenTofu provider has used it. Until then,
-`tools/ci/catalog.sh DIR` builds the same data from the spec repository's
-published pipeline state (it needs Go, `curl`, `zstd` and `jq`).
+`Instance().DataID` reports the state in use; name it in bug reports.
+`tools/ci/catalog.sh DIR` does the same (`CATALOG_TAG` pins a state).
+While the releases are not published yet, it builds the data from the
+spec repository's pipeline state and warns that this source is not
+attested.
 
 You do not have to update it for every OPNsense release: with older data
 the client keeps working on a newer firewall of the same series and refuses
