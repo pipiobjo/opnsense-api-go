@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/pipiobjo/opnsense-api-go/opnsense/capability"
 )
@@ -190,6 +191,34 @@ func TestErrorMessages(t *testing.T) {
 		}
 		if len(msg) > 600 {
 			t.Errorf("%T: message of %d bytes; answers must be truncated", c.err, len(msg))
+		}
+	}
+}
+
+// Claim (K6, documented on the fields): the raw answer kept in
+// ErrApply.Answer and ErrUnexpectedAnswer.Answer is at most 300 bytes and
+// valid UTF-8, however large the firewall's answer was, so a consumer may
+// log the field as documented.
+func TestRawAnswersAreTruncated(t *testing.T) {
+	ctx := context.Background()
+	big := strings.Repeat("ä", 2000) // two bytes per rune: a cut at an odd byte would split one
+	f := newFake(t)
+	f.applyAnswer = map[string]any{"status": "failed", "log": big}
+	f.addAnswer = map[string]any{"result": "maybe", "log": big}
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	_, err := n.Add(ctx, Values{"address": "192.0.2.10"})
+	var ue *ErrUnexpectedAnswer
+	if !errors.As(err, &ue) {
+		t.Fatalf("add: %v", err)
+	}
+	var ae *ErrApply
+	if err := n.Apply(ctx); !errors.As(err, &ae) {
+		t.Fatalf("apply: %v", err)
+	}
+	for name, a := range map[string]string{"ErrUnexpectedAnswer.Answer": ue.Answer, "ErrApply.Answer": ae.Answer} {
+		if len(a) > 300 || !utf8.ValidString(a) || !strings.HasSuffix(a, "...") {
+			t.Errorf("%s: %d bytes, valid UTF-8 %v, marked as cut %v", name, len(a), utf8.ValidString(a), strings.HasSuffix(a, "..."))
 		}
 	}
 }

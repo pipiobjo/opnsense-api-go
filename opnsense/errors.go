@@ -154,7 +154,7 @@ func (e *ErrNotApplied) Error() string {
 // configuration is saved but maybe not active; the endpoint stays pending.
 type ErrApply struct {
 	Endpoint string
-	Answer   string // at most 300 bytes
+	Answer   string // the raw answer, at most 300 bytes (a cut one ends in "...")
 }
 
 func (e *ErrApply) Error() string {
@@ -232,7 +232,8 @@ func (e *ErrNoOperation) Error() string {
 // is marked pending. ID is the entry concerned, if known.
 type ErrUnexpectedAnswer struct {
 	Resource, Operation, ID string
-	// Answer is the raw answer, at most 300 bytes. It may echo values, so
+	// Answer is the raw answer, at most 300 bytes (a cut one ends in
+	// "..."). It may echo values, so
 	// Error() leaves it out.
 	Answer string
 }

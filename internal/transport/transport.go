@@ -28,6 +28,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 )
 
 // MaxResponse is the largest response body that is read (the firmware
@@ -438,11 +439,20 @@ func unwrapURL(err error) error {
 	return err
 }
 
-// Trunc shortens a response for an error message.
+// TruncMax is the most bytes Trunc returns.
+const TruncMax = 300
+
+// Trunc shortens a response for an error message or an error field: at
+// most TruncMax bytes including the "..." that marks a cut, never cut
+// inside a UTF-8 sequence.
 func Trunc(b []byte) string {
 	s := strings.TrimSpace(string(b))
-	if len(s) > 300 {
-		return s[:300] + "..."
+	if len(s) <= TruncMax {
+		return s
 	}
-	return s
+	n := TruncMax - len("...")
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n] + "..."
 }

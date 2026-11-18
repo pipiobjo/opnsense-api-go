@@ -44,6 +44,7 @@ type fakeFirewall struct {
 	infoStatus    int             // HTTP status of firmware/info (default 200)
 	delKeeps      bool            // del answers "deleted" but keeps the entry
 	addNoID       bool            // add stores the entry but answers "saved" without a uuid
+	addAnswer     map[string]any  // if set, add stores nothing and answers this
 	fullTemplate  bool            // get of an unknown UUID answers the complete blank template
 	toggleIgnored bool            // toggle answers as if it switched, but changes nothing
 	encodeSets    map[string]bool // neighbor fields stored base64-encoded (nginx error pages)
@@ -147,6 +148,8 @@ func (f *fakeFirewall) handle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		reply(map[string]any{"result": "saved"})
+	case p == "/api/quagga/ospfsettings/addNeighbor" && f.addAnswer != nil:
+		reply(f.addAnswer)
 	case p == "/api/quagga/ospfsettings/addNeighbor":
 		in, _ := body["neighbor"].(map[string]any)
 		if ip, _ := in["address"].(string); net.ParseIP(ip) == nil {
