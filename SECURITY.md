@@ -34,7 +34,13 @@ lists the module and the Go release.
 CI uses GitHub's own actions and `jdx/mise-action`, pinned by commit
 hash, and the official CycloneDX generator for Go (`cyclonedx-gomod`) in
 the digest-pinned `golang` image, isolated in rootless Podman. Dependabot
-alerts are on, and Dependabot proposes action updates monthly.
+alerts are on, and Dependabot proposes action updates monthly;
+`automerge.yml` merges one only after CI passed on exactly its commit.
+The test VM action and the watchdog script come from
+[opnsense-api-spec](https://github.com/pipiobjo/opnsense-api-spec) at the
+one commit named in `tools/ci/spec-ref`; `spec-update.yml` moves that pin
+to the spec's `main` (which moves only after the spec's tests) through a
+branch that CI tests first.
 `tools/ci/vulncheck.sh` (govulncheck) runs in CI, before every release and
 whenever the spec publishes new data: it fails on a vulnerability that the
 client's code reaches and that has a fix (a newer Go patch release, which

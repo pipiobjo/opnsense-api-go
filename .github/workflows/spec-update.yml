@@ -5,7 +5,14 @@
 # hotfix or plugin update), run the whole client suite against it: unit
 # tests, then the integration tests on the newest release of each series
 # with every plugin (ci.yml). Each data version is tested once; days
-# without new data end after one small download (ADR 0002).
+# without new data end after one small download (ADR 0002). A run in
+# which a plugin did not install is not recorded as a test of that data:
+# the next day tests it again.
+#
+# The job spec-pin keeps the one pin on opnsense-api-spec (tools/ci/spec-ref,
+# the test VM action and the watchdog script) at the spec's main: it
+# commits a new pin to a branch spec-pin/..., starts ci.yml there, and
+# automerge.yml moves main to exactly that commit when ci.yml passed.
 #
 # A failure notifies nobody. watchdog.yml opens the one "needs-you" issue
 # when this workflow has not succeeded for 7 days, and closes it again.
@@ -54,8 +61,10 @@ jobs:
     if: needs.check.outputs.tested != 'true'
     uses: ./.github/workflows/ci.yml
 
+  # only a run with every plugin installed tested the data completely
   remember:
     needs: [check, test]
+    if: needs.test.outputs.missing-plugins == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -64,6 +73,68 @@ jobs:
         with:
           path: .tested
           key: tested-${{ needs.check.outputs.hash }}
+
+  not-remembered:
+    needs: [check, test]
+    if: needs.test.outputs.missing-plugins != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          MISSING: ${{ needs.test.outputs.missing-plugins }}
+        run: |
+          echo "::warning::plugins did not install, so this data is not recorded as tested; the next run tests it again"
+          { echo "Not recorded as tested; plugins not installed:"; echo '```'; echo "$MISSING"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  spec-pin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the branch spec-pin/...
+      actions: write # start ci.yml on it
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - name: Propose the spec's main as the new pin
+        run: |
+          cur=$(tools/ci/spec-ref.sh get)
+          new=$(tools/ci/spec-ref.sh latest)
+          if [ "$cur" = "$new" ]; then
+            echo "pin ${cur:0:12} is the spec's main" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            base=$(git rev-parse HEAD)
+            branch="spec-pin/${new:0:12}-${base:0:12}"
+            if git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
+              # proposed before on this main: its ci.yml run decides; a
+              # failed or unmerged one keeps this job red, which the
+              # watchdog reports after 7 days
+              state=$(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -b "$branch" -e workflow_dispatch -L 1 \
+                --json status,conclusion -q '.[0] | if . == null then "none" elif .status != "completed" then "running" else .conclusion end')
+              case "$state" in
+                running) echo "ci.yml on $branch is running" ;;
+                none) gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"; echo "started ci.yml on $branch" ;;
+                *) echo "::error::new spec pin ${new:0:12} on $branch: ci.yml $state and main not moved"; exit 1 ;;
+              esac
+            else
+              tools/ci/spec-ref.sh set "$new"
+              git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                commit -q -m "ci: pin opnsense-api-spec ${new:0:12}" tools/ci/spec-ref
+              git push -q origin "HEAD:refs/heads/$branch"
+              gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
+              echo "proposed spec pin ${new:0:12} on $branch; ci.yml started" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+      # automerge.yml merges Dependabot updates by itself; one still open
+      # after 14 days could not be merged and needs a look
+      - name: Dependabot updates left open
+        run: |
+          old=$(gh pr list -R "$GITHUB_REPOSITORY" --author app/dependabot --state open --json number,createdAt \
+            -q "[.[] | select(.createdAt < \"$(date -u -d '14 days ago' +%FT%TZ)\") | .number] | join(\" \")")
+          [ -z "$old" ] || { echo "::error::Dependabot pull requests open for more than 14 days: $old"; exit 1; }
 
   # GitHub disables scheduled workflows of public repositories after 60
   # days without activity; this and the watchdog re-enable each other

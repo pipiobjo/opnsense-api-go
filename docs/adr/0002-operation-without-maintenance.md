@@ -30,27 +30,54 @@ back every write.
    and updates it weekly.
 2. **Releases follow code changes,** tagged when CI is green. A new
    OPNsense release needs no client release.
-3. **No bot, no secrets.** CI runs on pushes and pull requests: format,
-   vet, unit tests with the race detector on the two supported Go
-   releases, short fuzz runs, and the integration tests on the newest
-   release of each supported series in a throwaway VM (the spec
-   repository's test VM action).
+3. **No secrets, and no change without a test.** CI runs on pushes and
+   pull requests: format, vet, unit tests with the race detector on the
+   two supported Go releases, short fuzz runs, and the integration tests
+   on the newest release of each supported series in a throwaway VM (the
+   spec repository's test VM action). No test may skip unless it is on
+   the short allowlist `tools/ci/skip-allowlist.txt` with its reason
+   (amended 2026-11-18). The only commits made without a person are
+   Dependabot updates and the spec pin (points 5 and 6); `automerge.yml`
+   moves `main` to such a commit only after `ci.yml` passed on exactly
+   that commit (a fast-forward, no new merge commit).
 4. **The client is re-tested when the spec has new data** (amended
    2026-11-16). `spec-update.yml` hashes the newest data the spec
    repository published; for a hash not tested yet it runs the whole CI
    suite against it, then remembers the hash in the Actions cache (no
-   commit). So a new OPNsense release, hotfix or plugin update exercises
+   commit); only if every plugin installed on every test VM (amended
+   2026-11-18: a run with a missing plugin did not test that plugin's
+   data, so the next day tests it again). So a new OPNsense release, hotfix or plugin update exercises
    the client within a day, including the checks of OPNsense behaviour the
    client relies on (`TestRecordedBehaviour`). A failure notifies nobody;
-   `watchdog.yml` (the spec repository's `alerts.sh`, pinned) opens one
-   self-closing `needs-you` issue after 7 days without success. The
+   `watchdog.yml` (the spec repository's `alerts.sh`, point 6) opens one
+   self-closing `needs-you` issue after 7 days without success. It also
+   watches the spec repository's `pipeline.yml` and `watchdog.yml`, and
+   the spec's watchdog watches this repository's `spec-update.yml` and
+   `watchdog.yml` (amended 2026-11-18): GitHub disables all schedules of
+   an inactive repository at once, and a broken watchdog tells nobody. The
    schedule is daily while the client is pre-release and becomes weekly or
    monthly with the first stable release (one cron line). The spec
    repository does not run the client: it knows no consumers.
 5. **Dependency updates** concern only the pinned actions (the module has
    no dependencies outside the standard library): Dependabot, monthly,
-   grouped, versions at least 7 days old.
-6. **Unknown versions are graded.** Another hotfix revision of a known
+   grouped, versions at least 7 days old, merged by `automerge.yml` when
+   CI passed (amended 2026-11-18; before, each waited for a person). A
+   Dependabot pull request behind `main` is asked to rebase; one still
+   open after 14 days turns `spec-update.yml` red, so the watchdog reports
+   it.
+6. **One pin on the spec repository, kept current without a person**
+   (added 2026-11-18). The test VM action and the watchdog script come
+   from opnsense-api-spec at the commit in `tools/ci/spec-ref`
+   (`tools/ci/spec-ref.sh`), the only place that names a spec commit.
+   Dependabot cannot follow it (the spec has no release tags for its
+   tools), so `spec-update.yml` does: when the spec's `main` (moved only
+   after the spec's own promotion tests) is ahead of the pin, it commits
+   the new pin to a branch `spec-pin/<commit>-<main>`, starts `ci.yml`
+   there, and `automerge.yml` fast-forwards `main` to it when CI passed.
+   A pin whose CI failed keeps `spec-update.yml` red until the spec moves
+   on; after 7 days the watchdog reports it. Before, eight pin updates in
+   three days were made by hand.
+7. **Unknown versions are graded.** Another hotfix revision of a known
    release, or a known plugin version seen on another core of the series,
    is a note (`Instance().Notes`): usual after an update, nothing to do. A
    release or plugin version the data has never seen is a warning

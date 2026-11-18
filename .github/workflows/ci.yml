@@ -3,14 +3,18 @@
 #
 # Every push to main and every pull request:
 #   test         format, vet, unit tests with the race detector (fake
-#                firewall, real capability test data), coverage with a floor,
-#                SBOM (tools/ci/sbom.sh), known vulnerabilities in called code
-#                (tools/ci/vulncheck.sh)
+#                firewall, real capability test data), no skipped test,
+#                coverage with a floor, SBOM (tools/ci/sbom.sh), known
+#                vulnerabilities in called code (tools/ci/vulncheck.sh)
 #   data         capability data from opnsense-api-spec (tools/ci/catalog.sh)
 #                and the test matrix: newest verified release of each series
 #   integration  per series: throwaway OPNsense VM on 127.0.0.1 with every
-#                plugin (the spec repository's test VM action), then the
-#                integration tests (test/integration), their coverage
+#                plugin (the test VM action of opnsense-api-spec at the commit
+#                in tools/ci/spec-ref), then the integration tests
+#                (test/integration), skips only from tools/ci/skip-allowlist.txt,
+#                their coverage
+#   plugins      plugins that did not install on any VM; spec-update.yml
+#                records the data as tested only when there were none
 # No schedule, no secrets, nothing published (ADR 0002).
 name: ci
 
@@ -21,6 +25,10 @@ on:
   workflow_dispatch:
   # spec-update.yml runs the same suite when the spec published new data
   workflow_call:
+    outputs:
+      missing-plugins:
+        description: "plugins that did not install, as '<release>: <plugins>' lines; empty when every plugin installed"
+        value: ${{ jobs.plugins.outputs.missing }}
 
 permissions:
   contents: read
@@ -56,7 +64,13 @@ jobs:
           test -z "$(gofmt -l .)" || { gofmt -l .; echo "::error::gofmt"; exit 1; }
           go vet ./...
           go vet -tags integration ./...
-          go test -count=1 -race -coverpkg=./... -coverprofile=unit.out ./...
+          # -v for the skip check; the log shows failures and test output only
+          rc=0
+          go test -v -count=1 -race -coverpkg=./... -coverprofile=unit.out ./... > unit.log 2>&1 || rc=$?
+          grep -vE '^[[:space:]]*(=== (RUN|PAUSE|CONT|NAME)|--- PASS)' unit.log || true
+          [ "$rc" = 0 ] || exit "$rc"
+          tools/ci/skips.sh unit.log
+          tools/ci/skips_test.sh
       # statements covered per package; fails below tools/ci/coverage-floor.txt
       - name: Coverage
         if: matrix.go == '1.27'
@@ -135,9 +149,20 @@ jobs:
         with:
           name: catalog
           path: catalog
+      # the one pin on opnsense-api-spec (tools/ci/spec-ref.sh); spec-update.yml
+      # proposes a new one when the spec's main moves
+      - name: Spec commit
+        id: spec
+        run: echo "ref=$(tools/ci/spec-ref.sh get)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: pipiobjo/opnsense-api-spec
+          ref: ${{ steps.spec.outputs.ref }}
+          path: .spec
+          persist-credentials: false
       - name: Test VM ${{ matrix.release }} with all plugins
         id: vm
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@d6adda786b2dfc8aa22885fb396ee0f14fff05cf # 2026-11-17 (data_id, watchdog missing)
+        uses: ./.spec/.github/actions/testvm
         with:
           series: ${{ matrix.series }}
           release: ${{ matrix.release }}
@@ -148,6 +173,11 @@ jobs:
           OPNSENSE_URL: ${{ steps.vm.outputs.url }}
           OPNSENSE_KEYFILE: ${{ steps.vm.outputs.keyfile }}
           OPNSENSE_CAPABILITIES: ${{ github.workspace }}/catalog
+          # every plugin was requested: a test that needs a missing one fails
+          OPNSENSE_PLUGINS: all
+          # request timeouts stretched like the VM's own waits: 6 under
+          # software emulation, as tools/testvm.sh of the spec
+          TESTVM_SLOW: ${{ steps.vm.outputs.acceleration == 'tcg' && '6' || '1' }}
         run: |
           echo "instance ${{ steps.vm.outputs.version }}, ${{ steps.vm.outputs.acceleration }}, plugins not installed: ${{ steps.vm.outputs.failed || 'none' }}" >> "$GITHUB_STEP_SUMMARY"
           go test -count=1 -tags integration -timeout 150m -v \
@@ -158,6 +188,19 @@ jobs:
             grep -E '^(--- FAIL|--- SKIP|ok|FAIL)|tested [0-9]+ resources' integration.log | head -n 80
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          tools/ci/skips.sh integration.log | tee -a "$GITHUB_STEP_SUMMARY"
+      # for the plugins job: what did not install on this VM (may be empty)
+      - name: Plugins not installed
+        if: always() && steps.vm.outputs.url != ''
+        env:
+          FAILED: ${{ steps.vm.outputs.failed }}
+        run: mkdir -p plugins && printf '%s' "$FAILED" > "plugins/${{ matrix.release }}.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.vm.outputs.url != ''
+        with:
+          name: plugins-${{ matrix.release }}
+          path: plugins/
+          retention-days: 3
       # client code exercised against the real firewall
       - name: Coverage
         run: tools/ci/coverage.sh integration integration.out coverage
@@ -167,8 +210,8 @@ jobs:
           path: coverage/
           retention-days: 30
       - name: Stop test VM
-        if: always()
-        uses: pipiobjo/opnsense-api-spec/.github/actions/testvm@d6adda786b2dfc8aa22885fb396ee0f14fff05cf # 2026-11-17 (data_id, watchdog missing)
+        if: always() && steps.spec.outputs.ref != ''
+        uses: ./.spec/.github/actions/testvm
         with:
           command: stop
       # also when the job passed but a plugin did not install: the firmware
@@ -181,3 +224,31 @@ jobs:
             integration.log
             ${{ steps.vm.outputs.dir }}/*.log
           retention-days: 7
+
+  # one answer for spec-update.yml: did a plugin fail to install on any VM?
+  # A test of data with missing plugins is not a full test.
+  plugins:
+    needs: [data, integration]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      missing: ${{ steps.missing.outputs.missing }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: plugins-*
+          merge-multiple: true
+          path: plugins
+      - name: Missing plugins
+        id: missing
+        env:
+          MATRIX: ${{ needs.data.outputs.matrix }}
+        run: |
+          missing=""
+          for r in $(jq -r '.[].release' <<<"$MATRIX"); do
+            [ -f "plugins/$r.txt" ] || { echo "::error::no plugin report from the $r VM"; exit 1; }
+            f=$(cat "plugins/$r.txt")
+            [ -z "$f" ] || missing+="$r: $f"$'\n'
+          done
+          { echo "missing<<EOF"; printf '%s' "$missing"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          echo "plugins not installed: ${missing:-none}" | tee -a "$GITHUB_STEP_SUMMARY"

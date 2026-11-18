@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 # The one signal to a person (ADR 0002): daily, opens one issue labelled
-# "needs-you" when spec-update.yml has not succeeded for 7 days or is
-# disabled, edits it while that lasts and closes it when it is over. Uses
-# the same script as opnsense-api-spec (tools/ci/alerts.sh), pinned.
+# "needs-you" when spec-update.yml, or the spec repository's pipeline.yml
+# or watchdog.yml, has not succeeded for 7 days or is disabled, edits it
+# while that lasts and closes it when it is over. The spec's watchdog
+# watches this repository's spec-update.yml and watchdog.yml in turn. Uses
+# the same script as opnsense-api-spec (tools/ci/alerts.sh), at the commit
+# in tools/ci/spec-ref.
 name: watchdog
 
 on:
@@ -30,8 +33,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          sparse-checkout: tools/ci
+          persist-credentials: false
+      # the one pin on opnsense-api-spec (tools/ci/spec-ref.sh)
+      - name: Spec commit
+        id: spec
+        run: echo "ref=$(tools/ci/spec-ref.sh get)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
           repository: pipiobjo/opnsense-api-spec
-          ref: d6adda786b2dfc8aa22885fb396ee0f14fff05cf # 2026-11-17
+          ref: ${{ steps.spec.outputs.ref }}
           path: spec
           persist-credentials: false
       - name: Check
@@ -39,4 +50,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           WD_WORKFLOW: spec-update.yml
           WD_COVERAGE_CHECK: "0"
+          # GitHub disables all schedules of a repository at once after 60
+          # days without activity, and a broken watchdog notifies nobody:
+          # each repository of the project watches the others (read-only)
+          WD_WATCH: >-
+            pipiobjo/opnsense-api-spec:pipeline.yml
+            pipiobjo/opnsense-api-spec:watchdog.yml
         run: spec/tools/ci/alerts.sh check
