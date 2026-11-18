@@ -306,6 +306,11 @@ func (c *Client) detect(ctx context.Context) error {
 		return errors.New("opnsense: the firewall did not report its version")
 	}
 	res, err := c.data.Resolve(inst.Core, inst.Plugins, c.cfg.UnknownVersion)
+	var newer *capability.ErrSeriesNotInData
+	if errors.As(err, &newer) && newer.Newer && c.cfg.UnknownVersion != capability.Refuse {
+		// a newer series: readable with the newest data, writes refused
+		res, err = c.data.ResolveNewerSeries(inst.Core, inst.Plugins)
+	}
 	if err != nil {
 		return fmt.Errorf("opnsense: %w", err)
 	}

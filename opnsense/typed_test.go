@@ -6,6 +6,7 @@ package opnsense
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -89,11 +90,25 @@ func TestTypedErrors(t *testing.T) {
 	})
 
 	t.Run("newer series", func(t *testing.T) {
+		// readable with the newest data, every write refused
 		f := newFake(t)
 		f.core = "27.1"
+		c := mustConnect(t, f)
+		if w := c.Instance().Warnings; len(w) == 0 || !strings.Contains(strings.Join(w, " "), "writes are refused") {
+			t.Errorf("warnings %v", w)
+		}
+		n, _ := c.Entries(neighbors)
+		if _, err := n.List(ctx); err != nil {
+			t.Errorf("List on a newer series: %v", err)
+		}
+		var ro *ErrReadOnly
+		if _, err := n.Add(ctx, Values{"address": "192.0.2.10"}); !errors.As(err, &ro) {
+			t.Errorf("Add on a newer series: %v, want ErrReadOnly", err)
+		}
+		// with Refuse it stays a typed error
 		var e *ErrSeriesNotInData
-		if _, err := connect(t, f); !errors.As(err, &e) || !e.Newer {
-			t.Errorf("%v", err)
+		if _, err := connect(t, f, func(c *Config) { c.UnknownVersion = Refuse }); !errors.As(err, &e) || !e.Newer {
+			t.Errorf("Refuse: %v", err)
 		}
 	})
 }

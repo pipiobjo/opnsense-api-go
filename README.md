@@ -61,7 +61,7 @@ is the client's job.
 |---|---|
 | Resource not installed or not in this version | `*ErrNotAvailable` with the versions that have it; `PluginsUnknown` when the API key may not read the plugin list |
 | Any changing call with `Config.ReadOnly` | `*ErrReadOnly` (`Mode` set); nothing is sent |
-| Firewall on a series the data does not cover (e.g. 27.1 with data up to 26.7) | `New` fails with `*ErrSeriesNotInData` (`Newer` set): update the capability data. Not guessed, because a series change can change the framework the API comes from |
+| Firewall on a series newer than the data (e.g. 27.1 with data up to 26.7) | Readable with the newest data, marked as unverified in `Instance().Warnings`; every write is refused (`ErrReadOnly`) until the capability data covers the series, because a series change can change the framework the API comes from. With `UnknownVersion: Refuse`, or for a series older than the data, `New` fails with `*ErrSeriesNotInData` |
 | Installed package older than every version of its series in the data | reading works; every write fails with `*ErrReadOnly`, because the data may describe fields that version lacks |
 | Wrong resource kind, or an operation the resource does not have | `*ErrWrongKind`, `*ErrNoOperation` |
 | Field not in this version (or misspelled) | `*ErrFieldNotAvailable` with the versions that have it; nothing is sent |
@@ -132,8 +132,8 @@ published pipeline state (it needs Go, `curl`, `zstd` and `jq`).
 You do not have to update it for every OPNsense release: with older data
 the client keeps working on a newer firewall of the same series and refuses
 only fields and resources it does not know yet. Update it when you need one
-of them, and before the firewall moves to a new series (`*ErrSeriesNotInData`
-otherwise).
+of them, and before the firewall moves to a new series (until then the
+client only reads on it).
 
 What the client deliberately does not check before sending, because the
 data cannot know it reliably: required fields (controllers fill some of

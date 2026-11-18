@@ -129,8 +129,10 @@ removed.
    read-only (`ErrReadOnly`). A core version not in the data uses another
    hotfix revision of the same release, else the nearest older core of
    the series; a core older than the data of its series is read-only too.
-   A series the data does not cover fails `New` (`ErrSeriesNotInData`):
-   a series change can change the framework, so it is not guessed.
+   A series newer than the data is read with the newest data and every
+   package is read-only (`ResolveNewerSeries`); a series change can change
+   the framework, so nothing is written on a guess. An older series, or
+   any unknown series with `Refuse`, fails `New` (`ErrSeriesNotInData`).
    Versions are ordered by `CompareVersions`, the same function with the
    same test table as in opnsense-api-spec.
 10. **Read-only mode** (`Config.ReadOnly`): two independent checks. The

@@ -111,3 +111,29 @@ func TestResolveOtherCoresOnlyIsANote(t *testing.T) {
 		t.Errorf("want x3 with a note, not exact: %+v", x)
 	}
 }
+
+// A newer series can be read with the newest data: every package is
+// read-only, the warning says so, and an older series or a known series
+// is not resolved this way.
+func TestResolveNewerSeriesReadOnly(t *testing.T) {
+	r, err := versionData().ResolveNewerSeries("27.1", map[string]string{"os-x": "1.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Core != "27.1" || r.Series != "26.1" || len(r.Packages) == 0 {
+		t.Fatalf("resolved %+v", r)
+	}
+	for name, res := range r.Packages {
+		if !res.ReadOnly {
+			t.Errorf("%s is writable on a newer series", name)
+		}
+	}
+	if len(r.Warnings) == 0 || !strings.Contains(r.Warnings[0], "writes are refused") {
+		t.Errorf("warnings %v", r.Warnings)
+	}
+	for _, core := range []string{"24.7.3", "26.1.2"} {
+		if _, err := versionData().ResolveNewerSeries(core, nil); err == nil {
+			t.Errorf("%s: resolved as a newer series", core)
+		}
+	}
+}

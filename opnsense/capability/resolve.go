@@ -4,6 +4,7 @@
 package capability
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -370,6 +371,39 @@ func splitNum(s string) (int, string) {
 	}
 	n, _ := strconv.Atoi(s[:i]) // empty -> 0
 	return n, s[i:]
+}
+
+// ResolveNewerSeries resolves a firewall on a series newer than all data
+// (Resolve returned *ErrSeriesNotInData with Newer) against the newest
+// core in the data, for reading only: every package is ReadOnly, so writes
+// are refused, and a warning says the data is unverified for this series.
+// A series change can change the framework the API is derived from, so
+// nothing is written on a guess; reading is safe because every answer is
+// decoded as data.
+func (s *Set) ResolveNewerSeries(core string, plugins map[string]string) (*Resolved, error) {
+	var e *ErrSeriesNotInData
+	if err := s.seriesError(core); !errors.As(err, &e) || !e.Newer {
+		return nil, fmt.Errorf("core %s: not on a series newer than the capability data", core)
+	}
+	newest := ""
+	for v, c := range s.Catalog.Cores {
+		if c.Series == e.Newest && (newest == "" || CompareVersions(v, newest) > 0) {
+			newest = v
+		}
+	}
+	r, err := s.Resolve(newest, plugins, AssumeNewestInSeries)
+	if err != nil {
+		return nil, err
+	}
+	r.Core = core
+	warn := fmt.Sprintf("core %s: series %s is newer than the capability data (newest %s); reading with the data of %s, unverified for this series; writes are refused until the capability data covers %s",
+		core, e.Series, e.Newest, newest, e.Series)
+	for _, res := range r.Packages {
+		res.ReadOnly = true
+	}
+	r.Packages[CorePackage].Warning = warn
+	r.Warnings = append([]string{warn}, r.Warnings...)
+	return r, nil
 }
 
 // seriesError: the core's series is not in the data; says whether it is
