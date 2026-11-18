@@ -133,8 +133,9 @@ removed.
    package is read-only (`ResolveNewerSeries`); a series change can change
    the framework, so nothing is written on a guess. An older series, or
    any unknown series with `Refuse`, fails `New` (`ErrSeriesNotInData`).
-   Versions are ordered by `CompareVersions`, the same function with the
-   same test table as in opnsense-api-spec.
+   Versions are ordered by `CompareVersions`, the same function as in
+   opnsense-api-spec, tested against the same published table
+   (`version-order.json`).
 10. **Read-only mode** (`Config.ReadOnly`): two independent checks. The
     API methods refuse every change with `ErrReadOnly` before anything is
     built; the transport refuses every POST except `Search`, whose body is

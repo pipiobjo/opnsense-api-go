@@ -62,7 +62,9 @@ every push to `main` and every pull request.
 - **Tests refer to versions, not fragment hashes**, so refreshing the test
   data after a generator change (`tools/testdata.sh`) needs no test change.
 - **Version order** is `capability.CompareVersions`; the spec repository
-  has the same function with the same test table. Change both together.
+  has the same function. Both are tested against the table the spec
+  publishes (`version-order.json`, copied into the test data by
+  `tools/testdata.sh`); a new case goes into that file in the spec.
 - **Standard library only.** A new dependency needs a reason in an ADR.
 - **Licence.** Contributions are under the BSD 2-Clause License
   ([LICENSE](LICENSE)); new files carry the SPDX header used in the

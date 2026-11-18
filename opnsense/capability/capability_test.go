@@ -4,6 +4,7 @@
 package capability
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -205,11 +206,21 @@ func TestResolveCoreNeverNewer(t *testing.T) {
 }
 
 func TestCompareVersions(t *testing.T) {
-	// the same table as in the other repository (opnsense-api-go
-	// opnsense/capability, opnsense-api-spec internal/pkgrepo): both
-	// implementations must agree
-	ordered := []string{"1.0", "1.0_6", "1.0_10", "1.1", "2.1", "2.1a", "2.2", "25.7", "25.7_1", "25.7.1", "25.7.9",
-		"25.7.10", "25.7.11_2", "25.7.11_9", "25.7.11_10", "26.1"}
+	// the version-order table opnsense-api-spec publishes (version-order.json,
+	// copied by tools/testdata.sh); the spec's own comparison is tested
+	// against the same file, so both implementations must agree
+	raw, err := os.ReadFile("testdata/catalog/version-order.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var table struct {
+		Ordered []string    `json:"ordered"`
+		Equal   [][2]string `json:"equal"`
+	}
+	if err := json.Unmarshal(raw, &table); err != nil || len(table.Ordered) < 2 || len(table.Equal) == 0 {
+		t.Fatalf("version-order.json: %v (%d ordered, %d equal)", err, len(table.Ordered), len(table.Equal))
+	}
+	ordered := table.Ordered
 	for i := 0; i < len(ordered); i++ {
 		for j := 0; j < len(ordered); j++ {
 			got := CompareVersions(ordered[i], ordered[j])
@@ -224,9 +235,9 @@ func TestCompareVersions(t *testing.T) {
 			}
 		}
 	}
-	for _, eq := range [][2]string{{"26.7", "26.7.0"}, {"26.7_0", "26.7"}} {
-		if CompareVersions(eq[0], eq[1]) != 0 {
-			t.Errorf("CompareVersions(%s, %s) must be 0", eq[0], eq[1])
+	for _, eq := range table.Equal {
+		if CompareVersions(eq[0], eq[1]) != 0 || CompareVersions(eq[1], eq[0]) != 0 {
+			t.Errorf("CompareVersions(%s, %s) must be 0 both ways", eq[0], eq[1])
 		}
 	}
 	if SeriesOf("26.7.9_1") != "26.7" || ReleaseOf("26.7.9_1") != "26.7.9" || SeriesOf("26.1") != "26.1" {
@@ -308,12 +319,7 @@ func TestCheckNullEntriesWithoutPanic(t *testing.T) {
 }
 
 func TestVersionsWithLetters(t *testing.T) {
-	ordered := []string{"2.1", "2.1a", "2.1b", "2.2", "26.1.b", "26.1.1"}
-	for i := 0; i+1 < len(ordered); i++ {
-		if CompareVersions(ordered[i], ordered[i+1]) >= 0 || CompareVersions(ordered[i+1], ordered[i]) <= 0 {
-			t.Errorf("%s < %s expected", ordered[i], ordered[i+1])
-		}
-	}
+	// their order is in version-order.json (TestCompareVersions)
 	if CompareVersions("2.1a", "2.1") == 0 {
 		t.Error("a letter suffix is a different version")
 	}
