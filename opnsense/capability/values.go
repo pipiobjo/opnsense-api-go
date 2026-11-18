@@ -267,3 +267,10 @@ func (f *Field) SameWire(sent, got string) bool {
 // values on write (gap custom-write): the stored value may differ from the
 // one sent.
 func (f *Field) CustomWrite() bool { return f != nil && slices.Contains(f.Gaps, GapCustomWrite) }
+
+// CustomReadShape reports whether the field's type renders its value with
+// its own code on read (gap custom-read-shape), so what get shows can
+// differ from the stored value a search returns.
+func (f *Field) CustomReadShape() bool {
+	return f != nil && slices.Contains(f.Gaps, GapCustomReadShape)
+}

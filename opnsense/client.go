@@ -16,6 +16,7 @@
 package opnsense
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -106,8 +107,8 @@ type Config struct {
 	// state even on GET.
 	ReadOnlyAllow []string
 
-	Timeout      time.Duration // per request, default 60s
-	ApplyTimeout time.Duration // apply endpoints, default 5m
+	Timeout      time.Duration // per request, default DefaultTimeout
+	ApplyTimeout time.Duration // apply endpoints, default DefaultApplyTimeout
 	Logger       *slog.Logger  // debug log: method, path, status, duration; never bodies or credentials
 	// HTTPClient replaces the built-in HTTP client, for example for a proxy
 	// or tracing. Its transport then decides about TLS entirely, so it
@@ -116,6 +117,13 @@ type Config struct {
 	// config): OPNsense cuts large answers over HTTP/1.1.
 	HTTPClient *http.Client
 }
+
+// Defaults of Config.Timeout and Config.ApplyTimeout. A slow firewall (or a
+// test VM without hardware virtualisation) may need a multiple of them.
+const (
+	DefaultTimeout      = 60 * time.Second
+	DefaultApplyTimeout = 5 * time.Minute
+)
 
 // Instance describes the detected firewall. The client returns a copy.
 type Instance struct {
@@ -146,10 +154,10 @@ type Client struct {
 	inst Instance
 	owns map[string][]string // resource -> packages that define it
 
-	mu        sync.Mutex
-	pending   map[string]uint64         // apply endpoint -> generation of the last mutation
-	locks     map[string]chan struct{}  // per model class, and per apply endpoint ("apply:<path>")
-	templates map[string]map[string]any // entry list -> its blank template (get without UUID)
+	mu         sync.Mutex
+	pending    map[string]uint64        // apply endpoint -> generation of the last mutation
+	locks      map[string]chan struct{} // per model class, and per apply endpoint ("apply:<path>")
+	getDecides map[string]bool          // entry list -> its get answers an unknown ID with [] (bound.getDecides)
 
 	pluginsUnknown bool // the key may not read the plugin list
 }
@@ -187,7 +195,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		return nil, errors.New("opnsense: Config.HTTPClient replaces the built-in transport and its TLS settings; set either HTTPClient or TLS, not both")
 	}
 	tc := transport.Config{URL: cfg.URL, Key: cfg.Key, Secret: cfg.Secret, Pin: cfg.TLS.PinSHA256,
-		CAPEM: cfg.TLS.CAPEM, Insecure: cfg.TLS.InsecureSkipVerify, Timeout: cfg.Timeout, Logger: cfg.Logger, HTTP: cfg.HTTPClient,
+		CAPEM: cfg.TLS.CAPEM, Insecure: cfg.TLS.InsecureSkipVerify, Timeout: cmp.Or(cfg.Timeout, DefaultTimeout), Logger: cfg.Logger, HTTP: cfg.HTTPClient,
 		ReadOnly: cfg.ReadOnly}
 	if cfg.TLS.CAFile != "" {
 		pem, err := os.ReadFile(cfg.TLS.CAFile)
@@ -201,10 +209,10 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		return nil, err
 	}
 	if cfg.ApplyTimeout == 0 {
-		cfg.ApplyTimeout = 5 * time.Minute
+		cfg.ApplyTimeout = DefaultApplyTimeout
 	}
 	c := &Client{cfg: cfg, t: t, data: data, owns: map[string][]string{},
-		pending: map[string]uint64{}, locks: map[string]chan struct{}{}, templates: map[string]map[string]any{}}
+		pending: map[string]uint64{}, locks: map[string]chan struct{}{}, getDecides: map[string]bool{}}
 	for pkg, d := range data.Docs {
 		for id := range d.Resources {
 			c.owns[id] = append(c.owns[id], pkg)

@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -38,22 +39,24 @@ type fakeFirewall struct {
 	applied  int
 
 	// failure modes
-	applyAnswer   map[string]any  // answer of reconfigure (default {"status":"ok"})
-	applyGate     chan struct{}   // if set, reconfigure waits for it (without holding mu)
-	applyStart    chan struct{}   // closed when reconfigure is entered
-	infoStatus    int             // HTTP status of firmware/info (default 200)
-	delKeeps      bool            // del answers "deleted" but keeps the entry
-	addNoID       bool            // add stores the entry but answers "saved" without a uuid
-	addAnswer     map[string]any  // if set, add stores nothing and answers this
-	fullTemplate  bool            // get of an unknown UUID answers the complete blank template
-	toggleIgnored bool            // toggle answers as if it switched, but changes nothing
-	encodeSets    map[string]bool // neighbor fields stored base64-encoded (nginx error pages)
-	delSilent     bool            // del answers with an empty body (os-wol on 26.7.9)
-	oddField      string          // this neighbor field is returned in an unexpected shape
-	searchPage    int             // rows per page when rowCount is not -1 (0: all)
-	writeOnly     map[string]bool // neighbor fields stored but read back as "" (UpdateOnlyTextField)
-	virtualRows   []string        // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
-	loseAnswer    string          // "abort": a change is processed, then the connection is reset; "garble": answered with broken JSON
+	applyAnswer   map[string]any    // answer of reconfigure (default {"status":"ok"})
+	applyGate     chan struct{}     // if set, reconfigure waits for it (without holding mu)
+	applyStart    chan struct{}     // closed when reconfigure is entered
+	infoStatus    int               // HTTP status of firmware/info (default 200)
+	delKeeps      bool              // del answers "deleted" but keeps the entry
+	addNoID       bool              // add stores the entry but answers "saved" without a uuid
+	addAnswer     map[string]any    // if set, add stores nothing and answers this
+	fullTemplate  bool              // get of an unknown UUID answers the complete blank template
+	toggleIgnored bool              // toggle answers as if it switched, but changes nothing
+	encodeSets    map[string]bool   // neighbor fields stored base64-encoded (nginx error pages)
+	delSilent     bool              // del answers with an empty body (os-wol on 26.7.9)
+	oddField      string            // this neighbor field is returned in an unexpected shape (get and search)
+	searchColumns []string          // if set, search rows show only these fields (a controller's own search)
+	searchRaw     map[string]string // search rows show these values instead of the stored ones (a field get renders differently)
+	searchPage    int               // rows per page when rowCount is not -1 (0: all)
+	writeOnly     map[string]bool   // neighbor fields stored but read back as "" (UpdateOnlyTextField)
+	virtualRows   []string          // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
+	loseAnswer    string            // "abort": a change is processed, then the connection is reset; "garble": answered with broken JSON
 }
 
 func newFake(t *testing.T) *fakeFirewall {
@@ -236,17 +239,31 @@ func (f *fakeFirewall) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		reply(map[string]any{"result": "deleted"})
 	case p == "/api/quagga/ospfsettings/searchNeighbor":
-		var rows []map[string]string
+		var rows []map[string]any
 		for id, n := range f.nbrs {
-			row := map[string]string{"uuid": id}
+			// as OPNsense's searchBase: every field flat, the raw value under
+			// its name and a display text under "%name" where they differ
+			row := map[string]any{"uuid": id}
 			for k, v := range n {
+				if f.searchColumns != nil && !slices.Contains(f.searchColumns, k) {
+					continue
+				}
 				row[k] = v
+				if r, ok := f.searchRaw[k]; ok {
+					row[k] = r
+				}
+				if k == "enabled" {
+					row["%enabled"] = map[string]string{"1": "Yes", "0": "No"}[v]
+				}
+			}
+			if f.oddField != "" {
+				row[f.oddField] = map[string]any{"unexpected": []any{1, 2}}
 			}
 			rows = append(rows, row)
 		}
 		total := len(rows)
 		for _, id := range f.virtualRows {
-			rows = append(rows, map[string]string{"uuid": id})
+			rows = append(rows, map[string]any{"uuid": id})
 		}
 		all := r.URL.Query().Get("rowCount") == "-1"
 		if v, ok := body["rowCount"]; ok && fmt.Sprint(v) == "-1" {

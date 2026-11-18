@@ -52,7 +52,7 @@ stable across all supported series.
    been sent when any of this fails.
 4. Lock the model (one writer per model in this client). Waiting for the
    lock ends with the context.
-5. For `Set` of an entry: confirm the entry exists through the list.
+5. For `Set` of an entry: confirm the entry exists (rule 3).
 6. POST with the wrapper key; `result` maps the answer (`saved`,
    validation messages to `ErrValidation`, anything else to
    `ErrUnexpectedAnswer`).
@@ -75,9 +75,27 @@ resource from the data as copies (field kinds, write-only, server-set,
 runtime-required, `shared_with`, verification). Error texts name fields,
 never values: OPNsense marks few secrets as such.
 
-Reads (`Get`, `List`) decode the firewall's shapes into `Values` and
-return the decodable fields together with `ErrDecode` when one field has
-an unexpected shape.
+Reads (`Get`, `Rows`, `Find`) decode the firewall's shapes into `Values`
+and return the decodable fields together with `ErrDecode` when one field
+has an unexpected shape. `List`, `Rows` and `Find` make one search
+request: OPNsense's `searchBase` returns every field of every entry,
+flattened to dotted keys, with the stored value under the field's name and
+a display text under `%name`; the client decodes the stored values and
+ignores the display texts. `Find` encodes the values it looks for as a
+write would and compares wire values (`SameWire`, lists as sets), so it
+matches what `Add` with the same values stores. Where a controller's own
+search shows fewer columns, `Find` reads that entry to compare the missing
+fields; it never treats a missing column as a match. The search shows the
+stored value, get sometimes another form; the data says where: fields
+the add or set operation marks `transformed` (os-nginx error page content:
+the search shows the stored base64, get the decoded value) and fields with
+the gap `custom-read-shape` whose read shape is a string (`JsonAuditField`:
+the search shows the JSON, get `""`). Those are left out of `Rows` and
+compared through get by `Find` (transformed ones are refused: they cannot
+be compared). Option and relation fields (read shape `select`) render the
+stored value as a map and stay. `TestEveryVerifiedResource` compares
+`Rows` with `Get` on every verified entry list, so a new difference shows
+up there.
 
 ## Rules
 
@@ -95,11 +113,18 @@ removed.
    interface assignment drops `dhcp6_request_dns` unless the IPv6 type is
    DHCPv6, because OPNsense stores interface entries through its own
    `toLegacy` code.
-3. **Existence is decided by the list.** For an unknown ID, `set` creates
-   a new entry under that ID; `get` answers `[]` in most controllers but
-   a blank template in some (os-nginx). So `Set`, `Toggle` and the
-   confirmation after `Delete` ask the list, and `Get` asks it when the
-   answer is incomplete or equals the blank template.
+3. **Existence is checked before `Set` and `Toggle`, after `Delete`, and
+   on `Get`.** For an unknown ID, `set` creates a new entry under that ID.
+   `get` answers an unknown ID with `[]` in most controllers, but with a
+   blank template (partial or complete) in some (os-nginx). The client
+   measures which kind a controller is, once per entry list and client,
+   by reading an ID no entry has (the nil UUID): `[]` means an object in
+   a get answer is an entry, so one GET decides; a template, or an error,
+   leaves the decision to the search, which lists every entry. A failed
+   measurement is repeated next time, not remembered. Without a search
+   operation, get decides. Cost: one GET per check instead of a search of
+   the whole list (`Set` and `Delete` on a list of 1,000 entries no longer
+   transfer the list each time).
 4. **Fields set by the firewall or the endpoint are refused** before
    sending: `server_set` fields, and the `forced` and `computed` fields of
    the operation (bind domain types, the traffic shaper's pipe number,
@@ -112,10 +137,10 @@ removed.
 6. **Answer shapes.** Option maps with keys `0..n` arrive as JSON lists;
    a model without fields as `[]`; apply success as `"status": "ok"` or
    `"result": "ok"` (anything else is `ErrApply`); some deletes answer
-   nothing (`result-not-returned` in the data), then the list decides. A
-   search may return more rows than its total (26.1's `firewall/d_nat`
-   adds two uncounted anti-lockout rules), but never fewer
-   (`ErrIncompleteList`).
+   nothing (`result-not-returned` in the data), then the existence check
+   (rule 3) decides. A search may return more rows than its total (26.1's
+   `firewall/d_nat` adds two uncounted anti-lockout rules), but never
+   fewer (`ErrIncompleteList`).
 7. **Entry IDs are not always UUIDs** (`wan`, `bogons`, hashes). Only
    path-safe characters are accepted, so no input can leave the API path.
 8. **GET requests carry no body and no `Content-Type`** (HTTP 400

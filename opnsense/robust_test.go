@@ -286,8 +286,8 @@ func TestNonUUIDIDsAreAccepted(t *testing.T) {
 	}
 }
 
-// A plugin that answers an unknown UUID with a blank template (os-nginx):
-// the list decides.
+// A plugin that answers an unknown UUID with a partial blank template
+// (os-nginx): get cannot decide, the search does.
 func TestBlankTemplateIsNotAnEntry(t *testing.T) {
 	ctx := context.Background()
 	f := newFake(t)
@@ -319,7 +319,7 @@ func TestBlankTemplateIsNotAnEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := n.Delete(ctx, id); err != nil {
-		t.Errorf("delete confirmed through the list despite the template: %v", err)
+		t.Errorf("delete confirmed through the search despite the template: %v", err)
 	}
 }
 

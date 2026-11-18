@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -131,17 +130,9 @@ func (e *Entries) Get(ctx context.Context, id string) (Values, error) {
 	if err := checkID(id); err != nil {
 		return nil, err
 	}
-	obj, err := e.b.getObject(ctx, id)
+	obj, err := e.b.exists(ctx, id)
 	if err != nil {
 		return nil, err
-	}
-	if e.b.incomplete(obj) || e.b.isTemplate(ctx, obj) {
-		// some plugins answer an unknown UUID with a blank template instead
-		// of [] (os-nginx error pages on 26.7.9), partial or complete: the
-		// list decides
-		if err := e.b.exists(ctx, id); err != nil {
-			return nil, err
-		}
 	}
 	return e.b.decode(obj)
 }
@@ -181,7 +172,7 @@ func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 	// under that UUID (seen on 26.7.9), which would silently undo a delete.
 	// The model lock keeps this client's own deletes out of the gap; a
 	// delete by someone else in between cannot be excluded.
-	if err := b.exists(ctx, id); err != nil {
+	if _, err := b.exists(ctx, id); err != nil {
 		return err
 	}
 	var resp map[string]any
@@ -230,7 +221,7 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 	} // else: the endpoint answers nothing; the check below decides
 	b.c.markPending(b.api.Apply)
 	var confirm error
-	if err := b.exists(ctx, id); !errors.Is(err, ErrNotFound) {
+	if _, err := b.exists(ctx, id); !errors.Is(err, ErrNotFound) {
 		if err == nil {
 			confirm = &ErrStillExists{Resource: b.id, ID: id}
 		} else {
@@ -263,10 +254,7 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	}
 	defer unlock()
 	// an unknown UUID must not be trusted either: check and read first
-	if err := b.exists(ctx, id); err != nil {
-		return err
-	}
-	obj, err := b.getObject(ctx, id)
+	obj, err := b.exists(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -308,42 +296,105 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	return b.c.finish(ctx, b.api.Apply, check)
 }
 
-// List returns the UUIDs of all entries.
+// List returns the IDs of all entries, in one request.
 func (e *Entries) List(ctx context.Context) ([]string, error) {
-	b := e.b
-	op, err := b.op("search")
+	rows, err := e.b.search(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var resp struct {
-		Rows []struct {
-			UUID string `json:"uuid"`
-		} `json:"rows"`
-		Total *int `json:"total"`
-	}
-	if hasMethod(op, "POST") {
-		err = b.c.t.Search(ctx, op.Path, &resp)
-	} else {
-		err = b.c.t.Get(ctx, op.Path, url.Values{"current": {"1"}, "rowCount": {"-1"}}, &resp)
-	}
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]string, 0, len(resp.Rows))
-	for _, r := range resp.Rows {
-		if checkID(r.UUID) != nil {
-			return nil, fmt.Errorf("opnsense: %s: search returned a row without a valid id", b.id)
-		}
-		ids = append(ids, r.UUID)
-	}
-	// fewer rows than the total: the answer was paged or cut, the list is
-	// incomplete. More rows than the total is OPNsense's doing: the
-	// firewall/d_nat search of 26.1 adds two anti-lockout rules
-	// ("lockout_0", "lockout_1") that it does not count (ADR 0001).
-	if resp.Total != nil && len(ids) < *resp.Total {
-		return nil, &ErrIncompleteList{Resource: b.id, Got: len(ids), Total: *resp.Total}
+	ids := make([]string, len(rows))
+	for i, r := range rows {
+		ids[i] = r.id
 	}
 	return ids, nil
+}
+
+// Row is one entry as the list's search returns it.
+type Row struct {
+	ID string
+	// Values holds the entry's fields that the search returned, decoded
+	// as Get decodes them. OPNsense's standard search returns every field
+	// of the entry; a controller with its own search may return fewer, so
+	// a field missing here is not proof that the entry lacks it.
+	// Never included: write-only fields, and fields whose stored form,
+	// which the search shows, differs from what Get shows (the data marks
+	// them: stored transformed, or rendered by the field type's own read
+	// code into a string, such as an audit trail). Read those with Get.
+	Values Values
+}
+
+// Rows returns every entry with its fields, in one request (Get per entry
+// would be one request each). A field with an unexpected shape is left out
+// of its row and named in an *ErrDecode, keyed "<id> <field>", which is
+// returned together with all rows.
+func (e *Entries) Rows(ctx context.Context) ([]Row, error) {
+	rows, err := e.b.search(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Row, len(rows))
+	bad := map[string]string{}
+	for i, r := range rows {
+		out[i] = Row{ID: r.id, Values: e.b.decodeRow(r, bad)}
+	}
+	return out, decodeErr(e.b.id, bad)
+}
+
+// Find returns the entries whose fields equal every value in match, in
+// one search: for example the host override with a given hostname and
+// domain, to find an entry a caller created before without knowing its ID,
+// or to avoid creating a duplicate (OPNsense does not refuse those).
+// Values are compared as the firewall stores them (encoded as Add would
+// send them; lists as sets), so match takes the same values as Add. A
+// field the data does not have for this version is ErrFieldNotAvailable;
+// a value that could not be sent, a write-only field (never returned) or a
+// transformed one (stored in another form) is ErrInvalid. Where the search
+// does not show a field as Get does, that entry is read with Get. Rows and
+// *ErrDecode as in Rows.
+func (e *Entries) Find(ctx context.Context, match Values) ([]Row, error) {
+	b := e.b
+	want := make(map[string]string, len(match))
+	problems := map[string]string{}
+	for name, v := range match {
+		f := b.res.FieldFor(name, b.frag)
+		if f == nil {
+			return nil, &ErrFieldNotAvailable{Resource: b.id, Field: name, Package: b.pkg, Have: b.version,
+				AvailableIn: b.c.versions(b.pkg, b.fieldFragments(name))}
+		}
+		if f.WriteOnly {
+			problems[name] = "write-only: the firewall never returns its value"
+			continue
+		}
+		if b.transformed(name) {
+			problems[name] = "stored in another form than sent (transformed); it cannot be compared"
+			continue
+		}
+		s, err := f.Encode(v)
+		if err != nil {
+			problems[name] = err.Error()
+			continue
+		}
+		want[name] = s
+	}
+	if len(problems) > 0 {
+		return nil, &ErrInvalid{Resource: b.id, Problems: problems}
+	}
+	rows, err := b.search(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []Row
+	bad := map[string]string{}
+	for _, r := range rows {
+		ok, err := b.matches(ctx, r, want)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, Row{ID: r.id, Values: b.decodeRow(r, bad)})
+		}
+	}
+	return out, decodeErr(b.id, bad)
 }
 
 // Get reads the settings. With an *ErrDecode error the decodable fields
@@ -565,51 +616,214 @@ func (b *bound) getObject(ctx context.Context, id string) (map[string]any, error
 	return obj, nil
 }
 
-// exists reports ErrNotFound unless the entry is there. The search is
-// authoritative: a get of an unknown UUID answers [] in most controllers
-// but a blank template in some. Without a search operation, the get
-// decides.
-func (b *bound) exists(ctx context.Context, id string) error {
-	if _, ok := b.api.Operations["search"]; ok {
-		ids, err := (&Entries{b}).List(ctx)
-		if err != nil {
-			return fmt.Errorf("opnsense: %s: checking that %s exists: %w", b.id, id, err)
-		}
-		for _, x := range ids {
-			if x == id {
-				return nil
-			}
-		}
-		return ErrNotFound
+// exists returns the entry as get answers it, or ErrNotFound. For an
+// unknown ID most controllers' get answers [], but some answer a blank
+// template (os-nginx error pages on 26.7.9, partial or complete), and set
+// creates a new entry under an unknown ID. Where get cannot tell
+// (getDecides), the search decides. One GET in the usual case; a full
+// search only for controllers that answer unknown IDs with a template.
+// An answer get cannot read (some controllers answer an unknown ID
+// without their outer key, os-squid's PAC entries on 26.7.9) is decided by
+// the search as well: not listed is ErrNotFound, listed returns the error.
+func (b *bound) exists(ctx context.Context, id string) (map[string]any, error) {
+	obj, err := b.getObject(ctx, id)
+	if (err == nil || errors.Is(err, ErrNotFound)) && b.getDecides(ctx) {
+		return obj, err
 	}
-	_, err := b.getObject(ctx, id)
-	return err
+	if _, ok := b.api.Operations["search"]; !ok {
+		return obj, err
+	}
+	rows, serr := b.search(ctx)
+	if serr != nil {
+		return nil, fmt.Errorf("opnsense: %s: checking that %s exists: %w", b.id, id, serr)
+	}
+	for _, r := range rows {
+		if r.id == id {
+			return obj, err
+		}
+	}
+	return nil, ErrNotFound
 }
 
-// incomplete: the object lacks fields every entry of this resource has.
-func (b *bound) incomplete(obj map[string]any) bool {
-	for name, f := range b.res.FieldsFor(b.frag) {
-		if f.WriteOnly || f.Volatile {
-			continue
+// probeID is an ID no entry has: the nil UUID.
+const probeID = "00000000-0000-0000-0000-000000000000"
+
+// getDecides: get answers an ID that does not exist with [] (ErrNotFound),
+// so an object in its answer is an entry. Measured once per entry list and
+// client by reading probeID; a template in the answer, or an error, leaves
+// the decision to the search. Without a search operation get decides.
+func (b *bound) getDecides(ctx context.Context) bool {
+	if _, ok := b.api.Operations["search"]; !ok {
+		return true
+	}
+	b.c.mu.Lock()
+	v, known := b.c.getDecides[b.id]
+	b.c.mu.Unlock()
+	if known {
+		return v
+	}
+	_, err := b.getObject(ctx, probeID)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		v = true
+	case err != nil:
+		return false // says nothing about the controller; ask again next time
+	}
+	b.c.mu.Lock()
+	b.c.getDecides[b.id] = v
+	b.c.mu.Unlock()
+	return v
+}
+
+// searchRow is one row of a search answer: the entry's ID and its fields
+// as the search returns them.
+type searchRow struct {
+	id  string
+	raw map[string]any
+}
+
+// search returns all rows of the entry list in one request.
+func (b *bound) search(ctx context.Context) ([]searchRow, error) {
+	op, err := b.op("search")
+	if err != nil {
+		return nil, err
+	}
+	var resp struct {
+		Rows  []map[string]any `json:"rows"`
+		Total *int             `json:"total"`
+	}
+	if hasMethod(op, "POST") {
+		err = b.c.t.Search(ctx, op.Path, &resp)
+	} else {
+		err = b.c.t.Get(ctx, op.Path, url.Values{"current": {"1"}, "rowCount": {"-1"}}, &resp)
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]searchRow, 0, len(resp.Rows))
+	for _, r := range resp.Rows {
+		id, _ := r["uuid"].(string)
+		if checkID(id) != nil {
+			return nil, fmt.Errorf("opnsense: %s: search returned a row without a valid id", b.id)
 		}
-		if _, ok := lookup(obj, name); !ok {
+		rows = append(rows, searchRow{id, r})
+	}
+	// fewer rows than the total: the answer was paged or cut, the list is
+	// incomplete. More rows than the total is OPNsense's doing: the
+	// firewall/d_nat search of 26.1 adds two anti-lockout rules
+	// ("lockout_0", "lockout_1") that it does not count (ADR 0001).
+	if resp.Total != nil && len(rows) < *resp.Total {
+		return nil, &ErrIncompleteList{Resource: b.id, Got: len(rows), Total: *resp.Total}
+	}
+	return rows, nil
+}
+
+// field returns a field of a search row. OPNsense's search flattens an
+// entry to dotted keys ("general.enabled"); a search of its own may nest.
+// Keys starting with "%" are display texts and never match a field name.
+func (r searchRow) field(name string) (any, bool) {
+	if v, ok := r.raw[name]; ok {
+		return v, true
+	}
+	return lookup(r.raw, name)
+}
+
+// transformed: the add or set operation stores the field in another form
+// than sent (base64, for example).
+func (b *bound) transformed(name string) bool {
+	for _, op := range []string{"add", "set"} {
+		if o := b.api.Operations[op]; o != nil && o.Transforms(name) {
 			return true
 		}
 	}
 	return false
 }
 
+// searchShows: a search row shows the field as get does. The search
+// returns the stored value; get differs for a transformed field (the
+// controller converts it back, as os-nginx error pages on 26.7.9) and for
+// a field type with its own read code that renders a string
+// (custom-read-shape: JsonAuditField shows "" on get but its JSON in the
+// search). Option and relation fields (read shape "select") render the
+// same value as a map, which decoding turns back into the stored value.
+func (b *bound) searchShows(name string) bool {
+	f := b.res.FieldFor(name, b.frag)
+	if f == nil || b.transformed(name) {
+		return false
+	}
+	return !f.CustomReadShape() || f.ReadShape == "select"
+}
+
+// decodeRow decodes the fields of a search row that it shows as get does;
+// problems go to bad, keyed "<id> <field>".
+func (b *bound) decodeRow(r searchRow, bad map[string]string) Values {
+	out, problems := b.decodeWith(func(name string) (any, bool) {
+		if !b.searchShows(name) {
+			return nil, false
+		}
+		return r.field(name)
+	})
+	for f, p := range problems {
+		bad[r.id+" "+f] = p
+	}
+	return out
+}
+
+// matches: every wanted wire value equals the entry's. A field the search
+// row lacks is read from the entry itself.
+func (b *bound) matches(ctx context.Context, r searchRow, want map[string]string) (bool, error) {
+	var obj map[string]any
+	for name, s := range want {
+		raw, ok := r.field(name)
+		if !ok || !b.searchShows(name) {
+			if obj == nil {
+				var err error
+				if obj, err = b.getObject(ctx, r.id); err != nil {
+					return false, fmt.Errorf("opnsense: %s %s: reading a field the search does not show: %w", b.id, r.id, err)
+				}
+			}
+			if raw, ok = lookup(obj, name); !ok {
+				return false, nil
+			}
+		}
+		f := b.res.FieldFor(name, b.frag)
+		got, err := f.Wire(raw)
+		if err != nil {
+			return false, &ErrDecode{Resource: b.id, Fields: map[string]string{r.id + " " + name: err.Error()}}
+		}
+		if !f.SameWire(s, got) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// decodeErr is nil without problems, else an *ErrDecode.
+func decodeErr(resource string, bad map[string]string) error {
+	if len(bad) == 0 {
+		return nil
+	}
+	return &ErrDecode{Resource: resource, Fields: bad}
+}
+
 // decode returns every field it can decode; fields with an unexpected
 // shape are reported in *ErrDecode together with the rest. Write-only
 // fields are left out (the firewall never returns their value).
 func (b *bound) decode(obj map[string]any) (Values, error) {
+	out, bad := b.decodeWith(func(name string) (any, bool) { return lookup(obj, name) })
+	return out, decodeErr(b.id, bad)
+}
+
+// decodeWith decodes every field of the resource that get returns; the
+// problems are keyed by field.
+func (b *bound) decodeWith(get func(string) (any, bool)) (Values, map[string]string) {
 	out := Values{}
 	bad := map[string]string{}
 	for name, f := range b.res.FieldsFor(b.frag) {
 		if f.WriteOnly {
 			continue
 		}
-		raw, ok := lookup(obj, name)
+		raw, ok := get(name)
 		if !ok {
 			continue
 		}
@@ -623,10 +837,7 @@ func (b *bound) decode(obj map[string]any) (Values, error) {
 		}
 		bad[name] = err.Error()
 	}
-	if len(bad) > 0 {
-		return out, &ErrDecode{Resource: b.id, Fields: bad}
-	}
-	return out, nil
+	return out, bad
 }
 
 // readBack compares what was sent with what the firewall now returns.
@@ -734,28 +945,4 @@ func uniq(in []string) []string {
 		}
 	}
 	return out
-}
-
-// isTemplate: the object equals the blank template of a new entry (what
-// get answers without a UUID). Fetched once per entry list and client; an
-// endpoint that needs a UUID has no template, and then this is false.
-func (b *bound) isTemplate(ctx context.Context, obj map[string]any) bool {
-	op, err := b.op("get")
-	if err != nil || len(op.Params) == 0 || !strings.HasSuffix(op.Params[0], "?") {
-		return false
-	}
-	b.c.mu.Lock()
-	tmpl, ok := b.c.templates[b.id]
-	b.c.mu.Unlock()
-	if !ok {
-		t, err := b.getObject(ctx, "")
-		if err != nil {
-			return false
-		}
-		tmpl = t
-		b.c.mu.Lock()
-		b.c.templates[b.id] = tmpl
-		b.c.mu.Unlock()
-	}
-	return reflect.DeepEqual(obj, tmpl)
 }

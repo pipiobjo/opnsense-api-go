@@ -37,6 +37,9 @@ cur, err := hosts.Get(ctx, id)
 err = hosts.Set(ctx, id, opnsense.Values{"description": "storage"})
 err = hosts.Delete(ctx, id)
 
+rows, err := hosts.Rows(ctx) // every entry with its fields, one request
+found, err := hosts.Find(ctx, opnsense.Values{"hostname": "nas", "domain": "example.com"}) // entries with these values
+
 ospf, err := c.Settings("quagga/ospfsettings")
 err = ospf.Set(ctx, opnsense.Values{"enabled": true, "routerid": "192.0.2.1"})
 
@@ -55,6 +58,25 @@ maps field paths to `bool`, `int64`, `string` or `[]string` (list fields);
 the wire encoding (`"0"`/`"1"`, comma-separated lists, option maps on read)
 is the client's job.
 
+Reading entry lists: `List` returns the IDs, `Rows` every entry with its
+fields (`[]Row{ID, Values}`), both from one search request; `Get` reads
+one entry. `Find(values)` returns the entries whose fields equal all given
+values, compared as the firewall stores them (the values are encoded as
+`Add` would send them, lists compared as sets), also from one search. Use
+it to find an entry by its natural key (hostname and domain of a host
+override) and to avoid duplicates: OPNsense does not refuse two equal
+entries. `Find` refuses fields the version does not have
+(`*ErrFieldNotAvailable`), values that could not be sent and write-only
+fields (`*ErrInvalid`), before sending anything. OPNsense's standard
+search returns every field of an entry; a few controllers have their own
+search with fewer columns: `Row.Values` then lacks those fields, and `Find`
+reads such an entry with `Get` to compare them. The search shows stored
+values; where the data says `Get` shows a field differently (a field the
+endpoint stores transformed, such as base64 page content, or one whose
+type renders its own text, such as an audit trail), `Rows` leaves it out
+and `Find` compares it through `Get` (transformed fields cannot be
+compared at all and are refused).
+
 ## Behaviour
 
 | Situation | Result |
@@ -69,12 +91,12 @@ is the client's job.
 | Firewall rejects the values (including missing required ones) | `*ErrValidation` with the firewall's message per field |
 | Firewall says "saved" but reads back differently | `*ErrNotApplied`; `Diffs` holds the sent and read values, `Error()` only the field names, since values may be secrets (after `Add` the ID is returned too: the entry exists). Each difference carries a `Cause` from the capability data: `custom-write` (the field's type converts values on write), `custom-save` (the firewall stores the resource through its own code, which may drop values that do not apply to the rest of the entry), or empty (unexplained). It stays an error either way. Not compared: write-only fields (passwords; the firewall never returns them) and fields the endpoint stores in another form (`transformed`, e.g. base64): for these only an empty read-back is reported |
 | `Toggle` | the entry is read again; if `enabled` did not change, `*ErrNotApplied` |
-| Entry does not exist | `ErrNotFound`; `Set`, `Toggle` and `Delete` check through the list first, because OPNsense would create a new entry under an unknown ID. `Get` asks the list too when the answer is incomplete or equals the blank template, because some plugins answer an unknown ID with one |
+| Entry does not exist | `ErrNotFound`. `Get`, `Set`, `Toggle` and the confirmation of `Delete` check existence first, because OPNsense's `set` would create a new entry under an unknown ID. One read of the entry decides where the controller answers an unknown ID with `[]`; the client measures that once per entry list (with an ID no entry has). Controllers that answer it with a blank template instead (some plugins) are checked through the search |
 | Delete answered, but the entry is still listed | `*ErrStillExists` |
 | Search answered with fewer rows than its total | `*ErrIncompleteList` (more rows than the total is accepted: 26.1's `firewall/d_nat` adds two uncounted anti-lockout rules) |
 | A mutation answered in a way the client cannot interpret (e.g. "saved" without an ID) | `*ErrUnexpectedAnswer`; the mutation may have taken effect, so its apply endpoint is marked pending |
 | A change was sent but its answer was lost, unreadable or HTTP 5xx | an error matching `ErrOutcomeUnknown` (the cause, e.g. `*HTTPError`, is kept); the change may be saved, so its apply endpoint is marked pending. After `Add` the ID is unknown: list the entries before adding again. A request that never reached the firewall is not this error |
-| One field of an object has an unexpected shape | the other fields are returned together with `*ErrDecode` |
+| One field of an object has an unexpected shape | the other fields are returned together with `*ErrDecode` (for `Rows` and `Find` keyed `"<id> <field>"`) |
 | An apply endpoint does not report ok | `*ErrApply`; the endpoint stays pending. With `AutoApply` the read-back comes first; both errors are returned |
 | Key or secret wrong / privilege missing | `ErrUnauthorized` / `ErrForbidden`; credentials never appear in errors or logs. Only a missing firmware privilege lets `New` continue with the core alone; any other failure to read the plugin list fails `New` |
 

@@ -44,7 +44,7 @@ refuse any other target.
 | K2 | `TestNothingIsSentThatTheVersionDoesNotHave`, `TestCheck`, `TestInfo`, `TestFieldOfAnotherVersion`, `TestResourceNotAvailable`, `TestEncode`, `TestServerSetFieldsAndOptionLists`, `TestVolatileRefusedTransformedChecked`, `TestTypedErrors`, `TestFieldsAndGetRaw`, `TestValidationFromTheFirewall` |
 | K3 | `TestEntriesCycle`, `TestSettings`, `TestReadBackCatchesWhatTheServerIgnored`, `TestSameWire`, `TestReadBackCause`, `TestToggle`, `TestToggleReadsBack`, `TestDeleteIsConfirmed`, `TestSilentDelete`, `TestTransformedFieldIsWrittenNotCompared`, `TestWriteOnlyFieldIsNotReadBack`, `TestAutoApply`, `TestAutoApplyAfterReadBack`, `TestApplyNeedsAnExplicitOK`, `TestApplyKeepsWritesDuringTheCall`, `TestLocksRespectTheContext`, `TestResourceApply`, `TestResourceApplyInANewProcess`, `TestLostAnswerMarksPending`, `TestPostOutcomeUnknown`; on the VM `TestOSPFNeighborCycle`, `TestSettingsSetAndRestore`, `TestEveryVerifiedResource` |
 | K4 | `TestEveryVerifiedResource`, `TestWireAndDecode`, `TestOneOddFieldDoesNotHideTheOthers`, `TestWriteOnlyFieldsAreNotDecoded`, `TestRealDataFieldsAndVariants` |
-| K5 | `TestBadIDsAreRefused`, `TestNonUUIDIDsAreAccepted`, `TestBlankTemplateIsNotAnEntry`, `TestGetFullTemplateIsNotFound`, `TestListPagesAndGetOnlySearch`, `TestListNoticesMissingRows`, `TestSearchWithUncountedRows`, `TestApplyAcceptsResultOK`, `TestSetPath`, `TestCall` |
+| K5 | `TestExistenceWithoutASearch` (one GET decides where get answers `[]`; the probe once per list and client), `TestProbeErrorLeavesItToTheSearch`, `TestUnreadableGetLeavesItToTheSearch`, `TestRows`, `TestFind`, `TestRowsOnlyWhatTheSearchShowsAsGetDoes`, `TestRowsKeepSelectFields`, `TestBadIDsAreRefused`, `TestNonUUIDIDsAreAccepted`, `TestBlankTemplateIsNotAnEntry`, `TestGetFullTemplateIsNotFound`, `TestListPagesAndGetOnlySearch`, `TestListNoticesMissingRows`, `TestSearchWithUncountedRows`, `TestApplyAcceptsResultOK`, `TestSetPath`, `TestCall` |
 | K6 | `TestTLSPinAndAuth`, `TestTLSWithCA`, `TestHTTPClientWithTLSIsRefused`, `TestCredentialsNeverInErrorsOrLogs`, `TestValuesNeverInErrorMessages`, `TestRawAnswersAreTruncated` (the raw answers kept in errors stay at 300 bytes), `TestBrokenJSONIsNotQuoted`, `TestConfigChecks`, `TestQueryRedirectAndSize`, `TestErrorsAndRequestShape`, `TestGetIsRetriedPostIsNot`, `TestReadRetries`, `TestDefaultTransportUsesHTTP2`, `TestUnauthorizedAndForbiddenDiffer`, `TestCheckPath`, `FuzzCheckPath`, `FuzzCheckID` |
 | K7 | `TestLoadBounded`, `TestCapabilityDirSymlinkOutside`, `TestLoadRefusesEscapingFileNames`, `TestLoadRefusesOtherFormat`, `TestCheckFindsBrokenReferences`, `TestCheckNullEntriesWithoutPanic`, `TestBrokenDataIsAnErrorNotAPanic`, `TestModelMatchesSchema`, `FuzzLoad`, `FuzzWireDecode` |
 | K9 | `TestReadOnlyMode` (every changing method refused, only GETs and the search POST reach the fake, its state unchanged), `TestReadOnlyConfig`, `TestReadOnlyTransport` (the transport alone refuses every other POST and every GET outside its list); on the VM `TestReadOnlyClientChangesNothing` (every resource read, every change refused, `config.xml` byte-identical afterwards) |
@@ -67,6 +67,16 @@ transport log the secret or put the key into an error, accepting a CA that
 did not sign the server certificate, a renamed JSON key in the data model.
 Commit messages record these checks ("seen failing for ...").
 
+A skipped test proves nothing either, and a skip in a green run is easy
+to overlook. `tools/ci/skips.sh` reads the `go test -v` output of the unit
+and the integration run and fails CI when a test skipped that is not on
+the allowlist [`tools/ci/skip-allowlist.txt`](../tools/ci/skip-allowlist.txt),
+where each entry names the test and the reason (the subtests of
+`TestEveryVerifiedResource` the VM cannot exercise). Unit tests have no
+entry. `tools/ci/skips_test.sh` checks the script itself (an unlisted
+skip, a nested one, an entry without a reason, a name that is only a
+prefix).
+
 ## The integration test in detail
 
 `TestEveryVerifiedResource` takes every resource the capability data
@@ -81,6 +91,17 @@ public API:
   own code (`custom-save`) and that ignores the field in its current
   state, the next boolean field is tried; each attempt is logged;
 - settings the contract test only read: read;
+- settings whose read the contract test did not verify on this version
+  (a known gap in the answer's shape, or no result): read through the
+  client as a subtest `unverified/<id>`; a field that cannot be decoded
+  and a read that fails are logged and counted apart (the contract test
+  already found these answers different from the data, so they are
+  reported, not failed; they are not counted as tested);
+- for entry lists, also: `Rows` returns the new entry with the values
+  `Get` returns, `Find` with the values sent finds it, and after the
+  delete `Get` answers `ErrNotFound` and `Set` is refused with
+  `ErrNotFound` instead of creating the entry again (rule 3 of
+  design.md, on every verified entry list);
 - every apply endpoint that became pending.
 
 It compares every field it sent. The only tolerated difference is one the
@@ -98,6 +119,13 @@ the floor of the series in
 [`test/integration/tested-floor.txt`](../test/integration/tested-floor.txt)
 (about 95 % of the last full run), so a run that lost verification data
 or plugins fails instead of passing with little tested.
+
+`TestOSPFNeighborCycle`, `TestSettingsSetAndRestore` and
+`TestRecordedBehaviour` need os-frr. With `OPNSENSE_PLUGINS=all` (CI, and
+the commands in CONTRIBUTING.md) a missing os-frr fails them; only a run
+that did not ask for every plugin may skip them. Request timeouts are the
+client's defaults times `TESTVM_SLOW` (6 on a VM without hardware
+virtualisation), so a slow runner does not look like a slow firewall.
 
 The read-only test reads every resource; a read that fails in read-only
 mode but works without it fails the test (the transport's read list would
@@ -150,10 +178,13 @@ Code not reached by unit tests is mostly string formatting
 - Option lists that OPNsense fills at run time (interfaces, certificates)
   are not checked before sending; the firewall's validation reports them.
 - A plugin that does not install on the test VM is a warning, not a
-  failure: its resources are not tested in that run, the run summary
-  names it, and its complete firmware log is kept as the artifact
-  `logs-<release>`. (One such case so far, 2026-11-17, 25.7.11: two
-  plugins; the next run installed all.)
+  failure, for `TestEveryVerifiedResource`: its resources are not tested
+  in that run (the floor in `tested-floor.txt` still applies), the run
+  summary names it, and its complete firmware log is kept as the artifact
+  `logs-<release>`. The tests that need os-frr fail (see above), and
+  `spec-update.yml` does not record such a run as a test of the data, so
+  the next day tests it again. (One such case so far, 2026-11-17, 25.7.11:
+  two plugins; the next run installed all.)
 - Business editions are not tested (no public images).
 
 ## Running the tests

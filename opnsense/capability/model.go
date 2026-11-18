@@ -151,8 +151,9 @@ func (a *API) CustomSave() bool { return a != nil && slices.Contains(a.Gaps, Gap
 const (
 	GapCustomSave        = "custom-save"         // stored or loaded through own code: read-back may differ
 	GapCustomWrite       = "custom-write"        // the field type converts values on write
+	GapCustomReadShape   = "custom-read-shape"   // the field type renders its value with own code on read
 	GapOverlayUnknown    = "overlay-unknown"     // the endpoint overwrites fields it does not declare
-	GapResultNotReturned = "result-not-returned" // the endpoint answers nothing; the list decides
+	GapResultNotReturned = "result-not-returned" // the endpoint answers nothing; the existence check decides
 )
 
 // HasGap reports whether the operation carries the gap code.
