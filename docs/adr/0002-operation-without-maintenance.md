@@ -60,11 +60,17 @@ back every write.
    repository does not run the client: it knows no consumers.
 5. **Dependency updates** concern only the pinned actions (the module has
    no dependencies outside the standard library): Dependabot, monthly,
-   grouped, versions at least 7 days old, merged by `automerge.yml` when
-   CI passed (amended 2026-11-18; before, each waited for a person). A
-   Dependabot pull request behind `main` is asked to rebase; one still
-   open after 14 days turns `spec-update.yml` red, so the watchdog reports
-   it.
+   grouped, versions at least 7 days old, merged without a person when
+   CI passed (amended 2026-11-18; before, each waited for a person).
+   Amended 2026-11-20: `automerge.yml` turns on GitHub's auto-merge for
+   each Dependabot pull request (the pattern GitHub documents), and GitHub
+   merges it once the ruleset "main: tested" is met: the status check
+   `ci passed` green on a branch up to date with `main`. `main` then holds
+   the tested tree as a rebased commit, not the tested commit itself. The
+   earlier design (fast-forward from a `workflow_run`) was not documented
+   for Dependabot runs and never proven. A Dependabot pull request behind
+   `main` is asked to rebase by `spec-update.yml`; one still open after 14
+   days turns it red, so the watchdog reports it.
 6. **One pin on the spec repository, kept current without a person**
    (added 2026-11-18). The test VM action and the watchdog script come
    from opnsense-api-spec at the commit in `tools/ci/spec-ref`

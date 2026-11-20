@@ -252,3 +252,18 @@ jobs:
           done
           { echo "missing<<EOF"; printf '%s' "$missing"; echo "EOF"; } >> "$GITHUB_OUTPUT"
           echo "plugins not installed: ${missing:-none}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # the one required status check of main (ruleset "main: tested"): its
+  # name does not depend on the release matrix, which changes with the data
+  passed:
+    name: ci passed
+    if: always()
+    needs: [test, data, integration, plugins]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "jobs: $RESULTS"
+          jq -e 'length == 4 and all(. == "success")' <<<"$RESULTS" >/dev/null

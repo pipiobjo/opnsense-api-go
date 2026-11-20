@@ -2,35 +2,28 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 # Dependabot updates (.github/dependabot.yml: monthly, grouped, only
-# versions at least 7 days old) reach main without a person (ADR 0002),
-# only after ci.yml passed on exactly that commit. The other such change,
-# a new spec pin, is merged by spec-update.yml itself: GitHub starts no
-# workflow_run for a ci.yml run that the job token started, so this
-# workflow never sees those runs.
+# versions at least 7 days old) reach main without a person (ADR 0002):
+# this workflow turns on GitHub's auto-merge for each Dependabot pull
+# request, and GitHub merges it once the ruleset "main: tested" is met
+# (status check "ci passed" green on a branch that is up to date with
+# main). This is the pattern GitHub documents for Dependabot ("Automating
+# Dependabot with GitHub Actions"). The earlier workflow_run design never
+# ran for runs started by a job token, see spec-update.yml.
 #
-# main is fast-forwarded to the tested commit, so what is on main is what
-# was tested (a merge commit would be new and untested). A change that is
-# behind main is not merged: Dependabot is asked to rebase (its CI run then
-# comes back here).
-#
-# Runs on workflow_run, so no code of the change is checked out here with a
-# write token.
+# Nothing of the pull request is checked out or run here. The other change
+# made without a person, the spec pin, is merged by spec-update.yml.
 name: automerge
 
 on:
-  workflow_run:
-    workflows: [ci]
-    types: [completed]
+  pull_request:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: read
 
 jobs:
-  merge:
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.actor.login == 'dependabot[bot]'
+  enable:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'pipiobjo/opnsense-api-go'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -38,19 +31,7 @@ jobs:
       pull-requests: write
     env:
       GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
     steps:
-      - name: Fast-forward main to the tested commit
-        run: |
-          cmp=$(gh api "repos/$REPO/compare/main...$HEAD_SHA")
-          pr=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '[.[] | select(.state == "open" and .base.ref == "main" and .user.login == "dependabot[bot]" and .head.sha == env.HEAD_SHA)][0].number // empty')
-          [ -n "$pr" ] || { echo "no open Dependabot pull request against main for $HEAD_SHA"; exit 0; }
-          if [ "$(jq -r .behind_by <<<"$cmp")" != 0 ]; then
-            gh pr comment "$pr" -R "$REPO" --body "@dependabot rebase"
-            echo "#$pr is behind main: asked Dependabot to rebase"
-            exit 0
-          fi
-          # force=false: only a fast-forward is accepted
-          gh api -X PATCH "repos/$REPO/git/refs/heads/main" -f sha="$HEAD_SHA" -F force=false >/dev/null
-          echo "main is now $HEAD_SHA (#$pr)"
+      # rebase: linear history; main gets the tested tree, as new commits
+      - run: gh pr merge --auto --rebase "$PR_URL"

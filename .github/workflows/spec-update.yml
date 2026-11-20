@@ -92,7 +92,7 @@ jobs:
     permissions:
       contents: write # push the branch spec-pin/...
       actions: write # start ci.yml on it
-      pull-requests: read
+      pull-requests: write # ask Dependabot to rebase
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -143,10 +143,19 @@ jobs:
               echo "proposed spec pin ${new:0:12} on $branch; ci.yml started" | tee -a "$GITHUB_STEP_SUMMARY"
             fi
           fi
-      # automerge.yml merges Dependabot updates by itself; one still open
-      # after 14 days could not be merged and needs a look
+      # GitHub merges Dependabot updates by itself (automerge.yml), but only
+      # one that is up to date with main; one behind is asked to rebase
+      # (its CI then runs again). One still open after 14 days could not be
+      # merged and needs a look.
       - name: Dependabot updates left open
         run: |
+          for pr in $(gh pr list -R "$GITHUB_REPOSITORY" --author app/dependabot --state open --json number -q '.[].number'); do
+            sha=$(gh pr view "$pr" -R "$GITHUB_REPOSITORY" --json headRefOid -q .headRefOid)
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$sha" -q .behind_by)" != 0 ]; then
+              gh pr comment "$pr" -R "$GITHUB_REPOSITORY" --body "@dependabot rebase"
+              echo "#$pr is behind main: asked Dependabot to rebase"
+            fi
+          done
           old=$(gh pr list -R "$GITHUB_REPOSITORY" --author app/dependabot --state open --json number,createdAt \
             -q "[.[] | select(.createdAt < \"$(date -u -d '14 days ago' +%FT%TZ)\") | .number] | join(\" \")")
           [ -z "$old" ] || { echo "::error::Dependabot pull requests open for more than 14 days: $old"; exit 1; }
