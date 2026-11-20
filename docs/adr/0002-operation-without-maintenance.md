@@ -37,9 +37,9 @@ back every write.
    spec repository's test VM action). No test may skip unless it is on
    the short allowlist `tools/ci/skip-allowlist.txt` with its reason
    (amended 2026-11-18). The only commits made without a person are
-   Dependabot updates and the spec pin (points 5 and 6); `automerge.yml`
-   moves `main` to such a commit only after `ci.yml` passed on exactly
-   that commit (a fast-forward, no new merge commit).
+   Dependabot updates and the spec pin (points 5 and 6); `main` moves to
+   such a commit only after `ci.yml` passed on exactly that commit (a
+   fast-forward, no new merge commit).
 4. **The client is re-tested when the spec has new data** (amended
    2026-11-16). `spec-update.yml` hashes the newest data the spec
    repository published; for a hash not tested yet it runs the whole CI
@@ -73,7 +73,10 @@ back every write.
    tools), so `spec-update.yml` does: when the spec's `main` (moved only
    after the spec's own promotion tests) is ahead of the pin, it commits
    the new pin to a branch `spec-pin/<commit>-<main>`, starts `ci.yml`
-   there, and `automerge.yml` fast-forwards `main` to it when CI passed.
+   there, and the next `spec-update.yml` run fast-forwards `main` to it
+   when that CI passed (amended 2026-11-20: `automerge.yml` never saw
+   these runs, because GitHub starts no `workflow_run` for a run that the
+   job token started; a pin now lands one day after it was proposed).
    A pin whose CI failed keeps `spec-update.yml` red until the spec moves
    on; after 7 days the watchdog reports it. Before, eight pin updates in
    three days were made by hand.

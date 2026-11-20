@@ -110,13 +110,28 @@ jobs:
             branch="spec-pin/${new:0:12}-${base:0:12}"
             if git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
               # proposed before on this main: its ci.yml run decides; a
-              # failed or unmerged one keeps this job red, which the
-              # watchdog reports after 7 days
-              state=$(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -b "$branch" -e workflow_dispatch -L 1 \
-                --json status,conclusion -q '.[0] | if . == null then "none" elif .status != "completed" then "running" else .conclusion end')
+              # failed one keeps this job red, which the watchdog reports
+              # after 7 days. A passed one is merged here: automerge.yml
+              # never sees it, because GitHub starts no workflow_run for a
+              # run that the job token started (seen 2026-11-19 and -20).
+              read -r state sha < <(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -b "$branch" -e workflow_dispatch -L 1 \
+                --json status,conclusion,headSha -q '.[0] | if . == null then "none -" elif .status != "completed" then "running -" else "\(.conclusion) \(.headSha)" end')
               case "$state" in
                 running) echo "ci.yml on $branch is running" ;;
                 none) gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"; echo "started ci.yml on $branch" ;;
+                success)
+                  tip=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
+                  [ "$tip" = "$sha" ] || { echo "::error::$branch is at ${tip:0:12}, but ci.yml passed on ${sha:0:12}"; exit 1; }
+                  # the same checks as automerge.yml: one commit on top of
+                  # main, touching the pin file only; fast-forward only
+                  cmp=$(gh api "repos/$GITHUB_REPOSITORY/compare/$base...$sha")
+                  files=$(jq -r '[.files[].filename] | join(" ")' <<<"$cmp")
+                  if [ "$files" != tools/ci/spec-ref ] || [ "$(jq .ahead_by <<<"$cmp")" != 1 ] || [ "$(jq .behind_by <<<"$cmp")" != 0 ]; then
+                    echo "::error::$branch must be one commit on main changing tools/ci/spec-ref only: $files"; exit 1
+                  fi
+                  gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$sha" -F force=false >/dev/null
+                  gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null
+                  echo "main is now ${sha:0:12}: spec pin ${new:0:12}, tested by ci.yml on $branch" | tee -a "$GITHUB_STEP_SUMMARY" ;;
                 *) echo "::error::new spec pin ${new:0:12} on $branch: ci.yml $state and main not moved"; exit 1 ;;
               esac
             else

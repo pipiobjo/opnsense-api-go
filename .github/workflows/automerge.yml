@@ -1,18 +1,17 @@
 # SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Two kinds of change reach main without a person (ADR 0002), each only
-# after ci.yml passed on exactly that commit:
-#
-#   - Dependabot updates (.github/dependabot.yml: monthly, grouped, only
-#     versions at least 7 days old), tested by ci.yml on their pull request;
-#   - a new pin on opnsense-api-spec (tools/ci/spec-ref), which
-#     spec-update.yml commits to a branch spec-pin/... and tests with ci.yml.
+# Dependabot updates (.github/dependabot.yml: monthly, grouped, only
+# versions at least 7 days old) reach main without a person (ADR 0002),
+# only after ci.yml passed on exactly that commit. The other such change,
+# a new spec pin, is merged by spec-update.yml itself: GitHub starts no
+# workflow_run for a ci.yml run that the job token started, so this
+# workflow never sees those runs.
 #
 # main is fast-forwarded to the tested commit, so what is on main is what
 # was tested (a merge commit would be new and untested). A change that is
 # behind main is not merged: Dependabot is asked to rebase (its CI run then
-# comes back here), a pin is proposed again by the next spec-update run.
+# comes back here).
 #
 # Runs on workflow_run, so no code of the change is checked out here with a
 # write token.
@@ -29,12 +28,9 @@ permissions:
 jobs:
   merge:
     if: >-
-      github.event.workflow_run.conclusion == 'success' && (
-        (github.event.workflow_run.event == 'pull_request' &&
-         github.event.workflow_run.actor.login == 'dependabot[bot]') ||
-        (github.event.workflow_run.event == 'workflow_dispatch' &&
-         github.event.workflow_run.actor.login == 'github-actions[bot]' &&
-         startsWith(github.event.workflow_run.head_branch, 'spec-pin/')))
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -43,36 +39,18 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
-      EVENT: ${{ github.event.workflow_run.event }}
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
     steps:
       - name: Fast-forward main to the tested commit
         run: |
-          pr=""
           cmp=$(gh api "repos/$REPO/compare/main...$HEAD_SHA")
-          if [ "$EVENT" = pull_request ]; then
-            pr=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '[.[] | select(.state == "open" and .base.ref == "main" and .user.login == "dependabot[bot]" and .head.sha == env.HEAD_SHA)][0].number // empty')
-            [ -n "$pr" ] || { echo "no open Dependabot pull request against main for $HEAD_SHA"; exit 0; }
-          else
-            # a pin change touches the pin file and nothing else, in one commit
-            files=$(jq -r '[.files[].filename] | join(" ")' <<<"$cmp")
-            if [ "$files" != tools/ci/spec-ref ] || [ "$(jq .ahead_by <<<"$cmp")" != 1 ]; then
-              echo "::error::$HEAD_BRANCH must be one commit changing tools/ci/spec-ref only: $files"; exit 1
-            fi
-          fi
+          pr=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '[.[] | select(.state == "open" and .base.ref == "main" and .user.login == "dependabot[bot]" and .head.sha == env.HEAD_SHA)][0].number // empty')
+          [ -n "$pr" ] || { echo "no open Dependabot pull request against main for $HEAD_SHA"; exit 0; }
           if [ "$(jq -r .behind_by <<<"$cmp")" != 0 ]; then
-            if [ -n "$pr" ]; then
-              gh pr comment "$pr" -R "$REPO" --body "@dependabot rebase"
-              echo "#$pr is behind main: asked Dependabot to rebase"
-            else
-              echo "$HEAD_BRANCH is behind main; the next spec-update run proposes the pin again"
-            fi
+            gh pr comment "$pr" -R "$REPO" --body "@dependabot rebase"
+            echo "#$pr is behind main: asked Dependabot to rebase"
             exit 0
           fi
           # force=false: only a fast-forward is accepted
           gh api -X PATCH "repos/$REPO/git/refs/heads/main" -f sha="$HEAD_SHA" -F force=false >/dev/null
-          echo "main is now $HEAD_SHA (${pr:+#$pr}${pr:-$HEAD_BRANCH})"
-          if [ -z "$pr" ]; then
-            gh api -X DELETE "repos/$REPO/git/refs/heads/$HEAD_BRANCH" >/dev/null
-          fi
+          echo "main is now $HEAD_SHA (#$pr)"
