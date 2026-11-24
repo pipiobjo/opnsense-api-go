@@ -61,7 +61,7 @@ and `watchdog.yml`.
 | File | Names | Moved by |
 |---|---|---|
 | `tools/ci/spec-ref` | the spec commit of the test VM action and the watchdog script | `spec-update.yml`, only to a commit whose `promote.yml` passed |
-| `tools/ci/catalog-ref` | the data `ci.yml` tests with (`catalog-v1-<data_id>`) | `spec-update.yml`, to the state the spec's rolling `catalog-v1` release points to |
+| `tools/ci/catalog-ref` | the data `ci.yml` tests with (`catalog-v1-<data_id>`) | `spec-update.yml`, to the state the spec's pointer release `catalog-v1` names (`tools/ci/catalog-ref.sh latest`) |
 
 Both move together on one branch `spec-pin/<spec>-<data_id>-<main>`;
 `ci.yml` runs there; the next `spec-update.yml` run fast-forwards `main`

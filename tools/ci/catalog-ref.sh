@@ -8,14 +8,17 @@
 # only through a branch whose ci.yml run passed (ADR 0002 point 6).
 #
 #   tools/ci/catalog-ref.sh get        the pinned release
-#   tools/ci/catalog-ref.sh latest     the release the spec's rolling tag
-#                                      (CATALOG_ROLLING, default catalog-v1:
-#                                      the newest data in format 1) points to
+#   tools/ci/catalog-ref.sh latest     the newest format-1 data: the release
+#                                      the spec's pointer release catalog-v1
+#                                      names (a line "data_id: <id>" in its
+#                                      notes)
 #   tools/ci/catalog-ref.sh set TAG    pin TAG
 #
-# latest reads only catalog.json (anonymous, no verification): it names a
-# candidate; tools/ci/catalog.sh verifies checksums, attestation and the
-# data_id when ci.yml downloads it.
+# latest reads no data and verifies nothing: it names a candidate;
+# tools/ci/catalog.sh verifies checksums, attestation and the data_id when
+# ci.yml downloads it. Until the spec has published the pointer (HTTP 404,
+# and only then) the data_id comes from catalog.json of the rolling
+# release "catalog"; any other error fails.
 set -euo pipefail
 FILE="$(dirname "$0")/catalog-ref"
 BASE="https://github.com/pipiobjo/opnsense-api-spec/releases/download"
@@ -28,8 +31,19 @@ case "${1:-}" in
     valid "$ref"
     echo "$ref" ;;
   latest)
-    id=$(env -u GH_TOKEN -u GITHUB_TOKEN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
-      "$BASE/${CATALOG_ROLLING:-catalog-v1}/catalog.json" | jq -r '.data_id // ""')
+    api="https://api.github.com/repos/pipiobjo/opnsense-api-spec/releases/tags/catalog-v1"
+    auth=()
+    [ -z "${GH_TOKEN:-}" ] || auth=(-H "Authorization: Bearer $GH_TOKEN")
+    body=$(mktemp); trap 'rm -f "$body"' EXIT
+    code=$(curl -sSL --retry 5 --retry-delay 5 -o "$body" -w '%{http_code}' "${auth[@]}" \
+      -H "Accept: application/vnd.github+json" "$api")
+    case "$code" in
+      200) id=$(jq -r '.body // ""' "$body" | sed -n 's/^data_id: *\([0-9a-f]\{16\}\)[[:space:]]*$/\1/p' | head -n 1) ;;
+      404) echo "::warning::the spec has no pointer release catalog-v1 yet; using the rolling release catalog" >&2
+           id=$(env -u GH_TOKEN -u GITHUB_TOKEN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+             "$BASE/catalog/catalog.json" | jq -r '.data_id // ""') ;;
+      *) echo "error: $api answered HTTP $code" >&2; exit 1 ;;
+    esac
     valid "catalog-v1-$id"
     echo "catalog-v1-$id" ;;
   set)

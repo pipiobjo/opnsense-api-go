@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
 # SPDX-License-Identifier: BSD-2-Clause
-# Coverage report and floor for one Go coverage profile:
+# Coverage report and floor for one Go coverage profile (the same script
+# as tools/ci/coverage.sh in opnsense-api-spec):
 #
 #   tools/ci/coverage.sh NAME PROFILE [OUTDIR]
 #
 # Prints a Markdown table (statements covered per package and in total;
 # also appended to $GITHUB_STEP_SUMMARY in CI), writes OUTDIR/NAME.html
 # (default coverage/), and fails when the total is below the floor for
-# NAME in tools/ci/coverage-floor.txt. With COVERAGE_REPORT_ONLY=1 a total
-# below the floor is a warning, not a failure (VM profiles outside a push
-# to main, docs/testing.md "Coverage"). Each floor line names its margin:
-# the floor is the lowest measurement minus the margin, rounded down (1
-# for deterministic unit tests, 3 for VM runs). The script says when the
-# floor can be raised; never lower it without a reason in the commit
-# message.
+# NAME in tools/ci/coverage-floor.txt, unless COVERAGE_ENFORCE=0 (then the
+# result is only reported).
+#
+# Floors (decision of 2026-11-24): the lowest measurement minus a margin,
+# the third column of the floor file. Unit profiles measure code and are
+# deterministic: margin 1, enforced everywhere. Profiles measured against
+# a VM (integration test) vary with the instance: margin 3, reported in
+# every run and enforced only on a push to main (ci.yml), never on a spec
+# pin, a pull request or Dependabot. Raise a floor when the lowest
+# measurement rose (the script says when); never lower one to make a red
+# run green without a reason in the commit message.
 #
 # Profiles come from go test -coverpkg=./... -coverprofile=..., so code is
 # counted wherever a test reaches it, not only from its own package.
@@ -60,20 +65,21 @@ report=$(
 echo "$report"
 [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$report" >> "$GITHUB_STEP_SUMMARY"
 
-read -r floor margin < <(awk -v n="$NAME" '$1 == n {print $2, $3}' "$FLOORS") || true
-if [ -z "${floor:-}" ] || [ -z "${margin:-}" ]; then
+floor=$(awk -v n="$NAME" '$1 == n {print $2}' "$FLOORS")
+margin=$(awk -v n="$NAME" '$1 == n {print $3}' "$FLOORS")
+if [ -z "$floor" ] || [ -z "$margin" ]; then
   echo "error: no floor and margin for $NAME in $FLOORS" >&2
   exit 1
 fi
 if awk -v t="$total" -v f="$floor" 'BEGIN { exit !(t < f) }'; then
-  if [ "${COVERAGE_REPORT_ONLY:-0}" = 1 ]; then
-    echo "::warning::coverage $NAME $total% is below the floor of $floor% ($FLOORS); reported only, checked on a push to main"
+  if [ "${COVERAGE_ENFORCE:-1}" = 0 ]; then
+    echo "::warning::coverage $NAME $total% is below the floor of $floor% (reported only here; enforced on a push to main)"
     exit 0
   fi
   echo "error: coverage $NAME $total% is below the floor of $floor% ($FLOORS)" >&2
   exit 1
 fi
 if awk -v t="$total" -v f="$floor" -v m="$margin" 'BEGIN { exit !(t >= f + m + 2) }'; then
-  echo "note: coverage $NAME $total% is more than $margin + 2 points above the floor of $floor%; raise it in $FLOORS"
+  echo "note: coverage $NAME $total% is more than $margin+2 points above the floor of $floor%; if that is the lowest measurement now, raise the floor in $FLOORS"
 fi
 echo "coverage $NAME $total% (floor $floor%)"

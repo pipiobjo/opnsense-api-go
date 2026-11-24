@@ -105,8 +105,9 @@ back every write.
    release or plugin version the data has never seen is a warning
    (`Instance().Warnings`). `UnknownVersion: Refuse` makes both errors.
 
-What stays with a person: a capability `format` change (the spec
-repository publishes the old format for an overlap period), and a client
+What stays with a person: a capability `format` change (a new format gets
+its own pointer `catalog-v2`; the format-1 pointer and its fixed releases
+stay at the last format-1 state, amended 2026-11-24), and a client
 change when OPNsense changes its API conventions. The provider's weekly
 acceptance tests run the client against each new OPNsense release and
 report such a change there.

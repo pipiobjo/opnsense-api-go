@@ -8,7 +8,8 @@
 #
 # A capability data release of opnsense-api-spec: the immutable
 # catalog-v1-<data_id> pinned in tools/ci/catalog-ref (tools/ci/catalog-ref.sh),
-# or the release named in CATALOG_TAG (also a rolling one such as catalog-v1).
+# or the release named in CATALOG_TAG (also the rolling "catalog"; the
+# pointer catalog-v1 has no files, tools/ci/catalog-ref.sh latest reads it).
 # A consumer embedding the data runs this as its build step (ADR 0003).
 # Downloaded without credentials, checked against SHA256SUMS and its build
 # provenance attestation (only the spec's publishing pipeline on main

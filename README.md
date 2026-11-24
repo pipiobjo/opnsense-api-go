@@ -146,7 +146,8 @@ mode makes sure it changes nothing there.
 
 The client carries no data ([ADR 0002](docs/adr/0002-operation-without-maintenance.md)).
 Get it from opnsense-api-spec and verify it. `catalog` is the newest
-state (`catalog-v1` the newest in format 1, once the spec publishes it);
+state; the release `catalog-v1` has no files, its notes name the newest
+format-1 state (`data_id: <id>`);
 `catalog-v1-<data_id>` is one fixed state that never changes (pin that
 one when you embed the data):
 
