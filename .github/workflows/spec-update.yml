@@ -1,18 +1,22 @@
 # SPDX-FileCopyrightText: 2026 opnsense-api-go contributors
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# When opnsense-api-spec has published new data (a new OPNsense release,
-# hotfix or plugin update), run the whole client suite against it: unit
-# tests, then the integration tests on the newest release of each series
-# with every plugin (ci.yml). Each data version is tested once; days
-# without new data end after one small download (ADR 0002). A run in
-# which a plugin did not install is not recorded as a test of that data:
-# the next day tests it again.
-#
-# The job spec-pin keeps the one pin on opnsense-api-spec (tools/ci/spec-ref,
-# the test VM action and the watchdog script) at the spec's main: it
-# commits a new pin to a branch spec-pin/..., starts ci.yml there, and
-# automerge.yml moves main to exactly that commit when ci.yml passed.
+# Keeps the two pins on opnsense-api-spec current without a person
+# (ADR 0002 point 6):
+#   tools/ci/spec-ref    the spec commit whose test VM action and watchdog
+#                        script this repository uses (only a commit whose
+#                        promote.yml passed, tools/ci/spec-ref.sh latest)
+#   tools/ci/catalog-ref the capability data release ci.yml tests with
+#                        (catalog-v1-<data_id>, tools/ci/catalog-ref.sh)
+# When either is behind, the job pin commits the new pins to a branch
+# spec-pin/..., starts ci.yml there (the whole suite against the new data:
+# unit tests, then every series on a VM with every plugin), and a later
+# run fast-forwards main to exactly that commit when it passed. So
+# catalog-ref on main is always data the suite passed on, and pushes and
+# pull requests test fixed data: a new data state cannot turn an unrelated
+# change red. A failed pin run is run again once automatically (a VM or
+# mirror hiccup); a second failure deletes the branch, so the next day
+# proposes it afresh, and the job stays red.
 #
 # A failure notifies nobody. watchdog.yml opens the one "needs-you" issue
 # when this workflow has not succeeded for 7 days, and closes it again.
@@ -34,119 +38,91 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  check:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    outputs:
-      hash: ${{ steps.hash.outputs.hash }}
-      tested: ${{ steps.seen.outputs.cache-hit }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Hash of the newest published data
-        id: hash
-        run: |
-          h=$(tools/ci/data-hash.sh)
-          echo "hash=$h" >> "$GITHUB_OUTPUT"
-          echo "data: $h" >> "$GITHUB_STEP_SUMMARY"
-      - name: Already tested?
-        id: seen
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .tested
-          key: tested-${{ steps.hash.outputs.hash }}
-          lookup-only: true
-
-  test:
-    needs: check
-    if: needs.check.outputs.tested != 'true'
-    uses: ./.github/workflows/ci.yml
-
-  # only a run with every plugin installed tested the data completely
-  remember:
-    needs: [check, test]
-    if: needs.test.outputs.missing-plugins == ''
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - run: mkdir -p .tested && echo "${{ needs.check.outputs.hash }}" > .tested/hash
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .tested
-          key: tested-${{ needs.check.outputs.hash }}
-
-  not-remembered:
-    needs: [check, test]
-    if: needs.test.outputs.missing-plugins != ''
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - env:
-          MISSING: ${{ needs.test.outputs.missing-plugins }}
-        run: |
-          echo "::warning::plugins did not install, so this data is not recorded as tested; the next run tests it again"
-          { echo "Not recorded as tested; plugins not installed:"; echo '```'; echo "$MISSING"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-
-  spec-pin:
+  pin:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write # push the branch spec-pin/...
-      actions: write # start ci.yml on it
-      pull-requests: write # ask Dependabot to rebase
+      contents: write # push and delete the branch spec-pin/..., move main
+      actions: write # start and rerun ci.yml on it
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-      - name: Propose the spec's main as the new pin
+      - name: Propose the newest promoted spec commit and data as the new pins
         run: |
-          cur=$(tools/ci/spec-ref.sh get)
-          new=$(tools/ci/spec-ref.sh latest)
-          if [ "$cur" = "$new" ]; then
-            echo "pin ${cur:0:12} is the spec's main" | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            base=$(git rev-parse HEAD)
-            branch="spec-pin/${new:0:12}-${base:0:12}"
-            if git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
-              # proposed before on this main: its ci.yml run decides; a
-              # failed one keeps this job red, which the watchdog reports
-              # after 7 days. A passed one is merged here: automerge.yml
-              # never sees it, because GitHub starts no workflow_run for a
-              # run that the job token started (seen 2026-11-19 and -20).
-              read -r state sha < <(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -b "$branch" -e workflow_dispatch -L 1 \
-                --json status,conclusion,headSha -q '.[0] | if . == null then "none -" elif .status != "completed" then "running -" else "\(.conclusion) \(.headSha)" end')
-              case "$state" in
-                running) echo "ci.yml on $branch is running" ;;
-                none) gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"; echo "started ci.yml on $branch" ;;
-                success)
-                  tip=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
-                  [ "$tip" = "$sha" ] || { echo "::error::$branch is at ${tip:0:12}, but ci.yml passed on ${sha:0:12}"; exit 1; }
-                  # the same checks as automerge.yml: one commit on top of
-                  # main, touching the pin file only; fast-forward only
-                  cmp=$(gh api "repos/$GITHUB_REPOSITORY/compare/$base...$sha")
-                  files=$(jq -r '[.files[].filename] | join(" ")' <<<"$cmp")
-                  if [ "$files" != tools/ci/spec-ref ] || [ "$(jq .ahead_by <<<"$cmp")" != 1 ] || [ "$(jq .behind_by <<<"$cmp")" != 0 ]; then
-                    echo "::error::$branch must be one commit on main changing tools/ci/spec-ref only: $files"; exit 1
-                  fi
-                  gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$sha" -F force=false >/dev/null
-                  gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null
-                  echo "main is now ${sha:0:12}: spec pin ${new:0:12}, tested by ci.yml on $branch" | tee -a "$GITHUB_STEP_SUMMARY" ;;
-                *) echo "::error::new spec pin ${new:0:12} on $branch: ci.yml $state and main not moved"; exit 1 ;;
-              esac
-            else
-              tools/ci/spec-ref.sh set "$new"
-              git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-                commit -q -m "ci: pin opnsense-api-spec ${new:0:12}" tools/ci/spec-ref
-              git push -q origin "HEAD:refs/heads/$branch"
-              gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
-              echo "proposed spec pin ${new:0:12} on $branch; ci.yml started" | tee -a "$GITHUB_STEP_SUMMARY"
-            fi
+          cur_spec=$(tools/ci/spec-ref.sh get)
+          new_spec=$(tools/ci/spec-ref.sh latest)
+          cur_data=$(tools/ci/catalog-ref.sh get)
+          new_data=$(tools/ci/catalog-ref.sh latest)
+          if [ "$cur_spec" = "$new_spec" ] && [ "$cur_data" = "$new_data" ]; then
+            echo "pins are current: spec ${cur_spec:0:12}, data $cur_data" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-      # GitHub merges Dependabot updates by itself (automerge.yml), but only
-      # one that is up to date with main; one behind is asked to rebase
-      # (its CI then runs again). One still open after 14 days could not be
-      # merged and needs a look.
+          base=$(git rev-parse HEAD)
+          branch="spec-pin/${new_spec:0:12}-${new_data#catalog-v1-}-${base:0:12}"
+          if ! git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
+            tools/ci/spec-ref.sh set "$new_spec"
+            tools/ci/catalog-ref.sh set "$new_data"
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -q -m "ci: pin opnsense-api-spec ${new_spec:0:12} and data $new_data" tools/ci/spec-ref tools/ci/catalog-ref
+            git push -q origin "HEAD:refs/heads/$branch"
+            gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
+            echo "proposed spec ${new_spec:0:12} and data $new_data on $branch; ci.yml started" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # proposed before on this main: its ci.yml run decides. A passed
+          # one is merged here: automerge.yml never sees it, because GitHub
+          # starts no workflow_run for a run that the job token started
+          # (seen 2026-11-19 and -20).
+          read -r id state attempt sha < <(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -b "$branch" -e workflow_dispatch -L 1 \
+            --json databaseId,status,conclusion,attempt,headSha \
+            -q '.[0] | if . == null then "- none 0 -" elif .status != "completed" then "\(.databaseId) running \(.attempt) -" else "\(.databaseId) \(.conclusion) \(.attempt) \(.headSha)" end')
+          case "$state" in
+            running) echo "ci.yml on $branch is running" ;;
+            none) gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"; echo "started ci.yml on $branch" ;;
+            success)
+              tip=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
+              [ "$tip" = "$sha" ] || { echo "::error::$branch is at ${tip:0:12}, but ci.yml passed on ${sha:0:12}"; exit 1; }
+              # one commit on top of main, touching the pin files only;
+              # fast-forward only
+              cmp=$(gh api "repos/$GITHUB_REPOSITORY/compare/$base...$sha")
+              files=$(jq -r '[.files[].filename] | sort | join(" ")' <<<"$cmp")
+              case " $files " in
+                " tools/ci/catalog-ref " | " tools/ci/spec-ref " | " tools/ci/catalog-ref tools/ci/spec-ref ") ;;
+                *) echo "::error::$branch must change tools/ci/spec-ref and tools/ci/catalog-ref only: $files"; exit 1 ;;
+              esac
+              if [ "$(jq .ahead_by <<<"$cmp")" != 1 ] || [ "$(jq .behind_by <<<"$cmp")" != 0 ]; then
+                echo "::error::$branch must be one commit on main"; exit 1
+              fi
+              gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$sha" -F force=false >/dev/null
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null
+              echo "main is now ${sha:0:12}: spec ${new_spec:0:12}, data $new_data, tested by ci.yml on $branch" | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            *)
+              if [ "$attempt" = 1 ]; then
+                # once: a VM boot, a mirror or a runner can fail by chance
+                gh run rerun "$id" -R "$GITHUB_REPOSITORY" --failed
+                echo "::warning::ci.yml on $branch: $state; started its failed jobs once more (run $id)"
+              else
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null
+                echo "::error::ci.yml on $branch: $state twice (run $id, logs kept 14 days); branch deleted, the next run proposes it again"
+                exit 1
+              fi ;;
+          esac
+
+  # GitHub merges Dependabot updates by itself (automerge.yml), but only one
+  # that is up to date with main; one behind is asked to rebase (its CI then
+  # runs again). One still open after 14 days could not be merged and needs
+  # a look. Independent of the pin job: a failed pin does not stop this.
+  dependabot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write # ask Dependabot to rebase
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
       - name: Dependabot updates left open
         run: |
           for pr in $(gh pr list -R "$GITHUB_REPOSITORY" --author app/dependabot --state open --json number -q '.[].number'); do

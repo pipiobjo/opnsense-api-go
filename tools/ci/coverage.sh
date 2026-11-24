@@ -8,9 +8,13 @@
 # Prints a Markdown table (statements covered per package and in total;
 # also appended to $GITHUB_STEP_SUMMARY in CI), writes OUTDIR/NAME.html
 # (default coverage/), and fails when the total is below the floor for
-# NAME in tools/ci/coverage-floor.txt. The floor is the measured value
-# rounded down; raise it by hand when coverage rose (the script says when),
-# never lower it without a reason in the commit message.
+# NAME in tools/ci/coverage-floor.txt. With COVERAGE_REPORT_ONLY=1 a total
+# below the floor is a warning, not a failure (VM profiles outside a push
+# to main, docs/testing.md "Coverage"). Each floor line names its margin:
+# the floor is the lowest measurement minus the margin, rounded down (1
+# for deterministic unit tests, 3 for VM runs). The script says when the
+# floor can be raised; never lower it without a reason in the commit
+# message.
 #
 # Profiles come from go test -coverpkg=./... -coverprofile=..., so code is
 # counted wherever a test reaches it, not only from its own package.
@@ -56,16 +60,20 @@ report=$(
 echo "$report"
 [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$report" >> "$GITHUB_STEP_SUMMARY"
 
-floor=$(awk -v n="$NAME" '$1 == n {print $2}' "$FLOORS")
-if [ -z "$floor" ]; then
-  echo "error: no floor for $NAME in $FLOORS" >&2
+read -r floor margin < <(awk -v n="$NAME" '$1 == n {print $2, $3}' "$FLOORS") || true
+if [ -z "${floor:-}" ] || [ -z "${margin:-}" ]; then
+  echo "error: no floor and margin for $NAME in $FLOORS" >&2
   exit 1
 fi
 if awk -v t="$total" -v f="$floor" 'BEGIN { exit !(t < f) }'; then
+  if [ "${COVERAGE_REPORT_ONLY:-0}" = 1 ]; then
+    echo "::warning::coverage $NAME $total% is below the floor of $floor% ($FLOORS); reported only, checked on a push to main"
+    exit 0
+  fi
   echo "error: coverage $NAME $total% is below the floor of $floor% ($FLOORS)" >&2
   exit 1
 fi
-if awk -v t="$total" -v f="$floor" 'BEGIN { exit !(t >= f + 2) }'; then
-  echo "note: coverage $NAME $total% is well above the floor of $floor%; raise it in $FLOORS"
+if awk -v t="$total" -v f="$floor" -v m="$margin" 'BEGIN { exit !(t >= f + m + 2) }'; then
+  echo "note: coverage $NAME $total% is more than $margin + 2 points above the floor of $floor%; raise it in $FLOORS"
 fi
 echo "coverage $NAME $total% (floor $floor%)"

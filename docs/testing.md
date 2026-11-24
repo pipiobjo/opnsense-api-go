@@ -130,18 +130,30 @@ public API:
 It compares every field it sent. The only tolerated difference is one the
 data explains with `custom-save` on a field neither the contract test nor
 this test chose on purpose; each is logged. Apply endpoints may fail only
-if they are listed with a reason and series in
+if they are listed with series, a reason and a `match` in
 [`test/integration/apply-failures.json`](../test/integration/apply-failures.json)
-(services that cannot run on the isolated VM: no internet, no hardware); an
-entry that works is reported for removal. Samples that refer to something
-only the contract test's instance had are skipped with the reason.
+(services that cannot run on the isolated VM: no internet, no hardware),
+and only with an answer that contains the `match` text: another failure
+of the same endpoint (a client regression in the apply request) fails.
+An entry whose apply worked fails the run too, so a stale tolerance
+cannot stay; if nobody removes it, the watchdog reports the red runs
+after 7 days. Samples that refer to something only the contract test's
+instance had are skipped with the reason.
 
 Only subtests that ran to the end without failing count as tested; a
-subtest that skips itself is counted apart. The tested count must reach
-the floor of the series in
+subtest that skips itself is counted apart, and so is a settings
+resource whose changed field the firewall's validation rejected (nothing
+was written). The tested count must reach the floor of the series in
 [`test/integration/tested-floor.txt`](../test/integration/tested-floor.txt)
 (about 95 % of the last full run), so a run that lost verification data
 or plugins fails instead of passing with little tested.
+
+A series that has no line in `tested-floor.txt` and is named by no entry
+of `apply-failures.json` (a new series, the important case) takes the
+floor and the entries of the newest older series that has them; an older
+unknown series fails. So a new series is neither red for the VM's known
+limits nor tested without a floor (`TestToleranceFiles`, which also runs
+without a VM and checks that every entry has a `match`).
 
 `TestOSPFNeighborCycle`, `TestSettingsSetAndRestore` and
 `TestRecordedBehaviour` need os-frr. With `OPNSENSE_PLUGINS=all` (CI, and
@@ -156,33 +168,18 @@ The read-only test reads every resource; a read that fails in read-only
 mode but works without it fails the test (the transport's read list would
 be too narrow).
 
-Results of the most recent full run (local VMs with KVM, every plugin
-installed, 2026-11-18), on capability data built locally from spec
-generator 0.9.4 (data_id 9ae8601d7d860f17, not yet published; CI uses
-the published data until the spec's next live run). Earlier figures
-(299, 307, 314 "resources tested") also counted settings that were only
-read and subtests that skipped themselves; they are not comparable.
-
-| Release | Written and read back | Settings only read | Skipped themselves (all on the allowlist) | Entry lists without a usable sample | Settings not verified: not decoded / read failed | Tolerated differences | Read-only test: reads | Failures |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25.7.11_9 | 223 | 79 | 4 | 46 | 7: 0 / 0 | 0 | 357 | 0 |
-| 26.1.11_10 | 228 | 82 | 4 | 48 | 6: 0 / 0 | 0 | 364 | 0 |
-| 26.7.9_3 | 231 | 86 | 4 | 53 | 7: 0 / 0 | 1 | 376 | 0 |
-
-Every written entry list also passed the `Rows`, `Find` and
-after-delete checks. The settings the contract test did not verify are
-those whose answer differs inside the root key where the data marks a
-gap (on 26.7.9: `kea/dhcpv4`, `kea/dhcpv6`, `firewall/source_nat`, `stunnel/services`,
-`ids/settings`, `ipsec/settings`, `dyndns/settings`); all of them are read
-and decoded. With the published 0.9.3 data the same VMs gave 14 failed
-reads per series (222/227/230 written, 72/75/79 only read): the data
-named a wrong root key for nine settings with their own controller code
-(freeradius, siproxd, zerotier, relayd), `proxy/template` answers a zip
-file, and four acmeclient controllers had a settings `set` without `get`.
-Spec 0.9.4 reads the key from the controller code, and lists what has no
-derivable key, or no `get`, as actions instead of settings. The number
-that skips itself moves by one between runs (`tor/general`,
-`ndproxy/general`: whether their default state validates).
+The numbers of each run (tested, only read, rejected, skipped, without a
+sample, not verified, tolerated differences, applies) are in the summary
+of its `ci.yml` run, job `integration (<release>)`, together with the
+release, the plugins that did not install and the `data_id`
+([`tools/ci/catalog-ref`](../tools/ci/catalog-ref) names the data state
+the last merged run used). They are not copied here, so this file cannot
+go stale against them. Every written entry list also passes the `Rows`,
+`Find` and after-delete checks. The settings the contract test did not
+verify are those whose answer differs inside the root key where the data
+marks a gap (on 26.7.9: `kea/dhcpv4`, `kea/dhcpv6`, `firewall/source_nat`,
+`stunnel/services`, `ids/settings`, `ipsec/settings`, `dyndns/settings`);
+all of them are read and decoded.
 
 The subtests that skip themselves do so with a reason in the log: no
 boolean field to change (`firewall/alias`, the plugin authentication
@@ -198,11 +195,16 @@ CI summary and an HTML report as the artifact `coverage-unit`
 (`coverage-integration-<release>` for the VM runs). It fails when a total
 drops below its floor in `tools/ci/coverage-floor.txt`.
 
-| Profile | Statements covered | Floor |
-|---|---:|---:|
-| unit | 92.0% | 92% |
-| integration (per release, alone; includes the read-only test) | 65.2% (25.7.11) to 66.0% (26.7.9), 2026-11-18 | 65% |
-| unit and integration together | not measured on 2026-11-18 | — |
+The floors are in [`tools/ci/coverage-floor.txt`](../tools/ci/coverage-floor.txt);
+each CI run writes the measured values to its summary. Two kinds:
+
+- **unit**: deterministic, a hard floor 1 point below the lowest
+  measurement, checked on every run (push, pull request, spec pin).
+- **integration** (per release, alone; includes the read-only test): it
+  depends on what the VM does (retries, plugins that installed), so it is
+  reported on every run but checked only on a push to `main`, with a floor
+  3 points below the lowest measurement. A pull request, a Dependabot
+  update and the spec pin never fail on it.
 
 Coverage says which code ran, not whether its result was checked; the
 claims and the deliberate breaks above are what make the tests count.
@@ -223,9 +225,10 @@ Code not reached by unit tests is mostly string formatting
   failure, for `TestEveryVerifiedResource`: its resources are not tested
   in that run (the floor in `tested-floor.txt` still applies), the run
   summary names it, and its complete firmware log is kept as the artifact
-  `logs-<release>`. The tests that need os-frr fail (see above), and
-  `spec-update.yml` does not record such a run as a test of the data, so
-  the next day tests it again. (One such case so far, 2026-11-17, 25.7.11:
+  `logs-<release>`. The tests that need os-frr fail (see above), and on a
+  `spec-pin/...` branch the job `plugins` fails, so new data is pinned in
+  `tools/ci/catalog-ref` only after a run in which every plugin
+  installed. (One such case so far, 2026-11-17, 25.7.11:
   two plugins; the next run installed all.)
 - Business editions are not tested (no public images).
 

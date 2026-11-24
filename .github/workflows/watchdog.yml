@@ -52,8 +52,7 @@ jobs:
           WD_COVERAGE_CHECK: "0"
           # GitHub disables all schedules of a repository at once after 60
           # days without activity, and a broken watchdog notifies nobody:
-          # each repository of the project watches the others (read-only)
-          WD_WATCH: >-
-            pipiobjo/opnsense-api-spec:pipeline.yml
-            pipiobjo/opnsense-api-spec:watchdog.yml
+          # each repository of the project watches the others (read-only).
+          # A copy sets the repository variable WD_WATCH (docs/development.md)
+          WD_WATCH: ${{ vars.WD_WATCH || (github.repository == 'pipiobjo/opnsense-api-go' && 'pipiobjo/opnsense-api-spec:pipeline.yml pipiobjo/opnsense-api-spec:watchdog.yml' || '') }}
         run: spec/tools/ci/alerts.sh check

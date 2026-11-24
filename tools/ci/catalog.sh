@@ -3,23 +3,25 @@
 # SPDX-License-Identifier: BSD-2-Clause
 # Capability data for the integration tests, into DIR (default catalog/):
 #
-#   tools/ci/catalog.sh [DIR]
-#   CATALOG_TAG=catalog-v1-<data_id> tools/ci/catalog.sh [DIR]   # a fixed state
+#   tools/ci/catalog.sh [DIR]                                     # the pin in tools/ci/catalog-ref
+#   CATALOG_TAG=catalog-v1-<data_id> tools/ci/catalog.sh [DIR]    # another state
 #
-# A capability data release of opnsense-api-spec: "catalog" (the newest
-# state) or the immutable catalog-v1-<data_id> named in CATALOG_TAG.
+# A capability data release of opnsense-api-spec: the immutable
+# catalog-v1-<data_id> pinned in tools/ci/catalog-ref (tools/ci/catalog-ref.sh),
+# or the release named in CATALOG_TAG (also a rolling one such as catalog-v1).
+# A consumer embedding the data runs this as its build step (ADR 0003).
 # Downloaded without credentials, checked against SHA256SUMS and its build
 # provenance attestation (only the spec's publishing pipeline on main
 # counts), unpacked; a pinned tag must match the data_id inside. Any
 # download or verification error fails: there is no unverified fallback.
 #
-# Prints the data_id on stderr and, on the last line of stdout, the newest
+# Prints the data_id on stderr (and to $GITHUB_STEP_SUMMARY in CI) and, on the last line of stdout, the newest
 # verified release of each series as a JSON list of {series, release}
 # (the test matrix).
 set -euo pipefail
 
 SPEC=pipiobjo/opnsense-api-spec
-TAG="${CATALOG_TAG:-catalog}"
+TAG="${CATALOG_TAG:-$("$(dirname "$0")/catalog-ref.sh" get)}"
 OUT="${1:-catalog}"
 BASE="https://github.com/$SPEC/releases/download"
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
@@ -39,6 +41,7 @@ fi
 cp "$work/catalog.json" "$OUT/"
 zstd -dc "$work/capabilities.tar.zst" | tar -C "$OUT" -xf -
 echo "catalog: release '$TAG' of $SPEC, data_id $id, checksums and attestation verified" >&2
+[ -z "${GITHUB_STEP_SUMMARY:-}" ] || echo "capability data: \`$TAG\`, data_id \`$id\` (checksums and attestation verified)" >> "$GITHUB_STEP_SUMMARY"
 jq -c '.releases | group_by(.series)
   | map(map(select(. as $r | any($r.compositions[]; .id == $r.current and .verified != null)))
         | select(length > 0) | max_by(.release | split(".") | map(tonumber? // 0))

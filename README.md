@@ -146,8 +146,9 @@ mode makes sure it changes nothing there.
 
 The client carries no data ([ADR 0002](docs/adr/0002-operation-without-maintenance.md)).
 Get it from opnsense-api-spec and verify it. `catalog` is the newest
-state; `catalog-v1-<data_id>` is one fixed state that never changes (pin
-that one when you embed the data):
+state (`catalog-v1` the newest in format 1, once the spec publishes it);
+`catalog-v1-<data_id>` is one fixed state that never changes (pin that
+one when you embed the data):
 
 ```sh
 gh release download catalog -R pipiobjo/opnsense-api-spec -D catalog
@@ -277,7 +278,7 @@ dropped silently.
 | Part | State |
 |---|---|
 | Transport, wire encodings, detection, resolver, value checks, settings, entry lists, toggle, apply, read-back | implemented; unit tests against a fake firewall built from recorded behaviour (each rule has a test that fails without it) |
-| Integration tests, newest release of each series with every plugin | local runs with spec data 0.9.4 built locally (2026-11-18): resources written and read back 223 (25.7.11_9), 228 (26.1.11_10), 231 (26.7.9_3), plus 79 to 86 settings only read and 6 to 7 settings read whose shape the data marks as not derived; `Rows`, `Find` and existence after delete checked on every written entry list; 0 failures; each series must reach its floor (`test/integration/tested-floor.txt`). Details in [docs/testing.md](docs/testing.md). CI runs the same matrix on every push and after new spec data |
+| Integration tests, newest release of each series with every plugin | every written entry list also checked through `Rows`, `Find` and existence after delete; each series must reach its floor (`test/integration/tested-floor.txt`). CI runs them on every push and pull request against the data pinned in `tools/ci/catalog-ref`, and on every new data state before that pin moves; the numbers of each run are in its summary. Details in [docs/testing.md](docs/testing.md) |
 | Typed Go structs per plugin | not planned |
 
 Supported: OPNsense 25.7 and newer, core and official plugins, as far as the
@@ -292,7 +293,7 @@ behaviour, and against the real capability data of every release.
 Integration tests run the client against a throwaway OPNsense VM with
 every plugin, on the newest release of each supported series, on every
 push and whenever opnsense-api-spec publishes new data. Coverage is
-reported in CI with a floor (unit tests: 92.0%).
+reported in CI with floors (`tools/ci/coverage-floor.txt`).
 
 [docs/testing.md](docs/testing.md) says what has to be true for the client
 to work, which test shows each part, how we know the tests can fail, the
@@ -301,16 +302,18 @@ measured results, and what is not tested. Requirements:
 
 ## Releases
 
-A release is a version tag; the Go module proxy serves it. Each release
-also has a GitHub release (`release.yml`, after the whole test suite
+No release has been tagged yet; until the first one (v0.1.0) a consumer
+depends on a commit (a Go pseudo-version). A release is a version tag; the
+Go module proxy serves it. Each release also has a GitHub release (`release.yml`, after the whole test suite
 passed) with a software bill of materials (CycloneDX 1.6, made with the
 official CycloneDX generator for Go), the unit test coverage report and
 `SHA256SUMS`, all with a provenance attestation:
 
 ```sh
-gh release download v0.1.0 -R pipiobjo/opnsense-api-go -D rel && cd rel
+# once a release exists; <tag> is its version, e.g. v1.2.3
+gh release download <tag> -R pipiobjo/opnsense-api-go -D rel && cd rel
 sha256sum -c SHA256SUMS
-gh attestation verify opnsense-api-go-v0.1.0.cdx.json -R pipiobjo/opnsense-api-go
+gh attestation verify opnsense-api-go-<tag>.cdx.json -R pipiobjo/opnsense-api-go
 ```
 
 The module depends on the Go standard library only, so the SBOM lists the

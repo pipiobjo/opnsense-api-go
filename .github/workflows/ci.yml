@@ -6,15 +6,19 @@
 #                firewall, real capability test data), no skipped test,
 #                coverage with a floor, SBOM (tools/ci/sbom.sh), known
 #                vulnerabilities in called code (tools/ci/vulncheck.sh)
-#   data         capability data from opnsense-api-spec (tools/ci/catalog.sh)
-#                and the test matrix: newest verified release of each series
+#   data         the capability data pinned in tools/ci/catalog-ref
+#                (tools/ci/catalog.sh: checksums, attestation, data_id), its
+#                format keys against the client's model, and the test matrix:
+#                newest verified release of each series
 #   integration  per series: throwaway OPNsense VM on 127.0.0.1 with every
 #                plugin (the test VM action of opnsense-api-spec at the commit
 #                in tools/ci/spec-ref), then the integration tests
 #                (test/integration), skips only from tools/ci/skip-allowlist.txt,
-#                their coverage
-#   plugins      plugins that did not install on any VM; spec-update.yml
-#                records the data as tested only when there were none
+#                their coverage (reported; its floor is checked only on a
+#                push to main, docs/testing.md "Coverage")
+#   plugins      plugins that did not install on any VM: a warning, except
+#                on a spec-pin branch, where data is tested only with every
+#                plugin installed (spec-update.yml merges only a green pin)
 # No schedule, no secrets, nothing published (ADR 0002).
 name: ci
 
@@ -22,13 +26,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # spec-update.yml starts it on a spec-pin/... branch
   workflow_dispatch:
-  # spec-update.yml runs the same suite when the spec published new data
+  # release.yml runs the whole suite before a release
   workflow_call:
-    outputs:
-      missing-plugins:
-        description: "plugins that did not install, as '<release>: <plugins>' lines; empty when every plugin installed"
-        value: ${{ jobs.plugins.outputs.missing }}
 
 permissions:
   contents: read
@@ -75,6 +76,10 @@ jobs:
       - name: Coverage
         if: matrix.go == '1.27'
         run: tools/ci/coverage.sh unit unit.out coverage
+      # the tolerance files of the integration test and the CI scripts
+      - name: Shell scripts
+        if: matrix.go == '1.27'
+        run: bash -n tools/ci/*.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: matrix.go == '1.27'
         with:
@@ -117,7 +122,7 @@ jobs:
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           minimum_release_age: 7d # only mise releases at least a week old
-      - name: Capability data
+      - name: Capability data (tools/ci/catalog-ref)
         id: data
         run: |
           matrix=$(tools/ci/catalog.sh catalog | tail -n 1)
@@ -205,8 +210,11 @@ jobs:
           name: plugins-${{ matrix.release }}
           path: plugins/
           retention-days: 3
-      # client code exercised against the real firewall
+      # client code exercised against the real firewall: depends on what
+      # the VM does, so its floor is checked only on a push to main
       - name: Coverage
+        env:
+          COVERAGE_REPORT_ONLY: ${{ github.event_name == 'push' && '0' || '1' }}
         run: tools/ci/coverage.sh integration integration.out coverage
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -227,16 +235,16 @@ jobs:
           path: |
             integration.log
             ${{ steps.vm.outputs.dir }}/*.log
-          retention-days: 7
+          retention-days: 14 # longer than the watchdog's 7 days
 
-  # one answer for spec-update.yml: did a plugin fail to install on any VM?
-  # A test of data with missing plugins is not a full test.
+  # did a plugin fail to install on any VM? A test of data with missing
+  # plugins is not a full test: a warning on pushes and pull requests, a
+  # failure on a spec-pin branch, so new data is pinned only when every
+  # plugin's resources ran
   plugins:
     needs: [data, integration]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    outputs:
-      missing: ${{ steps.missing.outputs.missing }}
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -254,8 +262,13 @@ jobs:
             f=$(cat "plugins/$r.txt")
             [ -z "$f" ] || missing+="$r: $f"$'\n'
           done
-          { echo "missing<<EOF"; printf '%s' "$missing"; echo "EOF"; } >> "$GITHUB_OUTPUT"
           echo "plugins not installed: ${missing:-none}" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$missing" ]; then
+            case "$GITHUB_REF" in
+              refs/heads/spec-pin/*) echo "::error::new data is pinned only when every plugin installed"; exit 1 ;;
+              *) echo "::warning::plugins did not install; their resources were not tested in this run" ;;
+            esac
+          fi
 
   # the one required status check of main (ruleset "main: tested"): its
   # name does not depend on the release matrix, which changes with the data

@@ -18,7 +18,10 @@ go test -race -coverpkg=./... -coverprofile=unit.out ./...   # fake firewall, re
 tools/ci/coverage.sh unit unit.out  # table per package, coverage/unit.html, floor check
 ```
 
-What each test shows and which claim it belongs to:
+`internal/mutation` (`TestMutantsAreKilled`) breaks the most important
+checks one by one and runs their tests; when you change code a mutant
+names, update its anchor in the table. What each test shows and which
+claim it belongs to:
 [docs/testing.md](docs/testing.md). A new test is named there under its
 claim (`TestEveryTestIsDocumented` checks).
 
@@ -29,10 +32,11 @@ any other target. The test VM comes from
 [opnsense-api-spec](https://github.com/pipiobjo/opnsense-api-spec)
 (`tools/testvm.sh`, QEMU, ideally with KVM); its factory credentials and
 the API key it creates exist only inside that VM. Never point the tests at
-a real firewall.
+a real firewall. Repository settings and running a copy of the
+automation: [docs/development.md](docs/development.md).
 
 ```sh
-tools/ci/catalog.sh catalog        # capability data; prints the test matrix
+tools/ci/catalog.sh catalog        # the data pinned in tools/ci/catalog-ref; prints the test matrix
 # in a checkout of opnsense-api-spec:
 tools/testvm.sh start 26.7 --release 26.7.9 --plugins all   # writes .cache/vm/state.env
 # back here, with url and keyfile from that state.env:

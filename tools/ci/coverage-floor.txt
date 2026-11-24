@@ -1,4 +1,6 @@
-# Coverage floors (tools/ci/coverage.sh): name, minimum percent of statements.
-# The measured value rounded down; see the script before changing one.
-unit 92
-integration 64
+# Coverage floors (tools/ci/coverage.sh): name, minimum percent of
+# statements, margin. The floor is the lowest measurement minus the margin,
+# rounded down: 1 point for the deterministic unit tests, 3 for a VM run
+# (checked only on a push to main; docs/testing.md "Coverage").
+unit 92 1
+integration 61 3

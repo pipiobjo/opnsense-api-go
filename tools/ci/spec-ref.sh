@@ -6,13 +6,17 @@
 # lives in tools/ci/spec-ref (a commit hash, one line) and nowhere else.
 #
 #   tools/ci/spec-ref.sh get        the pinned commit
-#   tools/ci/spec-ref.sh latest     the commit at the spec's main (anonymous)
+#   tools/ci/spec-ref.sh latest     the spec's main, if its promotion passed
 #   tools/ci/spec-ref.sh set SHA    pin SHA
 #
-# The spec's main only moves after its promotion tests (ADR 0012 there),
-# so following it needs no further check here: spec-update.yml proposes a
-# new pin on a branch, ci.yml tests it, automerge.yml moves main to exactly
-# the tested commit.
+# latest follows the same rule as the spec's own pipeline ("only promoted
+# commits publish", ADR 0012 there): a commit counts only if promote.yml
+# succeeded on it. The spec's ruleset does not stop a direct push to its
+# main, and this repository runs the pinned commit's test VM action and
+# watchdog script; an unpromoted main keeps the current pin (a warning).
+# spec-update.yml proposes a new pin on a branch, ci.yml tests it there,
+# and main moves to exactly the tested commit. Needs GH_TOKEN (any token
+# that can read public repositories) for the run lookup.
 set -euo pipefail
 FILE="$(dirname "$0")/spec-ref"
 SPEC_URL="${SPEC_URL:-https://github.com/pipiobjo/opnsense-api-spec}"
@@ -27,6 +31,13 @@ case "${1:-}" in
   latest)
     ref=$(env -u GH_TOKEN -u GITHUB_TOKEN git ls-remote "$SPEC_URL" refs/heads/main | cut -f1)
     valid "$ref"
+    promoted=$(gh run list -R "${SPEC_URL#https://github.com/}" -w promote.yml -c "$ref" -s success -L 1 --json databaseId -q '.[0].databaseId // empty')
+    if [ -z "$promoted" ]; then
+      cur=$(tr -d '[:space:]' < "$FILE")
+      valid "$cur"
+      echo "::warning::the spec's main ${ref:0:12} has no successful promote.yml run; keeping the pin ${cur:0:12}" >&2
+      ref=$cur
+    fi
     echo "$ref" ;;
   set)
     valid "${2:-}"

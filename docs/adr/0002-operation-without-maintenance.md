@@ -41,23 +41,29 @@ back every write.
    such a commit only after `ci.yml` passed on exactly that commit (a
    fast-forward, no new merge commit).
 4. **The client is re-tested when the spec has new data** (amended
-   2026-11-16). `spec-update.yml` hashes the newest data the spec
-   repository published; for a hash not tested yet it runs the whole CI
-   suite against it, then remembers the hash in the Actions cache (no
-   commit); only if every plugin installed on every test VM (amended
-   2026-11-18: a run with a missing plugin did not test that plugin's
-   data, so the next day tests it again). So a new OPNsense release, hotfix or plugin update exercises
-   the client within a day, including the checks of OPNsense behaviour the
-   client relies on (`TestRecordedBehaviour`). A failure notifies nobody;
-   `watchdog.yml` (the spec repository's `alerts.sh`, point 6) opens one
-   self-closing `needs-you` issue after 7 days without success. It also
-   watches the spec repository's `pipeline.yml` and `watchdog.yml`, and
-   the spec's watchdog watches this repository's `spec-update.yml` and
-   `watchdog.yml` (amended 2026-11-18): GitHub disables all schedules of
-   an inactive repository at once, and a broken watchdog tells nobody. The
-   schedule is daily while the client is pre-release and becomes weekly or
-   monthly with the first stable release (one cron line). The spec
-   repository does not run the client: it knows no consumers.
+   2026-11-16, 2026-11-18, 2026-11-24). Pushes and pull requests test the
+   data state pinned in `tools/ci/catalog-ref` (`catalog-v1-<data_id>`),
+   so a new data state cannot turn an unrelated change red. New data
+   reaches that pin like a new spec commit (point 6): `spec-update.yml`
+   proposes it on a branch, `ci.yml` runs the whole suite against it there
+   (every series on a VM with every plugin; a plugin that did not install
+   fails the pin, since its resources were not tested), and `main` moves
+   only when that passed. `catalog-ref` on `main` therefore names the
+   newest data the suite passed on, in the git history rather than in a
+   cache that expires; a consumer that embeds the same state (ADR 0003)
+   embeds tested data. So a new OPNsense release, hotfix or plugin update
+   exercises the client within a day, including the checks of OPNsense
+   behaviour the client relies on (`TestRecordedBehaviour`). A failure
+   notifies nobody; `watchdog.yml` (the spec repository's `alerts.sh`,
+   point 6) opens one self-closing `needs-you` issue after 7 days without
+   success. It also watches the spec repository's `pipeline.yml` and
+   `watchdog.yml`, and the spec's watchdog watches this repository's
+   `spec-update.yml` and `watchdog.yml` (amended 2026-11-18): GitHub
+   disables all schedules of an inactive repository at once, and a broken
+   watchdog tells nobody. The schedule is daily while the client is
+   pre-release and becomes weekly or monthly with the first stable release
+   (one cron line). The spec repository does not run the client: it knows
+   no consumers.
 5. **Dependency updates** concern only the pinned actions (the module has
    no dependencies outside the standard library): Dependabot, monthly,
    grouped, versions at least 7 days old, merged without a person when
@@ -83,9 +89,16 @@ back every write.
    when that CI passed (amended 2026-11-20: `automerge.yml` never saw
    these runs, because GitHub starts no `workflow_run` for a run that the
    job token started; a pin now lands one day after it was proposed).
-   A pin whose CI failed keeps `spec-update.yml` red until the spec moves
-   on; after 7 days the watchdog reports it. Before, eight pin updates in
-   three days were made by hand.
+   Amended 2026-11-24: the same branch also carries the data pin
+   (`tools/ci/catalog-ref`, point 4); only a spec commit whose
+   `promote.yml` run passed is followed (the spec's own rule "only
+   promoted commits publish"; its `main` accepts direct pushes); a failed
+   pin run is run again once automatically, a second failure deletes the
+   branch so the next day proposes the pin afresh, and the job stays red
+   until a pin passes; after 7 days the watchdog reports it. The VM logs
+   of a failed run are kept 14 days, longer than that. The Dependabot
+   upkeep is its own job, so a failed pin does not stop it. Before the
+   automation, eight pin updates in three days were made by hand.
 7. **Unknown versions are graded.** Another hotfix revision of a known
    release, or a known plugin version seen on another core of the series,
    is a note (`Instance().Notes`): usual after an update, nothing to do. A
@@ -98,13 +111,34 @@ change when OPNsense changes its API conventions. The provider's weekly
 acceptance tests run the client against each new OPNsense release and
 report such a change there.
 
+## What "main is what was tested" means
+
+The ruleset "main: tested" requires the status check `ci passed` for
+every change to `main`, and both automatic paths (Dependabot, the pins)
+go through it. The ruleset has a bypass for the repository role admin
+(set 2026-11-20), and the maintainers' way of working is a direct push
+to `main` after the tests passed locally, unit and, for anything the
+integration test touches, on throwaway VMs of every series. So:
+
+- For Dependabot and the pins, `main` is exactly what CI tested.
+- For a maintainer's push, `ci.yml` runs on `main` after the push, not
+  before. A red run on such a commit means `main` holds untested or
+  failing code until the next push fixes it; nothing is published from
+  `main` by itself (a release is a tag pushed by a person, and
+  `release.yml` runs the whole suite again first).
+- Removing the bypass would turn every maintainer change into a pull
+  request with a VM run of about an hour; the project decided against it
+  while one person maintains it. Revisit this when a second maintainer
+  joins or before v1.
+
 ## Consequences
 
 - Users update the client when they want a code change, not to keep up
   with OPNsense.
-- Someone using the client on its own downloads the `catalog` release of
-  the spec repository and verifies it (`sha256sum -c SHA256SUMS`,
-  `gh attestation verify`); the README shows how.
+- Someone using the client on its own downloads a `catalog-v1-<data_id>`
+  release of the spec repository and verifies it (`sha256sum -c
+  SHA256SUMS`, `gh attestation verify`, or `tools/ci/catalog.sh`); the
+  README shows how.
 - Without newer data, fields and resources added by newer OPNsense
   versions are refused until the data is updated. Nothing breaks.
 - This repository has no routine work: the scheduled test runs are
