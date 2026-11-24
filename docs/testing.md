@@ -17,7 +17,7 @@ series (25.7, 26.1, 26.7), core and plugins:
 | K3 | A write that did not take effect is an error: every add and set is read back and compared; toggle and delete are confirmed. | F6 |
 | K4 | It reads every resource the data marks as verified, on a real firewall, and decodes the values. | F1, F2 |
 | K5 | It treats OPNsense's answer shapes and conventions correctly (option maps, empty objects as `[]`, IDs that are not UUIDs, uncounted rows, silent deletes, blank templates for unknown IDs). | F6 |
-| K6 | Credentials stay secret and the connection is authenticated: TLS verified by default, pin or CA as configured, no redirects, credentials never in errors or logs, field values never in error text (they may be secrets), no input can leave the API path. | Q2 |
+| K6 | Credentials stay secret and the connection is authenticated: TLS verified by default, pin or CA as configured, no redirects, credentials never in errors or logs, field values never in error text (they may be secrets; this includes the firewall's validation messages and error pages, which quote values), no input can leave the API path. | Q2 |
 | K7 | Crafted capability data or crafted answers cannot crash the client or make it read outside its data directory. | Q2 |
 | K8 | What the fake firewall in the unit tests assumes about OPNsense is still true. | Q1 |
 | K9 | In read-only mode nothing that changes the firewall is sent, by two independent checks (the API methods and the transport), and every read keeps working. | F7 |

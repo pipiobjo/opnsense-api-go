@@ -101,11 +101,17 @@ var ErrForbidden = errors.New("opnsense: the API key lacks the privilege for thi
 type HTTPError struct {
 	Method, Path string
 	Status       int
-	Body         string // at most 300 bytes
+	Body         string // at most 300 bytes; not in Error(), it may echo values
 }
 
+// Error names the request and the status, never the body: an error page
+// may echo the values sent.
 func (e *HTTPError) Error() string {
-	return fmt.Sprintf("opnsense: %s %s: HTTP %d %s", e.Method, e.Path, e.Status, e.Body)
+	msg := fmt.Sprintf("opnsense: %s %s: HTTP %d", e.Method, e.Path, e.Status)
+	if e.Status >= 300 && e.Status < 400 {
+		return msg + " (redirect refused: check the URL; the API is not followed to another location)"
+	}
+	return msg + " (answer in HTTPError.Body)"
 }
 
 // NotFound reports HTTP 404 (endpoint not found).
@@ -398,8 +404,7 @@ func (t *Transport) do(ctx context.Context, method, path string, query url.Value
 	case resp.StatusCode == http.StatusForbidden:
 		return false, fmt.Errorf("%w (%s %s)", ErrForbidden, method, path)
 	case resp.StatusCode >= 300 && resp.StatusCode <= 399:
-		return false, &HTTPError{Method: method, Path: path, Status: resp.StatusCode,
-			Body: "redirect refused (check the URL; the API is not followed to another location)"}
+		return false, &HTTPError{Method: method, Path: path, Status: resp.StatusCode}
 	case resp.StatusCode < 200 || resp.StatusCode > 299:
 		busy := resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout
 		return busy, &HTTPError{Method: method, Path: path, Status: resp.StatusCode, Body: Trunc(raw)}

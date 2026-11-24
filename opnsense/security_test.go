@@ -204,6 +204,28 @@ func TestValuesNeverInErrorMessages(t *testing.T) {
 	f.mu.Unlock()
 	_, err = s.Get(ctx)
 	note("decode", err)
+	// the firewall's validation quotes the rejected value (OPNsense's
+	// field validators do, e.g. AliasContentField)
+	_, err = n.Add(ctx, Values{"address": secret})
+	var val *ErrValidation
+	if !errors.As(err, &val) || !strings.Contains(val.Fields["address"], secret) {
+		t.Errorf("ErrValidation must keep the firewall's message in Fields: %v", err)
+	}
+	note("validation", err)
+	// a rejection whose answer names no field
+	f.addAnswer = map[string]any{"result": "failed", "message": secret}
+	_, err = n.Add(ctx, Values{"address": "192.0.2.12"})
+	note("validation without fields", err)
+	f.addAnswer = nil
+	// an error page that echoes a value (HTTP 500)
+	f.addStatus = 500
+	_, err = n.Add(ctx, Values{"address": "192.0.2.13", "description": secret})
+	var he *HTTPError
+	if !errors.As(err, &he) || !strings.Contains(he.Body, secret) {
+		t.Errorf("HTTPError must keep the answer in Body: %v", err)
+	}
+	note("HTTP 500", err)
+	f.addStatus = 0
 	// constructed: an answer that echoes a value
 	note("unexpected answer", &ErrUnexpectedAnswer{Resource: "r", Operation: "add", Answer: `{"x":"` + secret + `"}`})
 

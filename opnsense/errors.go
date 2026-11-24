@@ -87,15 +87,24 @@ func (e *ErrInvalid) Error() string {
 // ErrValidation: the firewall rejected the values (result "failed").
 type ErrValidation struct {
 	Resource string
-	Fields   map[string]string // field -> message from the firewall
-	Body     string            // the raw answer when it names no field
+	// Fields: field -> message from the firewall. OPNsense's messages often
+	// quote the rejected value, which may be a secret, so Error() names the
+	// fields only; show a message where the caller knows the field is not
+	// sensitive (FieldInfo.Secret).
+	Fields map[string]string
+	Body   string // the raw answer when it names no field; not in Error() either
 }
 
 func (e *ErrValidation) Error() string {
 	if len(e.Fields) == 0 {
-		return fmt.Sprintf("opnsense: %s rejected: %s", e.Resource, transport.Trunc([]byte(e.Body)))
+		return fmt.Sprintf("opnsense: %s rejected without naming a field (raw answer in ErrValidation.Body)", e.Resource)
 	}
-	return fmt.Sprintf("opnsense: %s rejected: %s", e.Resource, joinMap(e.Fields))
+	names := make([]string, 0, len(e.Fields))
+	for k := range e.Fields {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return fmt.Sprintf("opnsense: %s rejected these fields: %s (messages in ErrValidation.Fields)", e.Resource, strings.Join(names, ", "))
 }
 
 // FieldDiff is one field that did not read back as written.

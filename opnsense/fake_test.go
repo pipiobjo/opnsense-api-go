@@ -57,6 +57,7 @@ type fakeFirewall struct {
 	writeOnly     map[string]bool   // neighbor fields stored but read back as "" (UpdateOnlyTextField)
 	virtualRows   []string          // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
 	loseAnswer    string            // "abort": a change is processed, then the connection is reset; "garble": answered with broken JSON
+	addStatus     int               // if set, add answers this HTTP status with a body that echoes the sent description (a PHP error page)
 }
 
 func newFake(t *testing.T) *fakeFirewall {
@@ -155,8 +156,14 @@ func (f *fakeFirewall) handle(w http.ResponseWriter, r *http.Request) {
 		reply(f.addAnswer)
 	case p == "/api/quagga/ospfsettings/addNeighbor":
 		in, _ := body["neighbor"].(map[string]any)
+		if f.addStatus != 0 {
+			w.WriteHeader(f.addStatus)
+			reply(map[string]any{"errorMessage": fmt.Sprintf("Unexpected value %v", in["description"])})
+			return
+		}
 		if ip, _ := in["address"].(string); net.ParseIP(ip) == nil {
-			reply(map[string]any{"result": "failed", "validations": map[string]any{"neighbor.address": "Please specify a valid network segment or IP address."}})
+			// as OPNsense's field validators: the message quotes the value
+			reply(map[string]any{"result": "failed", "validations": map[string]any{"neighbor.address": fmt.Sprintf("Entry %q is not a valid network segment or IP address.", ip)}})
 			return
 		}
 		f.next++
