@@ -21,6 +21,7 @@ series (25.7, 26.1, 26.7), core and plugins:
 | K7 | Crafted capability data or crafted answers cannot crash the client or make it read outside its data directory. | Q2 |
 | K8 | What the fake firewall in the unit tests assumes about OPNsense is still true. | Q1 |
 | K9 | In read-only mode nothing that changes the firewall is sent, by two independent checks (the API methods and the transport), and every read keeps working. | F7 |
+| K10 | One rule says which fields hold secrets (`FieldInfo.Secret`): every write-only field and the credential fields a short name list misses (passphrase, community, `*_pass`, credentials, OTP seeds), not integers, booleans or options whose names look alike. | Q2 |
 
 ## Test layers
 
@@ -48,6 +49,7 @@ refuse any other target.
 | K6 | `TestTLSPinAndAuth`, `TestTLSWithCA`, `TestHTTPClientWithTLSIsRefused`, `TestCredentialsNeverInErrorsOrLogs`, `TestValuesNeverInErrorMessages`, `TestRawAnswersAreTruncated` (the raw answers kept in errors stay at 300 bytes), `TestBrokenJSONIsNotQuoted`, `TestConfigChecks`, `TestQueryRedirectAndSize`, `TestErrorsAndRequestShape`, `TestGetIsRetriedPostIsNot`, `TestReadRetries`, `TestDefaultTransportUsesHTTP2`, `TestUnauthorizedAndForbiddenDiffer`, `TestCheckPath`, `FuzzCheckPath`, `FuzzCheckID` |
 | K7 | `TestLoadBounded`, `TestCapabilityDirSymlinkOutside`, `TestLoadRefusesEscapingFileNames`, `TestLoadRefusesOtherFormat`, `TestCheckFindsBrokenReferences`, `TestCheckNullEntriesWithoutPanic`, `TestBrokenDataIsAnErrorNotAPanic`, `TestModelMatchesSchema`, `FuzzLoad`, `FuzzWireDecode` |
 | K9 | `TestReadOnlyMode` (every changing method refused, only GETs and the search POST reach the fake, its state unchanged), `TestReadOnlyConfig`, `TestReadOnlyTransport` (the transport alone refuses every other POST and every GET outside its list); on the VM `TestReadOnlyClientChangesNothing` (every resource read, every change refused, `config.xml` byte-identical afterwards) |
+| K10 | `TestSecretWords`, `TestSecretGolden` (every field the rule marks in the published data state `a4c4cd55b90853bb`, reviewed in `opnsense/capability/testdata/secret/golden.txt`), `TestInfo` |
 | K8 | `TestRecordedBehaviour` (unknown keys ignored with "saved", `[]` for an unknown UUID, set creates under an unknown UUID, GET with `Content-Type` rejected, search totals, apply answer), `TestFakeSpeaksHTTP2` |
 
 Error messages, which a provider shows its users, are checked by

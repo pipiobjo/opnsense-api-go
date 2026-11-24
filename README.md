@@ -169,9 +169,15 @@ answers these as `*ErrValidation`.
 `Info()` describes a resource in the firewall's version, as copies a
 consumer may keep: each field's type and kind, whether it is required,
 *runtime-required* (the contract test found the firewall requiring it
-although the model does not say so), write-only (never returned, so a
-change made elsewhere cannot be seen), set by the firewall, or converted on
-write; `SharedWith` names other resources on the same stored data (manage
+although the model does not say so), write-only (`get` returns it empty,
+so a change made elsewhere cannot be seen; from OPNsense 26.1.8 on a raw
+search answer holds the stored value, which `Rows` leaves out), set by the
+firewall, or converted on write. `Secret` says the value must not be
+shown: every write-only field, and free-text fields named like a
+password, secret, key, token, passphrase, community or credential (one
+rule, `capability.Field.Secret`, for every consumer; it errs towards
+hiding, and `opnsense/capability/testdata/secret/golden.txt` lists every
+field it marks in one published data state); `SharedWith` names other resources on the same stored data (manage
 it through one of them only); `Verified` is the contract test result for
 this version, or nil if it was not tested. `Check(values)` runs every check
 a write would run without sending anything, for plan time. `Fields()`

@@ -49,6 +49,9 @@ func TestInfo(t *testing.T) {
 	if !desc.WriteOnly || desc.RuntimeRequired || !prio.ServerSet || prio.Kind != capability.KindInt {
 		t.Errorf("description %+v, priority %+v", desc, prio)
 	}
+	if !desc.Secret || addr.Secret {
+		t.Errorf("Secret: a write-only field is one, an address is none: description %+v, address %+v", desc, addr)
+	}
 	if in.Fields["enabled"].Kind != capability.KindBool {
 		t.Errorf("enabled: %+v", in.Fields["enabled"])
 	}

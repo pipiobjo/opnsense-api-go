@@ -28,9 +28,16 @@ type FieldInfo struct {
 	RuntimeRequired bool
 	// ServerSet: the firewall sets the value itself; it cannot be written.
 	ServerSet bool
-	// WriteOnly: stored but never returned (passwords). A read never has
-	// it, and a change made elsewhere cannot be seen.
+	// WriteOnly: get returns it empty (passwords, API keys), so Get and
+	// Rows never have it and a change made elsewhere cannot be seen. From
+	// OPNsense 26.1.8 on a raw search answer contains the stored value (a
+	// hash, the key blob); the client leaves it out of Rows.
 	WriteOnly bool
+	// Secret: the value must not be shown (plan output, logs, a tool's
+	// answer): every write-only field, and free-text fields whose name
+	// says password, secret, key, token, passphrase, community and the
+	// like (capability.Field.Secret has the rule). It errs towards hiding.
+	Secret bool
 	// Volatile: not stored; it cannot be managed.
 	Volatile bool
 	// CustomWrite: the field's type converts values on write, so a value
@@ -90,7 +97,7 @@ func (b *bound) info() Info {
 		c := f.Clone()
 		in.Fields[name] = FieldInfo{Name: name, Type: c.Type, Kind: c.Kind(), Multiple: c.Multiple,
 			Required: c.Required, RuntimeRequired: slices.Contains(runtime, name),
-			ServerSet: c.ServerSet, WriteOnly: c.WriteOnly, Volatile: c.Volatile, CustomWrite: c.CustomWrite(),
+			ServerSet: c.ServerSet, WriteOnly: c.WriteOnly, Secret: c.Secret(name), Volatile: c.Volatile, CustomWrite: c.CustomWrite(),
 			Default: c.Default, Options: c.Options, StaticOptions: c.StaticOptions(), Relations: c.Relations, Gaps: c.Gaps}
 	}
 	return in
