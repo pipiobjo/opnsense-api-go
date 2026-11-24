@@ -598,3 +598,93 @@ func TestLocksRespectTheContext(t *testing.T) {
 		t.Errorf("the second add's apply did not run, so it must stay pending: %v", p)
 	}
 }
+
+// Claim (README): a set the firewall rejects is an *ErrValidation naming
+// the fields, for entries and settings alike, and marks nothing pending
+// (nothing was saved).
+func TestSetRejectedByTheFirewall(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	s, _ := c.Settings("quagga/ospfsettings")
+	id, err := n.Add(ctx, Values{"address": "192.0.2.10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Apply(ctx); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	f.setAnswer = map[string]any{"result": "failed", "validations": map[string]any{"neighbor.priority": "out of range", "ospf.routerid": "not an id"}}
+	f.mu.Unlock()
+	var v *ErrValidation
+	if err := n.Set(ctx, id, Values{"priority": 7}); !errors.As(err, &v) || v.Fields["priority"] == "" {
+		t.Errorf("entries: %v", err)
+	}
+	if err := s.Set(ctx, Values{"routerid": "192.0.2.1"}); !errors.As(err, &v) || v.Fields["routerid"] == "" {
+		t.Errorf("settings: %v", err)
+	}
+	if p := c.Pending(); len(p) != 0 {
+		t.Errorf("a rejected write saved nothing, but pending: %v", p)
+	}
+}
+
+// Claim (F6): a write whose read-back fails is an error, never a success:
+// the write cannot be confirmed (the GUI answering 502 while it restarts).
+func TestReadBackFailureIsAnError(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	s, _ := c.Settings("quagga/ospfsettings")
+	f.mu.Lock()
+	f.getStatus = 502
+	f.mu.Unlock()
+	if err := s.Set(ctx, Values{"routerid": "192.0.2.1"}); err == nil || !strings.Contains(err.Error(), "reading back") {
+		t.Errorf("settings: %v", err)
+	}
+	// add does not read before it posts: the post succeeds, the read-back
+	// fails
+	if _, err := n.Add(ctx, Values{"address": "192.0.2.12"}); err == nil || !strings.Contains(err.Error(), "reading back") {
+		t.Errorf("entries: %v", err)
+	}
+}
+
+// Claim (K5): where get answers an unknown ID with a template, the search
+// decides, and it matches the ID: another existing entry does not make a
+// deleted one exist. Get and Set of the deleted ID are ErrNotFound, and
+// Set does not create it again.
+func TestTemplateControllerMatchesTheID(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	f.fullTemplate = true
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	keep, err := n.Add(ctx, Values{"address": "192.0.2.10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone, err := n.Add(ctx, Values{"address": "192.0.2.11"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	delete(f.nbrs, gone) // deleted elsewhere
+	f.mu.Unlock()
+	if _, err := n.Get(ctx, gone); !errors.Is(err, ErrNotFound) {
+		t.Errorf("get of the deleted entry: %v", err)
+	}
+	if err := n.Set(ctx, gone, Values{"description": "x"}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("set of the deleted entry: %v", err)
+	}
+	f.mu.Lock()
+	_, recreated := f.nbrs[gone]
+	f.mu.Unlock()
+	if recreated {
+		t.Error("set created the deleted entry again")
+	}
+	if _, err := n.Get(ctx, keep); err != nil {
+		t.Errorf("the other entry: %v", err)
+	}
+}

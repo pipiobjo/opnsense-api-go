@@ -57,6 +57,8 @@ type fakeFirewall struct {
 	writeOnly     map[string]bool   // neighbor fields stored but read back as "" (UpdateOnlyTextField)
 	virtualRows   []string          // ids of rows search adds without counting them in total (26.1 d_nat anti-lockout rules)
 	loseAnswer    string            // "abort": a change is processed, then the connection is reset; "garble": answered with broken JSON
+	setAnswer     map[string]any    // if set, set (settings and entries) stores nothing and answers this
+	getStatus     int               // if set, every get answers this HTTP status (a GUI restarting after a write)
 	addStatus     int               // if set, add answers this HTTP status with a body that echoes the sent description (a PHP error page)
 }
 
@@ -138,6 +140,10 @@ func (f *fakeFirewall) handle(w http.ResponseWriter, r *http.Request) {
 		reply(map[string]any{"product_version": f.core, "product_id": "opnsense",
 			"package": []map[string]string{{"name": "opnsense", "version": f.core, "installed": "1"},
 				{"name": "os-acme-client", "version": "4.10", "installed": "0"}}, "plugin": plugins})
+	case f.getStatus != 0 && strings.Contains(p, "/get"):
+		w.WriteHeader(f.getStatus)
+	case f.setAnswer != nil && (p == "/api/quagga/ospfsettings/set" || strings.HasPrefix(p, "/api/quagga/ospfsettings/setNeighbor/")):
+		reply(f.setAnswer)
 	case p == "/api/quagga/ospfsettings/get":
 		reply(map[string]any{"ospf": f.ospfObject()})
 	case p == "/api/quagga/ospfsettings/set":

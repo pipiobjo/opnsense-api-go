@@ -45,9 +45,9 @@ refuse any other target.
 |---|---|
 | K1 | `TestDetectExact`, `TestInstanceReportsDataID`, `TestDetectHotfixIsANote`, `TestDetectAssumedAndRefused`, `TestDetectionFallbackOnlyOnForbidden`, `TestDetectionWithoutFirmwarePrivilege`, `TestResolveReal`, `TestResolveRefuse`, `TestResolveNearestOlderCore`, `TestResolveCoreNeverNewer`, `TestResolveNewerSeriesIsTypedError`, `TestResolveNewerSeriesReadOnly` (a newer series is read with the newest data, every package read-only), `TestResolvePluginBetweenKnownVersions`, `TestResolvePluginOlderThanData`, `TestResolveCoreOlderThanData`, `TestRefuseCoversPackageWithoutSeriesData`, `TestResolveOtherCoresOnlyIsANote`, `TestCompareVersions` (the published table `version-order.json`, the same file the spec tests), `TestVersionsWithLetters`, `TestReadOnlyPackageRefusesWrites`, `TestInstanceIsACopy`; on the VM `TestDetectionResolves` |
 | K2 | `TestNothingIsSentThatTheVersionDoesNotHave`, `TestCheck`, `TestInfo`, `TestFieldOfAnotherVersion`, `TestResourceNotAvailable`, `TestEncode`, `TestServerSetFieldsAndOptionLists`, `TestVolatileRefusedTransformedChecked`, `TestTypedErrors`, `TestFieldsAndGetRaw`, `TestValidationFromTheFirewall` |
-| K3 | `TestEntriesCycle`, `TestSettings`, `TestReadBackCatchesWhatTheServerIgnored`, `TestSameWire`, `TestReadBackCause`, `TestToggle`, `TestToggleReadsBack`, `TestDeleteIsConfirmed`, `TestSilentDelete`, `TestTransformedFieldIsWrittenNotCompared`, `TestWriteOnlyFieldIsNotReadBack`, `TestAutoApply`, `TestAutoApplyAfterReadBack`, `TestApplyNeedsAnExplicitOK`, `TestApplyKeepsWritesDuringTheCall`, `TestLocksRespectTheContext`, `TestResourceApply`, `TestResourceApplyInANewProcess`, `TestLostAnswerMarksPending`, `TestPostOutcomeUnknown`; on the VM `TestOSPFNeighborCycle`, `TestSettingsSetAndRestore`, `TestEveryVerifiedResource` |
+| K3 | `TestEntriesCycle`, `TestSetRejectedByTheFirewall`, `TestReadBackFailureIsAnError`, `TestSettings`, `TestReadBackCatchesWhatTheServerIgnored`, `TestSameWire`, `TestReadBackCause`, `TestToggle`, `TestToggleReadsBack`, `TestDeleteIsConfirmed`, `TestSilentDelete`, `TestTransformedFieldIsWrittenNotCompared`, `TestWriteOnlyFieldIsNotReadBack`, `TestAutoApply`, `TestAutoApplyAfterReadBack`, `TestApplyNeedsAnExplicitOK`, `TestApplyKeepsWritesDuringTheCall`, `TestLocksRespectTheContext`, `TestResourceApply`, `TestResourceApplyInANewProcess`, `TestLostAnswerMarksPending`, `TestPostOutcomeUnknown`; on the VM `TestOSPFNeighborCycle`, `TestSettingsSetAndRestore`, `TestEveryVerifiedResource` |
 | K4 | `TestEveryVerifiedResource`, `TestWireAndDecode`, `TestOneOddFieldDoesNotHideTheOthers`, `TestWriteOnlyFieldsAreNotDecoded`, `TestRealDataFieldsAndVariants` |
-| K5 | `TestExistenceWithoutASearch` (one GET decides where get answers `[]`; the probe once per list and client), `TestProbeErrorLeavesItToTheSearch`, `TestUnreadableGetLeavesItToTheSearch`, `TestRows`, `TestFind`, `TestRowsOnlyWhatTheSearchShowsAsGetDoes`, `TestRowsKeepSelectFields`, `TestBadIDsAreRefused`, `TestNonUUIDIDsAreAccepted`, `TestBlankTemplateIsNotAnEntry`, `TestGetFullTemplateIsNotFound`, `TestListPagesAndGetOnlySearch`, `TestListNoticesMissingRows`, `TestSearchWithUncountedRows`, `TestApplyAcceptsResultOK`, `TestSetPath`, `TestCall` |
+| K5 | `TestExistenceWithoutASearch` (one GET decides where get answers `[]`; the probe once per list and client), `TestProbeErrorLeavesItToTheSearch`, `TestUnreadableGetLeavesItToTheSearch`, `TestRows`, `TestFind`, `TestRowsOnlyWhatTheSearchShowsAsGetDoes`, `TestRowsKeepSelectFields`, `TestBadIDsAreRefused`, `TestNonUUIDIDsAreAccepted`, `TestBlankTemplateIsNotAnEntry`, `TestGetFullTemplateIsNotFound`, `TestTemplateControllerMatchesTheID` (another existing entry does not make a deleted one exist), `TestListPagesAndGetOnlySearch`, `TestListNoticesMissingRows`, `TestSearchWithUncountedRows`, `TestApplyAcceptsResultOK`, `TestSetPath`, `TestCall` |
 | K6 | `TestTLSPinAndAuth`, `TestTLSWithCA`, `TestCAReplacesSystemRoots` (a configured CA replaces the system roots), `TestHTTPClientWithTLSIsRefused`, `TestCredentialsNeverInErrorsOrLogs`, `TestValuesNeverInErrorMessages`, `TestRawAnswersAreTruncated` (the raw answers kept in errors stay at 300 bytes), `TestBrokenJSONIsNotQuoted`, `TestConfigChecks`, `TestQueryRedirectAndSize`, `TestErrorsAndRequestShape`, `TestGetIsRetriedPostIsNot`, `TestReadRetries`, `TestDefaultTransportUsesHTTP2`, `TestUnauthorizedAndForbiddenDiffer`, `TestCheckPath`, `FuzzCheckPath`, `FuzzCheckID` |
 | K7 | `TestLoadBounded`, `TestLoadFromEmbed` (data embedded with `go:embed`, ADR 0003), `TestCapabilityDirSymlinkOutside`, `TestLoadRefusesEscapingFileNames`, `TestLoadRefusesOtherFormat`, `TestCheckFindsBrokenReferences`, `TestCheckNullEntriesWithoutPanic`, `TestBrokenDataIsAnErrorNotAPanic`, `TestModelMatchesSchema`, `FuzzLoad`, `FuzzWireDecode` |
 | K9 | `TestReadOnlyMode` (every changing method refused, only GETs and the search POST reach the fake, its state unchanged), `TestReadOnlyConfig`, `TestReadOnlyTransport` (the transport alone refuses every other POST and every GET outside its list); on the VM `TestReadOnlyClientChangesNothing` (every resource read, every change refused, `config.xml` byte-identical afterwards) |
@@ -72,6 +72,22 @@ writes), removing the container check from `setPath`, letting the
 transport log the secret or put the key into an error, accepting a CA that
 did not sign the server certificate, a renamed JSON key in the data model.
 Commit messages record these checks ("seen failing for ...").
+
+One-off breaks prove a test once; a later refactoring can take its power
+away silently. The checks whose loss would hurt most are therefore broken
+on every CI run: `internal/mutation` (`TestMutantsAreKilled`, the same
+technique as the spec repository's) holds a table of mutants, each one
+exact change to the source handed to the compiler with `go test
+-overlay`, and the test that must fail for it: the result check of
+`Entries.Set` and `Settings.Set`, a failed read-back, the read-back
+comparison, the ID match of the existence check, the delete
+confirmation, both layers of read-only mode, the certificate pin, the
+configured CA replacing the system roots, dot segments in paths, values
+in `ErrValidation`'s text, the secret rule's type filter, the settings
+restore rule of `WriteVerified`, and the resolver never using newer core
+data. A surviving mutant fails the run; so does an anchor that no longer
+matches the code (update the table with the code). A new check of
+security or verdict kind gets a row.
 
 A skipped test proves nothing either, and a skip in a green run is easy
 to overlook. `tools/ci/skips.sh` reads the `go test -v` output of the unit
