@@ -248,18 +248,49 @@ type Action struct {
 
 // ResVerify is the contract test result of a resource in one fragment.
 type ResVerify struct {
-	Release         string         `json:"release"`
-	Composition     string         `json:"composition"`
-	Generator       string         `json:"generator"`
-	Date            string         `json:"date"`
-	Read            string         `json:"read,omitempty"`
-	Write           string         `json:"write,omitempty"`
+	Release     string `json:"release"`
+	Composition string `json:"composition"`
+	Generator   string `json:"generator"`
+	Date        string `json:"date"`
+	Read        Status `json:"read,omitempty"`
+	Write       Status `json:"write,omitempty"`
+	// Steps: what was done; see the Step constants.
 	Steps           []string       `json:"steps,omitempty"`
 	Sample          map[string]any `json:"sample,omitempty"`
 	Generated       []string       `json:"generated,omitempty"`
 	RuntimeRequired []string       `json:"runtime_required,omitempty"`
 	Findings        []string       `json:"findings,omitempty"`
+	// SameDefinitionAs: this fragment was not tested itself; the result is
+	// that of the named fragment of the same series, whose api and field
+	// variants are identical. Empty: tested itself.
+	SameDefinitionAs string `json:"same_definition_as,omitempty"`
+	// ReturnedBySearch: write-only fields whose stored value the search
+	// answer contained in this run.
+	ReturnedBySearch []string `json:"returned_by_search,omitempty"`
 }
+
+// Status is a result of the contract test (ResVerify.Read and Write); the
+// spec repository defines the vocabulary (internal/verify, status.go).
+type Status string
+
+// Results of the contract test. Only StatusOK is a pass.
+const (
+	StatusOK       Status = "ok"
+	StatusAccepted Status = "accepted"  // a failure declared expected upstream (verify/accepted.json)
+	StatusSkipped  Status = "skipped"   // not tested; the findings say why
+	StatusKnownGap Status = "known-gap" // differs where the data already marks a gap
+	StatusMismatch Status = "mismatch"
+	StatusError    Status = "error"
+)
+
+// Steps of a write test (ResVerify.Steps) that change what a result means.
+const (
+	// StepReadBackRestore: a settings write changed a field to another
+	// value, read it back, restored it and read it back again (generator
+	// 0.10.0 and later). Without it, a settings "ok" only wrote the current
+	// value back, which an endpoint that stores nothing also passes.
+	StepReadBackRestore = "read-back-restore"
+)
 
 // In is "*" (every fragment of the resource) or a list of fragments.
 type In struct {

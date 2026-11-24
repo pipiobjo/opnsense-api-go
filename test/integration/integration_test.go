@@ -273,7 +273,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 			v := r.Verified[res.Fragment]
 			switch r.Kind {
 			case "settings":
-				if v == nil || v.Read != "ok" {
+				if v == nil || v.Read != capability.StatusOK {
 					// not verified, so not written; still read through the
 					// client, and what fails is counted and logged: the
 					// contract test found the answer's shape different
@@ -281,7 +281,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 					// expected data, not a client fault
 					status := "no result"
 					if v != nil {
-						status = v.Read
+						status = string(v.Read)
 					}
 					t.Run("unverified/"+id, func(t *testing.T) {
 						s, err := c.Settings(id)
@@ -305,7 +305,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 				// the contract test wrote it back successfully; otherwise
 				// (model invalid by default, not a configuration save) the
 				// client only reads it
-				writable := v.Write == "ok"
+				writable := v.Write == capability.StatusOK
 				var passed, skipped bool
 				t.Run(id, func(t *testing.T) {
 					defer func() { passed, skipped = !t.Failed(), t.Skipped() }()
@@ -371,7 +371,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 				})
 				count(passed, skipped, !writable)
 			case "entries":
-				if v == nil || v.Write != "ok" || len(v.Sample) == 0 || hasReference(v.Sample) {
+				if v == nil || v.Write != capability.StatusOK || len(v.Sample) == 0 || hasReference(v.Sample) {
 					noSample++
 					continue
 				}

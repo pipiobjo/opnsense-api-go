@@ -125,6 +125,10 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "### Integration matrix" >> "$GITHUB_STEP_SUMMARY"
           jq -r '.[] | "- \(.release)"' <<<"$matrix" >> "$GITHUB_STEP_SUMMARY"
+      # every key of the downloaded format is read by the client or ignored
+      # on purpose; a key the spec added since the test data fails here
+      - name: Format keys of this data
+        run: OPNSENSE_CAPABILITIES="$PWD/catalog" go test -count=1 -run '^TestModelMatchesSchema$' -v ./opnsense/capability/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: catalog

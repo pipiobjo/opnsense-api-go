@@ -6,6 +6,7 @@ package capability
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -15,14 +16,29 @@ import (
 // Keys of the format the client deliberately does not read, with the
 // reason. Everything else in the schema must have a field in the model, so
 // a key added to the format is either used or listed here on purpose.
-var ignoredKeys = map[string]string{}
+var ignoredKeys = map[string]string{
+	// list fields (field.list, field.empty_ignored): the client still
+	// encodes lists by "multiple"; the list encoding change reads them
+	"list":          "list encoding not yet read",
+	"separator":     "list encoding not yet read",
+	"ordered":       "list encoding not yet read",
+	"empty_ignored": "list encoding not yet read",
+}
 
 // schemaKeys returns every property name the JSON Schema defines, at any
 // depth. Map keys (resource IDs, versions, hashes) are additionalProperties
-// or patternProperties and not included.
+// or patternProperties and not included. The schema comes from the test
+// data, or with OPNSENSE_CAPABILITIES from the data the CI run downloaded
+// (ci.yml, job data): a key the spec added since the test data was copied
+// fails there, before a consumer silently ignores it.
 func schemaKeys(t *testing.T) map[string]bool {
 	t.Helper()
-	b, err := os.ReadFile("testdata/catalog/capability.schema.json")
+	dir := "testdata/catalog"
+	if d := os.Getenv("OPNSENSE_CAPABILITIES"); d != "" {
+		dir = d
+	}
+	t.Logf("schema: %s", dir)
+	b, err := os.ReadFile(filepath.Join(dir, "capability.schema.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,6 +128,11 @@ func TestModelMatchesSchema(t *testing.T) {
 	sort.Strings(stale)
 	if len(unread) > 0 {
 		t.Errorf("keys of the format the model does not read (add them, or to ignoredKeys with a reason): %v", unread)
+	}
+	if os.Getenv("OPNSENSE_CAPABILITIES") != "" {
+		// published data may be older than the model: reading a key it
+		// does not have yet is harmless; ignoring one it has is not
+		return
 	}
 	if len(unknown) > 0 {
 		t.Errorf("keys the model reads that the format does not define: %v", unknown)

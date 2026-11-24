@@ -122,3 +122,66 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Check in read-only mode: %v", err)
 	}
 }
+
+// Claim (README, P4 of the spec's requirements): WriteVerified is true
+// only where writing was tested on data describing this version. A result
+// that is not "ok", a settings result that only wrote the current value
+// back (no restore step), and a version the data does not have
+// (Assumed) are not.
+func TestWriteVerified(t *testing.T) {
+	s, err := capability.Load(os.DirFS("capability/testdata/catalog")) // private copy
+	if err != nil {
+		t.Fatal(err)
+	}
+	frag := frrFragment(t, s)
+	res := s.Docs["os-frr"].Resources
+	f := newFake(t)
+	c, err := connect(t, f, func(cfg *Config) { cfg.Capabilities = s })
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := c.Entries(neighbors)
+	in := n.Info()
+	if !in.WriteVerified() || in.VerifiedOn() != "26.7.9" || in.Verified.SameDefinition || in.Assumed {
+		t.Errorf("neighbors (add, set, del read back on 26.7.9): %+v", in.Verified)
+	}
+	st, _ := c.Settings("quagga/ospfsettings")
+	if st.Info().Verified.Write != VerifyOK || st.Info().WriteVerified() {
+		t.Error("settings written back with their current value only (steps set, read-back) are not write-verified")
+	}
+	res["quagga/ospfsettings"].Verified[frag].Steps = []string{"set", "read-back", "restore", "read-back-restore"}
+	if !st.Info().WriteVerified() {
+		t.Error("settings changed and restored are write-verified")
+	}
+	v := res[neighbors].Verified[frag]
+	v.Write = capability.StatusSkipped
+	if n.Info().WriteVerified() || n.Info().VerifiedOn() != "26.7.9" {
+		t.Error("write skipped: read tested on 26.7.9, not write-verified")
+	}
+	v.Write, v.Read = VerifyOK, VerifyKnownGap
+	if n.Info().WriteVerified() {
+		t.Error("read known-gap: not write-verified")
+	}
+	v.Read, v.SameDefinitionAs = VerifyOK, "0123456789abcdef"
+	if in := n.Info(); !in.Verified.SameDefinition || !in.WriteVerified() {
+		t.Errorf("carried result of an identical definition: %+v", in.Verified)
+	}
+	delete(res[neighbors].Verified, frag)
+	n, _ = c.Entries(neighbors) // bound anew: the result is looked up on binding
+	if in := n.Info(); in.Verified != nil || in.WriteVerified() || in.VerifiedOn() != "" {
+		t.Errorf("not tested: %+v", in.Verified)
+	}
+
+	// a plugin version the data has never seen: its nearest data is used,
+	// and that data's result is not this version's
+	f2 := newFake(t)
+	f2.plugins["os-frr"] = "2.9"
+	c2 := mustConnect(t, f2)
+	n2, err := c2.Entries(neighbors)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in := n2.Info(); !in.Assumed || in.WriteVerified() || in.Verified == nil {
+		t.Errorf("assumed version: Assumed %v, WriteVerified %v, Verified %+v", in.Assumed, in.WriteVerified(), in.Verified)
+	}
+}

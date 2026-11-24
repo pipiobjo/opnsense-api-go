@@ -350,6 +350,7 @@ type bound struct {
 	res      *capability.Resource
 	api      *capability.API
 	verified *capability.ResVerify
+	assumed  bool   // the package version is not in the data (MatchAssumed)
 	readOnly string // why writes are refused, "" if they are allowed
 }
 
@@ -383,7 +384,7 @@ func (c *Client) bind(id, kind string) (*bound, error) {
 				return nil, fmt.Errorf("opnsense: %s: no API variant for fragment %s", id, res.Fragment)
 			}
 			b := &bound{c: c, id: id, pkg: pkg, version: res.Version, frag: res.Fragment, res: r,
-				api: api, verified: r.Verified[res.Fragment]}
+				api: api, verified: r.Verified[res.Fragment], assumed: res.Match == capability.MatchAssumed}
 			if res.ReadOnly {
 				b.readOnly = res.Warning
 			}

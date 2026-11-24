@@ -178,11 +178,17 @@ password, secret, key, token, passphrase, community or credential (one
 rule, `capability.Field.Secret`, for every consumer; it errs towards
 hiding, and `opnsense/capability/testdata/secret/golden.txt` lists every
 field it marks in one published data state); `SharedWith` names other resources on the same stored data (manage
-it through one of them only); `Verified` is the contract test result for
-this version, or nil if it was not tested. `Check(values)` runs every check
-a write would run without sending anything, for plan time. `Fields()`
-returns the raw descriptions (copies); prefer `Info()`, which does not tie a
-consumer to the data format.
+it through one of them only); `Verified` is what the contract test found
+on the data that describes this version (from this version, or from one
+whose description is identical: `SameDefinition`), nil if nothing was
+tested. A non-nil `Verified` does not mean written: `WriteVerified()` is
+true only when read and write passed, the version is in the data (not
+`Assumed`), and for settings a value was changed and restored;
+`VerifiedOn()` names the release. A provider warns where `WriteVerified()`
+is false. `Check(values)` runs every check a write would run without
+sending anything, for plan time. `Fields()` and `Data()` return the raw
+format-1 descriptions (copies, not a stable API); prefer `Info()`, whose
+types belong to the client and do not change with the data format.
 
 Entry IDs are usually UUIDs, but not always (`wan`, `bogons`, hashes).
 IDs may contain letters, digits, `_`, `-` and `.`, not start with a dot;

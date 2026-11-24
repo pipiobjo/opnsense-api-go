@@ -4,7 +4,6 @@
 package opnsense
 
 import (
-	"maps"
 	"slices"
 
 	"github.com/pipiobjo/opnsense-api-go/opnsense/capability"
@@ -46,10 +45,56 @@ type FieldInfo struct {
 	Default     *string // the model's default, nil if none
 	// Options: the static options; StaticOptions says whether they are the
 	// complete list (otherwise the firewall may accept more).
-	Options       []capability.Option
+	Options       []Option
 	StaticOptions bool
-	Relations     []capability.Relation // entry lists a relation field points to
-	Gaps          []string              // what the data could not derive about the field
+	Relations     []Relation // entry lists a relation field points to
+	Gaps          []string   // what the data could not derive about the field
+}
+
+// Option is a static option of a field: the value to send, and how the
+// firewall labels and groups it.
+type Option struct{ Value, Label, Group string }
+
+// Relation names an entry list a relation field points to: its model
+// (Source, e.g. "OPNsense.Firewall.Alias") and the path of its entries
+// (Items).
+type Relation struct{ Source, Items string }
+
+// VerifyStatus is a result of the contract test (Verification.Read and
+// Write). Only VerifyOK is a pass.
+type VerifyStatus = capability.Status
+
+// Results of the contract test.
+const (
+	VerifyOK       = capability.StatusOK
+	VerifyAccepted = capability.StatusAccepted // a failure declared expected upstream
+	VerifySkipped  = capability.StatusSkipped  // not tested; Findings say why
+	VerifyKnownGap = capability.StatusKnownGap // differs where the data already marks a gap
+	VerifyMismatch = capability.StatusMismatch
+	VerifyError    = capability.StatusError
+)
+
+// Verification is what the contract test of opnsense-api-spec found for a
+// resource on a throwaway firewall, in the data that describes this
+// firewall's version. Show it to users ("written and read back on 26.7.9",
+// "not tested"): an untested resource may behave differently from its
+// description. Use Info.WriteVerified to decide whether writing was tested.
+type Verification struct {
+	Release string // the release the test ran on, e.g. "26.7.9"
+	Date    string // when, RFC 3339
+	// Read: the reads (get, search) decoded as the data says. Write: an
+	// entry was added, changed and deleted, or a settings field set and
+	// restored, each read back; it covers the sample fields (entries) or
+	// the one changed field (settings), not every field. VerifySkipped and
+	// "" mean not written, never a pass.
+	Read, Write     VerifyStatus
+	Steps           []string // what was done, e.g. add, read-back, set, del
+	Findings        []string // why a step did not pass
+	RuntimeRequired []string // fields the firewall required although the model does not mark them
+	// SameDefinition: this version's data was not tested itself; the result
+	// is that of Release, whose description of the resource is identical
+	// (same series).
+	SameDefinition bool
 }
 
 // Info describes a resource in the firewall's version.
@@ -63,11 +108,40 @@ type Info struct {
 	SharedWith []string
 	// ReadOnly: why writes are refused ("" if they are allowed).
 	ReadOnly string
-	// Verified: the contract test result for this version, nil if this
-	// version was not tested. Show it to users: an untested resource may
-	// behave differently from its description.
-	Verified *capability.ResVerify
-	Fields   map[string]FieldInfo
+	// Verified: the contract test result for the data that describes this
+	// firewall's version: from this version, or from one with the same
+	// description (Verification.SameDefinition); nil if none was tested.
+	// Non-nil does not mean written: a result may be read-only, skipped or
+	// a known gap; WriteVerified says whether writing was tested.
+	Verified *Verification
+	// Assumed: the firewall's version of the package is not in the data;
+	// the data of the nearest version of the series is used (a warning in
+	// Instance().Warnings), so Verified comes from another version.
+	Assumed bool
+	Fields  map[string]FieldInfo
+}
+
+// VerifiedOn names the release the contract test ran on for this
+// resource, "" if it was not tested.
+func (in Info) VerifiedOn() string {
+	if in.Verified == nil {
+		return ""
+	}
+	return in.Verified.Release
+}
+
+// WriteVerified reports whether writing this resource was tested on data
+// that describes this firewall's version: read and write passed, the
+// version is in the data (not Assumed), and for settings the test changed
+// a value and restored it (older results only wrote the current value
+// back, which an endpoint that stores nothing also passes). A provider
+// warns for every resource where it is false.
+func (in Info) WriteVerified() bool {
+	v := in.Verified
+	if v == nil || in.Assumed || v.Read != VerifyOK || v.Write != VerifyOK {
+		return false
+	}
+	return in.Kind != "settings" || slices.Contains(v.Steps, capability.StepReadBackRestore)
 }
 
 // Info describes the entry list in the firewall's version.
@@ -82,25 +156,41 @@ func (b *bound) info() Info {
 	if b.c.cfg.ReadOnly {
 		in.ReadOnly = readOnlyModeReason
 	}
+	in.Verified, in.Assumed = verification(b.verified), b.assumed
 	var runtime []string
-	if b.verified != nil {
-		v := *b.verified
-		v.Steps = slices.Clone(v.Steps)
-		v.Generated = slices.Clone(v.Generated)
-		v.RuntimeRequired = slices.Clone(v.RuntimeRequired)
-		v.Findings = slices.Clone(v.Findings)
-		v.Sample = maps.Clone(v.Sample)
-		in.Verified = &v
-		runtime = v.RuntimeRequired
+	if in.Verified != nil {
+		runtime = in.Verified.RuntimeRequired
 	}
 	for name, f := range b.res.FieldsFor(b.frag) {
-		c := f.Clone()
-		in.Fields[name] = FieldInfo{Name: name, Type: c.Type, Kind: c.Kind(), Multiple: c.Multiple,
-			Required: c.Required, RuntimeRequired: slices.Contains(runtime, name),
-			ServerSet: c.ServerSet, WriteOnly: c.WriteOnly, Secret: c.Secret(name), Volatile: c.Volatile, CustomWrite: c.CustomWrite(),
-			Default: c.Default, Options: c.Options, StaticOptions: c.StaticOptions(), Relations: c.Relations, Gaps: c.Gaps}
+		in.Fields[name] = fieldInfo(name, f, runtime)
 	}
 	return in
+}
+
+// fieldInfo describes one field variant, as copies.
+func fieldInfo(name string, f *capability.Field, runtime []string) FieldInfo {
+	c := f.Clone()
+	fi := FieldInfo{Name: name, Type: c.Type, Kind: c.Kind(), Multiple: c.Multiple,
+		Required: c.Required, RuntimeRequired: slices.Contains(runtime, name),
+		ServerSet: c.ServerSet, WriteOnly: c.WriteOnly, Secret: c.Secret(name), Volatile: c.Volatile, CustomWrite: c.CustomWrite(),
+		Default: c.Default, StaticOptions: c.StaticOptions(), Gaps: c.Gaps}
+	for _, o := range c.Options {
+		fi.Options = append(fi.Options, Option{Value: o.Value, Label: o.Label, Group: o.Group})
+	}
+	for _, r := range c.Relations {
+		fi.Relations = append(fi.Relations, Relation{Source: r.Source, Items: r.Items})
+	}
+	return fi
+}
+
+// verification copies a result of the data into the client's own type.
+func verification(v *capability.ResVerify) *Verification {
+	if v == nil {
+		return nil
+	}
+	return &Verification{Release: v.Release, Date: v.Date, Read: v.Read, Write: v.Write,
+		Steps: slices.Clone(v.Steps), Findings: slices.Clone(v.Findings),
+		RuntimeRequired: slices.Clone(v.RuntimeRequired), SameDefinition: v.SameDefinitionAs != ""}
 }
 
 // Check runs every check a write would run, without sending anything: the
