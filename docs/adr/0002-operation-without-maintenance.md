@@ -26,8 +26,8 @@ back every write.
 1. **The client is code only.** It carries no capability data. The caller
    passes a directory (`CapabilityDir`) or a loaded set (`Capabilities`).
    Whoever ships a product built on the client ships the data with it and
-   decides how often to update it; the planned OpenTofu provider embeds it
-   and updates it weekly.
+   decides how often to update it; the planned OpenTofu provider embeds one
+   pinned state at build time (ADR 0003, amended 2026-11-24).
 2. **Releases follow code changes,** tagged when CI is green. A new
    OPNsense release needs no client release.
 3. **No secrets, and no change without a test.** CI runs on pushes and

@@ -154,6 +154,15 @@ tar --zstd -xf capabilities.tar.zst
 `tools/ci/catalog.sh DIR` does the same (`CATALOG_TAG` pins a state,
 e.g. `catalog-v1-<data_id>`) and fails if a check fails.
 
+A product built on the client embeds one pinned state at build time and
+does not load data at run time
+([ADR 0003](docs/adr/0003-capability-data-embedded-at-build-time.md)):
+run `CATALOG_TAG=catalog-v1-<data_id> tools/ci/catalog.sh <dir>/catalog`
+as a build step, embed the directory with `//go:embed catalog`, and pass
+`capability.Load(fs.Sub(embedded, "catalog"))` as `Config.Capabilities`.
+`tools/ci/catalog-ref` names the newest state this client's own tests
+passed on.
+
 You do not have to update it for every OPNsense release: with older data
 the client keeps working on a newer firewall of the same series and refuses
 only fields and resources it does not know yet. Update it when you need one

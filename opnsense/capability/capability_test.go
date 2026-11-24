@@ -4,8 +4,10 @@
 package capability
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
@@ -335,5 +337,24 @@ func TestLoadRefusesEscapingFileNames(t *testing.T) {
 		if _, err := Load(fsys); err == nil || !strings.Contains(err.Error(), "bad file name") {
 			t.Errorf("file %q: %v", file, err)
 		}
+	}
+}
+
+//go:embed testdata/catalog
+var embeddedCatalog embed.FS
+
+// Claim (ADR 0003): data embedded with go:embed loads through fs.Sub, the
+// way a provider ships it.
+func TestLoadFromEmbed(t *testing.T) {
+	sub, err := fs.Sub(embeddedCatalog, "testdata/catalog")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Catalog.DataID == "" || s.Docs[CorePackage] == nil {
+		t.Errorf("embedded data: data_id %q, %d documents", s.Catalog.DataID, len(s.Docs))
 	}
 }
