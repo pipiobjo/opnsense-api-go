@@ -130,7 +130,7 @@ func (e *Entries) Get(ctx context.Context, id string) (Values, error) {
 	if err := checkID(id); err != nil {
 		return nil, err
 	}
-	obj, err := e.b.exists(ctx, id)
+	obj, err := e.b.exists(ctx, id, true)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 	// under that UUID (seen on 26.7.9), which would silently undo a delete.
 	// The model lock keeps this client's own deletes out of the gap; a
 	// delete by someone else in between cannot be excluded.
-	if _, err := b.exists(ctx, id); err != nil {
+	if _, err := b.exists(ctx, id, false); err != nil {
 		return err
 	}
 	var resp map[string]any
@@ -207,6 +207,9 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	defer unlock()
+	// the confirmation below searches afresh; an answer "not found"
+	// returns before it, so drop what Get remembers
+	b.c.forgetIDs(b.id)
 	var resp map[string]any
 	if err := b.c.post(ctx, b.path(op, id), nil, &resp, b.api.Apply); err != nil {
 		return err
@@ -221,7 +224,7 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 	} // else: the endpoint answers nothing; the check below decides
 	b.c.markPending(b.api.Apply)
 	var confirm error
-	if _, err := b.exists(ctx, id); !errors.Is(err, ErrNotFound) {
+	if _, err := b.exists(ctx, id, false); !errors.Is(err, ErrNotFound) {
 		if err == nil {
 			confirm = &ErrStillExists{Resource: b.id, ID: id}
 		} else {
@@ -254,7 +257,7 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	}
 	defer unlock()
 	// an unknown UUID must not be trusted either: check and read first
-	obj, err := b.exists(ctx, id)
+	obj, err := b.exists(ctx, id, false)
 	if err != nil {
 		return err
 	}
@@ -625,7 +628,11 @@ func (b *bound) getObject(ctx context.Context, id string) (map[string]any, error
 // An answer get cannot read (some controllers answer an unknown ID
 // without their outer key, os-squid's PAC entries on 26.7.9) is decided by
 // the search as well: not listed is ErrNotFound, listed returns the error.
-func (b *bound) exists(ctx context.Context, id string) (map[string]any, error) {
+// With cached (Get only), an ID the last search listed within
+// Config.ExistsCacheTTL counts as existing without a new search; an ID it
+// did not list is searched afresh. Writes never use the cache: a stale
+// "exists" would let Set recreate an entry deleted elsewhere.
+func (b *bound) exists(ctx context.Context, id string, cached bool) (map[string]any, error) {
 	obj, err := b.getObject(ctx, id)
 	if (err == nil || errors.Is(err, ErrNotFound)) && b.getDecides(ctx) {
 		return obj, err
@@ -633,10 +640,14 @@ func (b *bound) exists(ctx context.Context, id string) (map[string]any, error) {
 	if _, ok := b.api.Operations["search"]; !ok {
 		return obj, err
 	}
+	if cached && b.c.listedRecently(b.id, id) {
+		return obj, err
+	}
 	rows, serr := b.search(ctx)
 	if serr != nil {
 		return nil, fmt.Errorf("opnsense: %s: checking that %s exists: %w", b.id, id, serr)
 	}
+	b.c.rememberIDs(b.id, rows)
 	for _, r := range rows {
 		if r.id == id {
 			return obj, err

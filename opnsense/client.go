@@ -12,7 +12,8 @@
 //	id, err := hosts.Add(ctx, opnsense.Values{"hostname": "nas", "domain": "example.com", "server": "192.0.2.10"})
 //	err = hosts.Apply(ctx)
 //
-// A Client is safe for concurrent use.
+// A Client is safe for concurrent use; by default it runs one change or
+// apply at a time (Config.ParallelWrites).
 package opnsense
 
 import (
@@ -90,6 +91,22 @@ type Config struct {
 	// AutoApply applies after every successful mutation.
 	AutoApply bool
 
+	// ParallelWrites lets changes to different models, and applies, run at
+	// the same time. By default (false) a Client runs one change or apply
+	// at a time: OPNsense locks config.xml for its standard save actions,
+	// but plugins with their own save code and a reconfigure that reads the
+	// configuration while another model is saved have not been shown safe
+	// on a real firewall (prior art reports lost writes). Reads never wait.
+	ParallelWrites bool
+
+	// ExistsCacheTTL: entry lists whose get answers an unknown ID with a
+	// blank template (os-nginx) need a search to tell whether an entry
+	// exists. Get reuses that search's IDs for this long, so refreshing N
+	// entries costs N reads and one search instead of N searches; Set,
+	// Toggle and Delete always search afresh, and every search renews it. An entry deleted by someone else may read as present
+	// for this long. Default DefaultExistsCacheTTL; negative turns it off.
+	ExistsCacheTTL time.Duration
+
 	// ReadOnly: the client reads but never changes the firewall. Every
 	// changing method (Add, Set, Delete, Toggle, Settings.Set, Apply)
 	// returns *ErrReadOnly before anything is sent, and the transport
@@ -124,6 +141,8 @@ type Config struct {
 const (
 	DefaultTimeout      = 60 * time.Second
 	DefaultApplyTimeout = 5 * time.Minute
+	// DefaultExistsCacheTTL of Config.ExistsCacheTTL: about one plan.
+	DefaultExistsCacheTTL = 30 * time.Second
 )
 
 // Instance describes the detected firewall. The client returns a copy.
@@ -159,6 +178,7 @@ type Client struct {
 	pending    map[string]uint64        // apply endpoint -> generation of the last mutation
 	locks      map[string]chan struct{} // per model class, and per apply endpoint ("apply:<path>")
 	getDecides map[string]bool          // entry list -> its get answers an unknown ID with [] (bound.getDecides)
+	listed     map[string]listedIDs     // entry list -> IDs of its last search (bound.exists)
 
 	pluginsUnknown bool // the key may not read the plugin list
 }
@@ -212,8 +232,12 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 	if cfg.ApplyTimeout == 0 {
 		cfg.ApplyTimeout = DefaultApplyTimeout
 	}
+	if cfg.ExistsCacheTTL == 0 {
+		cfg.ExistsCacheTTL = DefaultExistsCacheTTL
+	}
 	c := &Client{cfg: cfg, t: t, data: data, owns: map[string][]string{},
-		pending: map[string]uint64{}, locks: map[string]chan struct{}{}, getDecides: map[string]bool{}}
+		pending: map[string]uint64{}, locks: map[string]chan struct{}{}, getDecides: map[string]bool{},
+		listed: map[string]listedIDs{}}
 	for pkg, d := range data.Docs {
 		for id := range d.Resources {
 			c.owns[id] = append(c.owns[id], pkg)
@@ -427,8 +451,14 @@ func (c *Client) versions(pkg string, frags []string) []string {
 
 // lock takes the lock for key (a model class, or "apply:<path>") and gives
 // up when ctx ends, so a cancelled caller does not wait behind a long
-// apply. The returned unlock may be called more than once.
+// apply. Without Config.ParallelWrites every key is the one write lock.
+// The returned unlock may be called more than once; no caller holds a
+// lock while taking another.
 func (c *Client) lock(ctx context.Context, key string) (func(), error) {
+	wait := strings.TrimPrefix(key, "apply:")
+	if !c.cfg.ParallelWrites {
+		key = "write"
+	}
 	c.mu.Lock()
 	m := c.locks[key]
 	if m == nil {
@@ -439,7 +469,7 @@ func (c *Client) lock(ctx context.Context, key string) (func(), error) {
 	select {
 	case m <- struct{}{}:
 	case <-ctx.Done():
-		return nil, fmt.Errorf("opnsense: waiting for another change to %s: %w", strings.TrimPrefix(key, "apply:"), ctx.Err())
+		return nil, fmt.Errorf("opnsense: waiting for another change before %s: %w", wait, ctx.Err())
 	}
 	var once sync.Once
 	return func() { once.Do(func() { <-m }) }, nil
@@ -462,6 +492,41 @@ func (c *Client) post(ctx context.Context, path string, body, out any, apply str
 		c.markPending(apply)
 	}
 	return err
+}
+
+// listedIDs: the IDs of an entry list's search, and when it was made.
+type listedIDs struct {
+	ids  map[string]bool
+	when time.Time
+}
+
+// rememberIDs keeps a search's IDs for Get (Config.ExistsCacheTTL).
+func (c *Client) rememberIDs(resource string, rows []searchRow) {
+	ids := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		ids[r.id] = true
+	}
+	c.mu.Lock()
+	c.listed[resource] = listedIDs{ids, time.Now()}
+	c.mu.Unlock()
+}
+
+// listedRecently: the last search of the list, within the TTL, had id.
+func (c *Client) listedRecently(resource, id string) bool {
+	if c.cfg.ExistsCacheTTL < 0 {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	l, ok := c.listed[resource]
+	return ok && time.Since(l.when) < c.cfg.ExistsCacheTTL && l.ids[id]
+}
+
+// forgetIDs drops the remembered IDs of a list.
+func (c *Client) forgetIDs(resource string) {
+	c.mu.Lock()
+	delete(c.listed, resource)
+	c.mu.Unlock()
 }
 
 // Pending lists the apply endpoints that Apply would call.

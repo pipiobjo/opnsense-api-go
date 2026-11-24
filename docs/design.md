@@ -50,8 +50,9 @@ stable across all supported series.
    firewall sets (`server_set`), the endpoint sets (`forced`,
    `computed`) or does not store (`volatile`) are refused. Nothing has
    been sent when any of this fails.
-4. Lock the model (one writer per model in this client). Waiting for the
-   lock ends with the context.
+4. Take the write lock: by default one change or apply at a time per
+   client (rule 12); with `Config.ParallelWrites` one writer per model.
+   Waiting for the lock ends with the context.
 5. For `Set` of an entry: confirm the entry exists (rule 3).
 6. POST with the wrapper key; `result` maps the answer (`saved`,
    validation messages to `ErrValidation`, anything else to
@@ -63,14 +64,16 @@ stable across all supported series.
 8. `readBack`: read the object and compare every sent field; lists as
    sets. Differences become `ErrNotApplied`, each with the cause the data
    gives (`custom-write`, `custom-save`, `transformed`) or none.
-9. Release the model lock, then `finish`: with `AutoApply`, apply after
-   the read-back; both results are returned. An apply can take minutes;
-   other changes to the model do not wait for it.
+9. Release the lock, then `finish`: with `AutoApply`, apply after the
+   read-back; both results are returned. The apply takes the lock again;
+   with `ParallelWrites` it holds only its endpoint's lock, so other
+   changes do not wait for an apply that takes minutes.
 
 The pending list lives only in the `Client`. `Entries.Apply` and
 `Settings.Apply` call their endpoint unconditionally, so a later process
 can activate what an earlier one saved; `Client.Apply` calls the pending
-endpoints. `Check` runs steps 1 to 3 without sending; `Info` describes a
+endpoints. `Check` runs steps 2 and 3 without sending and joins step 1's
+refusal, so values are checked in read-only mode too; `Info` describes a
 resource from the data as copies (field kinds, write-only, server-set,
 runtime-required, `shared_with`, verification). Error texts name fields,
 never values: OPNsense marks few secrets as such.
@@ -124,7 +127,13 @@ removed.
    measurement is repeated next time, not remembered. Without a search
    operation, get decides. Cost: one GET per check instead of a search of
    the whole list (`Set` and `Delete` on a list of 1,000 entries no longer
-   transfer the list each time).
+   transfer the list each time). Where the search decides, `Get` reuses
+   the IDs of the last search for `Config.ExistsCacheTTL` (default 30
+   seconds, about one plan), so a refresh of N entries makes one search,
+   not N. Only a listed ID is taken from it; writes always search afresh,
+   so a remembered list can never make `Set` recreate an entry deleted
+   elsewhere. The cost: `Get` may show an entry deleted by someone else
+   within that time.
 4. **Fields set by the firewall or the endpoint are refused** before
    sending: `server_set` fields, and the `forced` and `computed` fields of
    the operation (bind domain types, the traffic shaper's pipe number,
@@ -169,10 +178,45 @@ removed.
     two firmware paths detection needs, then the get and search operations
     of the resolved data and `ReadOnlyAllow`. `Call` is limited the same
     way, by its own check.
-11. **Read-back exceptions**: `write_only` fields are not compared (never
-    returned); volatile fields are refused before sending (never stored);
+11. **Read-back exceptions**: `write_only` fields are not compared (`get`
+    returns them empty; from 26.1.8 a raw search answer has the stored
+    value, which `Rows` leaves out); volatile fields are refused before sending (never stored);
     transformed fields only must not come back empty. `Toggle` reads the
     entry again and fails if `enabled` did not change.
+12. **One write at a time by default.** OPNsense's standard save actions
+    lock `config.xml`, but plugins with their own save code, and a
+    reconfigure that reads the configuration while another model is
+    saved, have not been shown safe on a real firewall; prior art
+    (browningluke's opnsense-go) serialises every write and reconfigure
+    after reports of lost writes. So a `Client` runs one change or apply
+    at a time unless `Config.ParallelWrites` is set; reads never wait.
+    This stays the default until an integration test on the VM shows
+    parallel adds and sets on several models, one with its own save code,
+    with an apply of a third model running, all read back intact.
+
+## Apply in a provider
+
+Saving and activating are separate in OPNsense: a write changes the
+stored configuration, an apply (`reconfigure`) makes a service use it,
+often by restarting it. Recommendations for an OpenTofu provider:
+
+- Do not use `AutoApply` for resources that come in numbers: 50 Unbound
+  host overrides would restart Unbound 50 times.
+- Use one `Client` per provider instance; its pending list collects the
+  apply endpoint of every change (`Client.Pending`). Apply once per
+  service after its last change, not after every resource; apply earlier
+  only where a later step needs the change active.
+- The framework has no "end of apply" hook. A workable pattern is an
+  explicit apply resource per service (for example `opnsense_apply` with
+  the service's endpoint), which depends on all resources of that service,
+  so it runs once after them and is replaced when any of them changes.
+- If a run stops between save and apply, the next run starts with an
+  empty pending list. `Entries.Apply` and `Settings.Apply` call their
+  endpoint unconditionally for this reason: the apply resource of the next
+  run activates what the failed run saved.
+- An `ErrApply` or an HTTP 500 from an apply leaves the configuration
+  saved but maybe inactive; report it on the apply resource, not on the
+  resources whose writes were read back correctly.
 
 ## Adding or changing a rule
 

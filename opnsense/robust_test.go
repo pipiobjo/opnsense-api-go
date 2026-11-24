@@ -43,11 +43,15 @@ func TestBadIDsAreRefused(t *testing.T) {
 	}
 }
 
-// A write that is saved while an apply runs must stay pending.
+// A write that is saved while an apply runs must stay pending (possible
+// with Config.ParallelWrites).
 func TestApplyKeepsWritesDuringTheCall(t *testing.T) {
 	ctx := context.Background()
 	f := newFake(t)
-	c := mustConnect(t, f)
+	c, err := connect(t, f, func(cfg *Config) { cfg.ParallelWrites = true })
+	if err != nil {
+		t.Fatal(err)
+	}
 	s, _ := c.Settings("quagga/ospfsettings")
 	if err := s.Set(ctx, Values{"enabled": true}); err != nil {
 		t.Fatal(err)
@@ -552,13 +556,14 @@ func TestLostAnswerMarksPending(t *testing.T) {
 	}
 }
 
-// Claim: a long apply does not block other changes to the same model, and
-// a caller whose context ends stops waiting for a lock (a provider's
-// Ctrl-C or timeout must not hang for minutes behind an apply).
+// Claim: with Config.ParallelWrites a long apply does not block other
+// changes to the same model, and a caller whose context ends stops
+// waiting for a lock (a provider's Ctrl-C or timeout must not hang for
+// minutes behind an apply).
 func TestLocksRespectTheContext(t *testing.T) {
 	ctx := context.Background()
 	f := newFake(t)
-	c, err := connect(t, f, func(cfg *Config) { cfg.AutoApply = true })
+	c, err := connect(t, f, func(cfg *Config) { cfg.AutoApply = true; cfg.ParallelWrites = true })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -686,5 +691,155 @@ func TestTemplateControllerMatchesTheID(t *testing.T) {
 	}
 	if _, err := n.Get(ctx, keep); err != nil {
 		t.Errorf("the other entry: %v", err)
+	}
+}
+
+// Claim (README, design.md): by default a Client runs one change or apply
+// at a time; a change waits for a running apply (and gives up with its
+// context), reads do not wait.
+func TestWritesAreSerialisedByDefault(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	c, err := connect(t, f, func(cfg *Config) { cfg.AutoApply = true })
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := c.Entries(neighbors)
+	s, _ := c.Settings("quagga/ospfsettings")
+	f.applyGate, f.applyStart = make(chan struct{}), make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if _, err := n.Add(ctx, Values{"address": "192.0.2.10"}); err != nil {
+			t.Errorf("first add: %v", err)
+		}
+	}()
+	<-f.applyStart // the first add's apply is running
+	if _, err := s.Get(ctx); err != nil {
+		t.Errorf("a read must not wait for the apply: %v", err)
+	}
+	short, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer cancel()
+	if err := s.Set(short, Values{"routerid": "192.0.2.1"}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("a change to another model must wait for the apply: %v", err)
+	}
+	f.mu.Lock()
+	routerid := f.ospf["routerid"]
+	f.mu.Unlock()
+	if routerid != "" {
+		t.Error("the waiting change was sent")
+	}
+	close(f.applyGate)
+	wg.Wait()
+	f.applyGate = nil
+	if err := s.Set(ctx, Values{"routerid": "192.0.2.1"}); err != nil {
+		t.Errorf("after the apply: %v", err)
+	}
+}
+
+// Claim (README, DEV-5): on a list whose get answers unknown IDs with a
+// template, reading N entries costs one search, not N; a change through
+// the Client and every write check search afresh, so a write never trusts
+// a remembered list.
+func TestExistenceSearchIsReusedByGet(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	f.fullTemplate = true
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	var ids []string
+	for _, a := range []string{"192.0.2.10", "192.0.2.11", "192.0.2.12"} {
+		id, err := n.Add(ctx, Values{"address": a})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	searches := func() int {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		k := 0
+		for _, call := range f.calls {
+			if strings.HasSuffix(call, "/searchNeighbor") {
+				k++
+			}
+		}
+		return k
+	}
+	before := searches()
+	for _, id := range ids {
+		if _, err := n.Get(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if d := searches() - before; d != 1 {
+		t.Errorf("reading %d entries made %d searches, want 1", len(ids), d)
+	}
+	// deleted elsewhere: a write searches afresh and refuses
+	f.mu.Lock()
+	delete(f.nbrs, ids[0])
+	f.mu.Unlock()
+	if err := n.Set(ctx, ids[0], Values{"description": "x"}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("set of an entry deleted elsewhere: %v", err)
+	}
+	// a delete through the client of an entry already deleted elsewhere
+	// (answered "not found"): the remembered list is dropped
+	if _, err := n.Get(ctx, ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	delete(f.nbrs, ids[1])
+	f.mu.Unlock()
+	if err := n.Delete(ctx, ids[1]); !errors.Is(err, ErrNotFound) {
+		t.Errorf("delete of an entry deleted elsewhere: %v", err)
+	}
+	if _, err := n.Get(ctx, ids[1]); !errors.Is(err, ErrNotFound) {
+		t.Errorf("get after delete: %v", err)
+	}
+	// turned off: every get searches
+	off, err := connect(t, f, func(cfg *Config) { cfg.ExistsCacheTTL = -1 })
+	if err != nil {
+		t.Fatal(err)
+	}
+	on, _ := off.Entries(neighbors)
+	before = searches()
+	for i := 0; i < 2; i++ {
+		if _, err := on.Get(ctx, ids[2]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if d := searches() - before; d != 2 {
+		t.Errorf("without the cache: %d searches for 2 gets", d)
+	}
+}
+
+// Claim (README, CON-3): nil clears a field: it is sent as the empty
+// value, and the read-back compares with that.
+func TestNilClearsAField(t *testing.T) {
+	ctx := context.Background()
+	f := newFake(t)
+	c := mustConnect(t, f)
+	n, _ := c.Entries(neighbors)
+	s, _ := c.Settings("quagga/ospfsettings")
+	id, err := n.Add(ctx, Values{"address": "192.0.2.10", "description": "x", "priority": 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := n.Set(ctx, id, Values{"description": nil, "priority": nil}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := n.Get(ctx, id)
+	if err != nil || got["description"] != "" || got["priority"] != nil {
+		t.Errorf("after clearing: %#v %v", got, err)
+	}
+	if err := s.Set(ctx, Values{"costreference": 100}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Set(ctx, Values{"costreference": nil}); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := s.Get(ctx); v["costreference"] != nil {
+		t.Errorf("settings after clearing: %#v", v["costreference"])
 	}
 }

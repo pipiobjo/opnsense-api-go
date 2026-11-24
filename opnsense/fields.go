@@ -4,6 +4,7 @@
 package opnsense
 
 import (
+	"errors"
 	"slices"
 
 	"github.com/pipiobjo/opnsense-api-go/opnsense/capability"
@@ -198,11 +199,16 @@ func verification(v *capability.ResVerify) *Verification {
 // field is set by the firewall, and writes are allowed. For an entry list
 // the values are checked for both add and set. Use it at plan time; the
 // firewall's own validation (ErrValidation) still happens on write.
+// Where writes are refused (read-only mode, a package older than the
+// data) the values are still checked: the result joins their errors with
+// the *ErrReadOnly, so a read-only tool can validate a configuration.
 func (e *Entries) Check(v Values) error {
 	b := e.b
-	if err := b.writable(); err != nil {
-		return err
-	}
+	return errors.Join(e.checkValues(v), b.writable())
+}
+
+func (e *Entries) checkValues(v Values) error {
+	b := e.b
 	checked := false
 	for _, name := range []string{"add", "set"} {
 		if op := b.api.Operations[name]; op != nil {
@@ -223,15 +229,13 @@ func (e *Entries) Check(v Values) error {
 // Entries.Check).
 func (s *Settings) Check(v Values) error {
 	b := s.b
-	if err := b.writable(); err != nil {
-		return err
+	var valErr error
+	if op, err := b.op("set"); err != nil {
+		valErr = err
+	} else {
+		_, _, valErr = b.encode(v, op)
 	}
-	op, err := b.op("set")
-	if err != nil {
-		return err
-	}
-	_, _, err = b.encode(v, op)
-	return err
+	return errors.Join(valErr, b.writable())
 }
 
 func cloneFields(m map[string]*capability.Field) map[string]*capability.Field {

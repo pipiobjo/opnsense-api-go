@@ -118,8 +118,17 @@ func TestCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	rn, _ := ro.Entries(neighbors)
-	if err := rn.Check(Values{"address": "192.0.2.10"}); !errors.Is(err, ErrWriteRefused) {
-		t.Errorf("Check in read-only mode: %v", err)
+	if err := rn.Check(Values{"address": "192.0.2.10"}); !errors.Is(err, ErrWriteRefused) || errors.As(err, &inv) {
+		t.Errorf("Check in read-only mode, valid values: %v", err)
+	}
+	// read-only mode still checks the values (a read-only tool validates a
+	// configuration)
+	if err := rn.Check(Values{"enabled": "yes"}); !errors.Is(err, ErrWriteRefused) || !errors.As(err, &inv) {
+		t.Errorf("Check in read-only mode, invalid values: %v", err)
+	}
+	rs, _ := ro.Settings("quagga/ospfsettings")
+	if err := rs.Check(Values{"enabled": 1}); !errors.Is(err, ErrWriteRefused) || !errors.As(err, &inv) {
+		t.Errorf("settings Check in read-only mode, invalid values: %v", err)
 	}
 }
 

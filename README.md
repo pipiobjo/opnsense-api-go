@@ -20,6 +20,10 @@ still change; see [Status](#status).
 
 ## Use
 
+Requires Go 1.26 or newer (`go.mod`); CI tests the oldest and the newest
+supported Go release, and the minimum follows Go's own support window (the
+two newest releases).
+
 ```go
 c, err := opnsense.New(ctx, opnsense.Config{
 	URL:    "https://fw.example.com",
@@ -56,7 +60,11 @@ served by several families of endpoints (bind's primary and forward
 domains). `Values`
 maps field paths to `bool`, `int64`, `string` or `[]string` (list fields);
 the wire encoding (`"0"`/`"1"`, comma-separated lists, option maps on read)
-is the client's job.
+is the client's job. To clear a field, set it to `nil` (sent as the empty
+value; a provider does this for an attribute removed from the
+configuration, since `Set` leaves fields it is not given unchanged).
+Where the model has a default, the firewall may store that instead: the
+read-back then reports the difference as `*ErrNotApplied`.
 
 Reading entry lists: `List` returns the IDs, `Rows` every entry with its
 fields (`[]Row{ID, Values}`), both from one search request; `Get` reads
@@ -195,7 +203,8 @@ true only when read and write passed, the version is in the data (not
 `Assumed`), and for settings a value was changed and restored;
 `VerifiedOn()` names the release. A provider warns where `WriteVerified()`
 is false. `Check(values)` runs every check a write would run without
-sending anything, for plan time. `Fields()` and `Data()` return the raw
+sending anything, for plan time; in read-only mode it still checks the
+values and joins their errors with the `*ErrReadOnly`. `Fields()` and `Data()` return the raw
 format-1 descriptions (copies, not a stable API); prefer `Info()`, whose
 types belong to the client and do not change with the data format.
 
@@ -218,9 +227,19 @@ anything else is refused before a request is built.
 resource unconditionally. The pending list lives only in the process: after
 a failed apply, a new process (the next provider run) has nothing pending,
 so it must call `Entries.Apply` or `Settings.Apply` for the resources it
-manages to activate what an earlier run saved. A write that lands while an
-apply runs stays pending. `Call` reaches any other API endpoint (service
-actions, diagnostics) without checks or read-back.
+manages to activate what an earlier run saved. When to apply in a provider:
+[design.md, "Apply in a provider"](docs/design.md#apply-in-a-provider).
+`Call` reaches any other API endpoint (service actions, diagnostics)
+without checks or read-back.
+
+A `Client` is safe for concurrent use. By default it runs one change or
+apply at a time and reads never wait: parallel writes to OPNsense have not
+been shown safe on a real firewall yet (design.md, rule 12).
+`Config.ParallelWrites` lets changes to different models and applies run
+together; a write that lands while an apply runs then stays pending. On
+lists whose `get` answers unknown IDs with a template, `Get` reuses the
+existence search for `Config.ExistsCacheTTL` (30 s by default; writes
+always search afresh).
 
 ### TLS
 
