@@ -52,12 +52,13 @@ const (
 )
 
 // TLS settings: at most one of CAFile/CAPEM, PinSHA256 and
-// InsecureSkipVerify. Without any of them the system roots are used. For a
+// InsecureSkipVerify. Without any of them the system roots are used; with
+// CAFile or CAPEM only those CAs are trusted, not the system roots. For a
 // firewall with a self-signed certificate, prefer PinSHA256: it is as easy
 // to set up as InsecureSkipVerify and keeps the API key safe.
 type TLS struct {
-	CAFile    string // PEM file with the CA that signed the firewall's certificate
-	CAPEM     []byte // the same as bytes
+	CAFile    string // PEM file with the CA(s) that may sign the firewall's certificate; the only ones trusted
+	CAPEM     []byte // the same as bytes (both may be set; their certificates are combined)
 	PinSHA256 string // SHA-256 of the firewall's certificate (hex, colons allowed)
 
 	// InsecureSkipVerify turns certificate verification off. Anyone who can

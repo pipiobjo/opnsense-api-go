@@ -219,6 +219,8 @@ Verification is on by default against the system roots. Alternatives,
 exactly one of them:
 
 - `TLS.CAFile` / `TLS.CAPEM`: the CA that signed the firewall's certificate.
+  Only these certificates are trusted then, not the system roots
+  ([ADR 0004](docs/adr/0004-custom-ca-replaces-system-roots.md)).
 - `TLS.PinSHA256`: the SHA-256 of the firewall's certificate; the right
   choice for the self-signed certificate OPNsense creates.
 - `TLS.InsecureSkipVerify`: no verification. Anyone on the network path

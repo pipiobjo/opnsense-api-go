@@ -17,7 +17,9 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -140,6 +142,39 @@ func TestTLSWithCA(t *testing.T) {
 	_, err := connect(t, f, func(c *Config) { c.TLS = TLS{PinSHA256: strings.Repeat("ab", 32)} })
 	if err == nil || !strings.Contains(err.Error(), f.pin()) {
 		t.Errorf("a pin mismatch names the certificate's actual SHA-256: %v", err)
+	}
+}
+
+// Claim (README, ADR 0004): with TLS.CAPEM or CAFile only that CA is
+// trusted; the system roots are not. A firewall with a public name could
+// otherwise be impersonated with any publicly trusted certificate. The
+// child process gets the fake's certificate as a system root (SSL_CERT_FILE,
+// read once per process): trusted without TLS settings, refused when
+// another CA is configured.
+func TestCAReplacesSystemRoots(t *testing.T) {
+	if os.Getenv("OPNSENSE_TEST_SYSTEM_ROOT_CHILD") == "1" {
+		f := newFake(t)
+		if _, err := connect(t, f, func(c *Config) { c.TLS = TLS{} }); err != nil {
+			t.Fatalf("the fake's certificate is a system root here, so the default must trust it: %v", err)
+		}
+		if _, err := connect(t, f, func(c *Config) { c.TLS = TLS{CAPEM: otherCA(t)} }); err == nil {
+			t.Error("with another CA configured, a certificate trusted only by the system roots must be refused")
+		}
+		return
+	}
+	if runtime.GOOS != "linux" {
+		t.Skip("SSL_CERT_FILE sets the system roots on Linux only")
+	}
+	f := newFake(t) // httptest servers all share one certificate
+	roots := filepath.Join(t.TempDir(), "roots.pem")
+	if err := os.WriteFile(roots, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: f.srv.Certificate().Raw}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCAReplacesSystemRoots$", "-test.count=1", "-test.v")
+	cmd.Env = append(os.Environ(), "OPNSENSE_TEST_SYSTEM_ROOT_CHILD=1", "SSL_CERT_FILE="+roots, "SSL_CERT_DIR=")
+	out, err := cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "--- PASS: TestCAReplacesSystemRoots") {
+		t.Errorf("child: %v\n%s", err, out)
 	}
 }
 

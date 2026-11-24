@@ -42,7 +42,7 @@ type Config struct {
 	URL    string // https://host[:port][/path], without /api
 	Key    string
 	Secret string
-	CAPEM  []byte // additional trusted CA certificates (PEM)
+	CAPEM  []byte // the only trusted CA certificates (PEM); replaces the system roots
 	Pin    string // SHA-256 of the server certificate (DER), hex, colons allowed
 	// Insecure disables certificate verification entirely. Anyone on the
 	// network path can then read the API key and secret.
@@ -180,10 +180,9 @@ func tlsConfig(c Config) (*tls.Config, error) {
 	case c.Insecure:
 		tc.InsecureSkipVerify = true
 	case len(c.CAPEM) > 0:
-		pool, err := x509.SystemCertPool()
-		if err != nil || pool == nil {
-			pool = x509.NewCertPool()
-		}
+		// only these CAs: the system roots would let any public CA vouch
+		// for a firewall with a public name (ADR 0004)
+		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(c.CAPEM) {
 			return nil, errors.New("opnsense: no certificate found in the CA PEM")
 		}
