@@ -25,7 +25,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/url"
 	"os"
 	"reflect"
@@ -250,11 +249,15 @@ func TestEveryVerifiedResource(t *testing.T) {
 	// was not verified on this version (the contract test found a known
 	// gap, or has no result), of them undecodable: read with *ErrDecode,
 	// readFailed: the read failed
-	var tested, readOnly, skippedRun, noSample, unverified, undecodable, readFailed, tolerated int
-	count := func(passed, skipped, onlyRead bool) {
+	// rejected: settings whose changed field the firewall's validation
+	// refused (nothing was written, so not tested)
+	var tested, readOnly, skippedRun, noSample, unverified, undecodable, readFailed, tolerated, rejected int
+	count := func(passed, skipped, onlyRead, wasRejected bool) {
 		switch {
 		case skipped:
 			skippedRun++
+		case passed && wasRejected:
+			rejected++
 		case passed && onlyRead:
 			readOnly++
 		case passed:
@@ -306,7 +309,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 				// (model invalid by default, not a configuration save) the
 				// client only reads it
 				writable := v.Write == capability.StatusOK
-				var passed, skipped bool
+				var passed, skipped, wasRejected bool
 				t.Run(id, func(t *testing.T) {
 					defer func() { passed, skipped = !t.Failed(), t.Skipped() }()
 					s, err := c.Settings(id)
@@ -357,8 +360,10 @@ func TestEveryVerifiedResource(t *testing.T) {
 						t.Skipf("model not valid in its default state here: %v", err)
 					case errors.As(err, &val2):
 						// the other value is not allowed in this state (a
-						// dependency between fields): the write was checked
-						t.Logf("%s=%v rejected by the firewall's validation: %v", name, !val, err)
+						// dependency between fields): nothing was written, so
+						// this resource is counted apart, not as tested
+						t.Logf("%s=%v rejected by the firewall's validation, nothing written: %v", name, !val, err)
+						wasRejected = true
 						return
 					case err != nil:
 						t.Errorf("set %s to %v: %v", name, !val, err)
@@ -369,7 +374,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 						t.Errorf("restore %s to %v: %v", name, val, err)
 					}
 				})
-				count(passed, skipped, !writable)
+				count(passed, skipped, !writable, wasRejected)
 			case "entries":
 				if v == nil || v.Write != capability.StatusOK || len(v.Sample) == 0 || hasReference(v.Sample) {
 					noSample++
@@ -456,12 +461,12 @@ func TestEveryVerifiedResource(t *testing.T) {
 						goneStaysGone(t, ctx, e, uid, canSet)
 					}
 				})
-				count(passed, skipped, false)
+				count(passed, skipped, false, false)
 			}
 		}
 	}
-	t.Logf("tested %d resources (written and read back), %d settings only read (the contract test did not write them), %d skipped themselves, %d entry lists without a usable sample, %d settings not verified on this version (read through the client: %d with fields not decoded, %d failed); %d read-back differences tolerated (custom-save, not chosen)",
-		tested, readOnly, skippedRun, noSample, unverified, undecodable, readFailed, tolerated)
+	t.Logf("tested %d resources (written and read back), %d settings only read (the contract test did not write them), %d settings whose change the firewall rejected (nothing written), %d skipped themselves, %d entry lists without a usable sample, %d settings not verified on this version (read through the client: %d with fields not decoded, %d failed); %d read-back differences tolerated (custom-save, not chosen)",
+		tested, readOnly, rejected, skippedRun, noSample, unverified, undecodable, readFailed, tolerated)
 	if floor := testedFloor(t, inst.Resolved.Series); tested < floor {
 		t.Errorf("tested %d resources, the floor for series %s is %d (tested-floor.txt): verification data or plugins went missing", tested, inst.Resolved.Series, floor)
 	}
@@ -487,15 +492,20 @@ func TestEveryVerifiedResource(t *testing.T) {
 				continue
 			}
 			failed[path] = true
-			if reason, ok := allowed[path]; ok {
-				t.Logf("apply %s failed as expected on the test VM (%s): %s", path, reason, what)
-			} else {
+			switch a, ok := allowed[path]; {
+			case ok && strings.Contains(what, a.Match):
+				t.Logf("apply %s failed as expected on the test VM (%s): %s", path, a.Reason, what)
+			case ok:
+				t.Errorf("apply %s failed differently than apply-failures.json expects (match %q): %s", path, a.Match, what)
+			default:
 				t.Errorf("apply %s failed and is not in apply-failures.json for series %s: %s", path, inst.Resolved.Series, what)
 			}
 		}
+		// an entry whose apply worked is out of date: red, so the watchdog
+		// reports it after 7 days if nobody removes it
 		for p := range allowed {
 			if slices.Contains(before, p) && !failed[p] {
-				t.Logf("apply %s is listed in apply-failures.json but worked: remove the entry", p)
+				t.Errorf("apply %s is listed in apply-failures.json but worked on series %s: remove the entry (or narrow its series)", p, inst.Resolved.Series)
 			}
 		}
 		for _, p := range c.Pending() {
@@ -573,52 +583,6 @@ func keys(v opnsense.Values) []string {
 		out = append(out, k)
 	}
 	sort.Strings(out)
-	return out
-}
-
-// testedFloor is the minimum tested count of a series (tested-floor.txt:
-// lines "<series> <count>"); 0 for a series without a line.
-func testedFloor(t *testing.T, series string) int {
-	t.Helper()
-	b, err := os.ReadFile("tested-floor.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		f := strings.Fields(line)
-		if len(f) == 2 && f[0] == series {
-			var n int
-			if _, err := fmt.Sscan(f[1], &n); err != nil {
-				t.Fatalf("tested-floor.txt: %q", line)
-			}
-			return n
-		}
-	}
-	t.Logf("tested-floor.txt has no floor for series %s", series)
-	return 0
-}
-
-// applyFailures: the apply endpoints that may fail on the isolated VM of a
-// series, with the reason (apply-failures.json).
-func applyFailures(t *testing.T, series string) map[string]string {
-	t.Helper()
-	b, err := os.ReadFile("apply-failures.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var list map[string]struct {
-		Series []string `json:"series"`
-		Reason string   `json:"reason"`
-	}
-	if err := json.Unmarshal(b, &list); err != nil {
-		t.Fatalf("apply-failures.json: %v", err)
-	}
-	out := map[string]string{}
-	for p, e := range list {
-		if strings.HasPrefix(p, "/api/") && e.Reason != "" && slices.Contains(e.Series, series) {
-			out[p] = e.Reason
-		}
-	}
 	return out
 }
 

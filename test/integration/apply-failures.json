@@ -1,30 +1,37 @@
 {
   "/api/hwprobe/service/reconfigure": {
     "series": ["25.7", "26.1", "26.7"],
-    "reason": "os-hw-probe: \"Template generation failed for internal service hwprobe\" (HTTP 500); the probe needs real hardware"
+    "reason": "os-hw-probe: \"Template generation failed for internal service hwprobe\" (HTTP 500); the probe needs real hardware",
+    "match": "Template generation failed for internal service \\\"hwprobe\\\""
   },
   "/api/qfeeds/settings/reconfigure": {
     "series": ["25.7", "26.1", "26.7"],
-    "reason": "os-q-feeds-connector: fetches its license list from api.qfeeds.com (HTTP 500 \"output filename locked or missing\"); the test VM has no internet"
+    "reason": "os-q-feeds-connector: fetches its license list from api.qfeeds.com (HTTP 500 \"output filename locked or missing\"); the test VM has no internet",
+    "match": "output filename locked or missing"
   },
   "/api/proxy/acl/apply": {
     "series": ["25.7", "26.1", "26.7"],
-    "reason": "os-OPNProxy: the ACL apply answers \"Error (1)\" on the isolated VM (no upstream, no proxy started); seen in every run since 2026-11-16"
+    "reason": "os-OPNProxy: the ACL apply answers \"Error (1)\" on the isolated VM (no upstream, no proxy started); seen in every run since 2026-11-16",
+    "match": "status:Error (1)"
   },
   "/api/ipsec/service/reconfigure": {
     "series": ["26.7"],
-    "reason": "\"Service ipsec failed to stop\": strongSwan is not running on the VM (no tunnels); 26.7 reports the stop failure, older series do not"
+    "reason": "\"Service ipsec failed to stop\": strongSwan is not running on the VM (no tunnels); 26.7 reports the stop failure, older series do not",
+    "match": "Service \"ipsec\" failed to stop"
   },
   "/api/nginx/service/reconfigure": {
     "series": ["26.7"],
-    "reason": "\"Service nginx failed to stop\": nginx is not running on the VM; 26.7 reports the stop failure"
+    "reason": "\"Service nginx failed to stop\": nginx is not running on the VM; 26.7 reports the stop failure",
+    "match": "Service \"nginx\" failed to stop"
   },
   "/api/openconnect/service/reconfigure": {
     "series": ["26.7"],
-    "reason": "\"Service openconnect failed to stop\": no VPN server to connect to; 26.7 reports the stop failure"
+    "reason": "\"Service openconnect failed to stop\": no VPN server to connect to; 26.7 reports the stop failure",
+    "match": "Service \"openconnect\" failed to stop"
   },
   "/api/qemuguestagent/service/reconfigure": {
     "series": ["26.7"],
-    "reason": "\"Service qemuguestagent failed to start\": the test VM has no guest-agent channel"
+    "reason": "\"Service qemuguestagent failed to start\": the test VM has no guest-agent channel",
+    "match": "Service \"qemuguestagent\" failed to start"
   }
 }
