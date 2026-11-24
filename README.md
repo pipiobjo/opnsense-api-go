@@ -190,6 +190,16 @@ sending anything, for plan time. `Fields()` and `Data()` return the raw
 format-1 descriptions (copies, not a stable API); prefer `Info()`, whose
 types belong to the client and do not change with the data format.
 
+`c.Resources()` lists every resource this firewall has, as `Info`, by the
+same rules `Entries` and `Settings` use (a server listing what it can
+manage needs no rules of its own). `opnsense.Schemas(data)` works without
+a firewall, for a provider schema before it is configured: per resource
+the union of its fields over every version in the data, each described by
+its newest variant, and every field whose type, kind or list-ness changed
+between versions in `Conflicts` (for example os-frr's OSPF network `area`,
+a text field that became a relation), so the consumer decides instead of
+a silent pick.
+
 Entry IDs are usually UUIDs, but not always (`wan`, `bogons`, hashes).
 IDs may contain letters, digits, `_`, `-` and `.`, not start with a dot;
 anything else is refused before a request is built.

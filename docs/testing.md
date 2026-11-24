@@ -23,6 +23,7 @@ series (25.7, 26.1, 26.7), core and plugins:
 | K9 | In read-only mode nothing that changes the firewall is sent, by two independent checks (the API methods and the transport), and every read keeps working. | F7 |
 | K10 | One rule says which fields hold secrets (`FieldInfo.Secret`): every write-only field and the credential fields a short name list misses (passphrase, community, `*_pass`, credentials, OTP seeds), not integers, booleans or options whose names look alike. | Q2 |
 | K11 | It says honestly what was tested: `Info().WriteVerified()` only where read and write passed on data describing this version (not a skipped write, not a settings write that only echoed the current value, not a version the data lacks); the format's keys are all read or deliberately ignored, also in the newest published data. | F3, Q1 |
+| K12 | A consumer can list and describe resources without rebuilding the client's rules: `Resources()` lists exactly what binds on this firewall; `Schemas(data)` describes every resource over all versions without a firewall, with type changes between versions as explicit conflicts. | F3, Q6 |
 
 ## Test layers
 
@@ -52,6 +53,7 @@ refuse any other target.
 | K9 | `TestReadOnlyMode` (every changing method refused, only GETs and the search POST reach the fake, its state unchanged), `TestReadOnlyConfig`, `TestReadOnlyTransport` (the transport alone refuses every other POST and every GET outside its list); on the VM `TestReadOnlyClientChangesNothing` (every resource read, every change refused, `config.xml` byte-identical afterwards) |
 | K10 | `TestSecretWords`, `TestSecretGolden` (every field the rule marks in the published data state `a4c4cd55b90853bb`, reviewed in `opnsense/capability/testdata/secret/golden.txt`), `TestInfo` |
 | K11 | `TestWriteVerified`, `TestInfo`, `TestModelMatchesSchema` (also in CI against the downloaded data, job `data` of `ci.yml`) |
+| K12 | `TestResources`, `TestSchemas` |
 | K8 | `TestRecordedBehaviour` (unknown keys ignored with "saved", `[]` for an unknown UUID, set creates under an unknown UUID, GET with `Content-Type` rejected, search totals, apply answer), `TestFakeSpeaksHTTP2` |
 
 Error messages, which a provider shows its users, are checked by
