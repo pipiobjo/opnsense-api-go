@@ -109,6 +109,14 @@ back every write.
    repository setting "Allow GitHub Actions to create and approve pull
    requests" is on instead (no review is required, so the approval part
    grants nothing). `main` holds the tested tree as a rebased commit.
+   The same day showed why both failed: the ruleset does not count the
+   check runs of a `workflow_dispatch` run (the pull request listed no
+   checks at all and stayed blocked although `ci passed` was green on its
+   head). A passed `workflow_dispatch` run of `ci.yml` therefore also sets
+   the commit status `ci passed` on the commit it tested; a status is bound
+   to the commit, not to a run. The `pull_request` runs GitHub starts for
+   the pin pull request wait for an approval (opened by a bot) and are not
+   needed; they stay as "action required".
 7. **Unknown versions are graded.** Another hotfix revision of a known
    release, or a known plugin version seen on another core of the series,
    is a note (`Instance().Notes`): usual after an update, nothing to do. A

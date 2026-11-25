@@ -65,7 +65,9 @@ and `watchdog.yml`.
 
 Both move together on one branch `spec-pin/<spec>-<data_id>-<main>`;
 `ci.yml` runs there, and its pull request has auto-merge on: GitHub
-rebases it onto `main` once `ci passed` is green. The next
+rebases it onto `main` once `ci passed` is green (a passed
+`workflow_dispatch` run sets it as a commit status; the ruleset does not
+count the check runs of such a run). The next
 `spec-update.yml` run merges a passed one that is still open, reruns the
 failed jobs once when it did not pass, deletes the branch after a second
 failure, and removes a pin branch (and its pull request) that a newer

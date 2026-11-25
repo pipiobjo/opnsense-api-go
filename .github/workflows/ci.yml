@@ -278,9 +278,27 @@ jobs:
     needs: [test, data, integration, plugins]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
+    permissions:
+      statuses: write # the commit status below
     steps:
       - env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
           echo "jobs: $RESULTS"
           jq -e 'length == 4 and all(. == "success")' <<<"$RESULTS" >/dev/null
+      # The ruleset "main: tested" does not count the check runs of a
+      # workflow_dispatch run (the pin branch of spec-update.yml): its pull
+      # request showed no checks at all and stayed blocked (PR #2,
+      # 2026-11-25), and a fast-forward was refused the same way. A commit
+      # status is bound to the commit itself, so a passed dispatch run
+      # sets one; GitHub Actions is the app the rule names. Push and
+      # pull_request runs do not need it.
+      - name: Commit status for the ruleset
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=success \
+            -f context="ci passed" -f target_url="$RUN_URL" -f description="ci.yml passed (workflow_dispatch)" >/dev/null
+          echo "status 'ci passed' set on ${GITHUB_SHA:0:12}"
