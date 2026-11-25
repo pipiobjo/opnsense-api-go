@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generator": "0.10.0",
-  "data_id": "109abe458a1bb0b5",
+  "data_id": "1e07d2884313bb35",
   "cores": {
     "25.7": {
       "release": "25.7",
@@ -1216,7 +1216,7 @@
             "os-zerotier": "3f3205a0d920f170"
           },
           "verified": {
-            "date": "2026-11-24T23:28:04Z",
+            "date": "2026-11-25T09:37:57Z",
             "generator": "0.10.0",
             "instance": "25.7.11_9",
             "packages": [
@@ -2372,7 +2372,7 @@
             "os-zerotier": "28ad0426362346ab"
           },
           "verified": {
-            "date": "2026-11-24T23:46:20Z",
+            "date": "2026-11-25T09:45:13Z",
             "generator": "0.10.0",
             "instance": "26.1.11_10",
             "packages": [
@@ -3533,7 +3533,7 @@
             "os-zerotier": "28ad0426362346ab"
           },
           "verified": {
-            "date": "2026-11-25T00:04:09Z",
+            "date": "2026-11-25T09:43:58Z",
             "generator": "0.10.0",
             "instance": "26.7.10",
             "packages": [
