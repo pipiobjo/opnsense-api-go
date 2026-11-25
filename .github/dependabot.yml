@@ -4,7 +4,8 @@
 # covers the pinned actions (including the spec repository's test VM
 # action). Monthly, grouped, only versions at least 7 days old, so a
 # compromised release has time to be noticed before it reaches this
-# repository.
+# repository. A pull request is merged by GitHub once "ci passed" is
+# green (automerge.yml, ruleset "main: tested", ADR 0002 point 5).
 version: 2
 updates:
   - package-ecosystem: github-actions
