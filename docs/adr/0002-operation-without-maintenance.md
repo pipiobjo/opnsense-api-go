@@ -99,6 +99,16 @@ back every write.
    of a failed run are kept 14 days, longer than that. The Dependabot
    upkeep is its own job, so a failed pin does not stop it. Before the
    automation, eight pin updates in three days were made by hand.
+   Amended 2026-11-25: the pin branch gets a pull request with auto-merge,
+   the same path as Dependabot (point 5), and lands the same day its CI
+   passes; a later run merges a passed one whose auto-merge did not fire.
+   The fast-forward of `main` by the job token was refused by the ruleset
+   "main: tested" although the commit carried a green `ci passed` (rule
+   suite: "Required status check is expected"); a bypass for GitHub
+   Actions would have let every job token push untested commits, so the
+   repository setting "Allow GitHub Actions to create and approve pull
+   requests" is on instead (no review is required, so the approval part
+   grants nothing). `main` holds the tested tree as a rebased commit.
 7. **Unknown versions are graded.** Another hotfix revision of a known
    release, or a known plugin version seen on another core of the series,
    is a note (`Instance().Notes`): usual after an update, nothing to do. A

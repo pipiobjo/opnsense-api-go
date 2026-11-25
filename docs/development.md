@@ -64,9 +64,12 @@ and `watchdog.yml`.
 | `tools/ci/catalog-ref` | the data `ci.yml` tests with (`catalog-v1-<data_id>`) | `spec-update.yml`, to the state the spec's pointer release `catalog-v1` names (`tools/ci/catalog-ref.sh latest`) |
 
 Both move together on one branch `spec-pin/<spec>-<data_id>-<main>`;
-`ci.yml` runs there; the next `spec-update.yml` run fast-forwards `main`
-when it passed, reruns the failed jobs once when it did not, and deletes
-the branch after a second failure. To move a pin by hand, run
+`ci.yml` runs there, and its pull request has auto-merge on: GitHub
+rebases it onto `main` once `ci passed` is green. The next
+`spec-update.yml` run merges a passed one that is still open, reruns the
+failed jobs once when it did not pass, deletes the branch after a second
+failure, and removes a pin branch (and its pull request) that a newer
+`main` left behind. To move a pin by hand, run
 `tools/ci/spec-ref.sh set <sha>` or `tools/ci/catalog-ref.sh set
 catalog-v1-<data_id>`, run the integration tests on all three series
 (CONTRIBUTING.md), and push.

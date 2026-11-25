@@ -10,8 +10,13 @@
 #                        (catalog-v1-<data_id>, tools/ci/catalog-ref.sh)
 # When either is behind, the job pin commits the new pins to a branch
 # spec-pin/..., starts ci.yml there (the whole suite against the new data:
-# unit tests, then every series on a VM with every plugin), and a later
-# run fast-forwards main to exactly that commit when it passed. So
+# unit tests, then every series on a VM with every plugin) and opens a
+# pull request with auto-merge: GitHub rebases it onto main once "ci
+# passed" is green on it (ruleset "main: tested"; the merged branch is
+# deleted by the repository setting). A later run merges a passed one
+# whose auto-merge did not fire. Not a fast-forward of main by the job
+# token: the ruleset refuses that even with a green check on the commit
+# (rule suite of 2026-11-25, "Required status check is expected"). So
 # catalog-ref on main is always data the suite passed on, and pushes and
 # pull requests test fixed data: a new data state cannot turn an unrelated
 # change red. A failed pin run is run again once automatically (a VM or
@@ -42,8 +47,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write # push and delete the branch spec-pin/..., move main
+      contents: write # push and delete the branch spec-pin/..., merge it
       actions: write # start and rerun ci.yml on it
+      pull-requests: write # open and merge its pull request
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -60,8 +66,28 @@ jobs:
             echo "pins are current: spec ${cur_spec:0:12}, data $cur_data" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          open_pr() { # the pull request of $branch, opened if missing
+            local url
+            url=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$branch" --base main --state open --json url -q '.[0].url // empty')
+            [ -n "$url" ] || url=$(gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$branch" \
+              --title "ci: pin opnsense-api-spec ${new_spec:0:12} and data $new_data" \
+              --body "Opened by spec-update.yml. ci.yml runs on this branch; auto-merge rebases it onto main when \"ci passed\" is green (ADR 0002).")
+            echo "$url"
+          }
           base=$(git rev-parse HEAD)
           branch="spec-pin/${new_spec:0:12}-${new_data#catalog-v1-}-${base:0:12}"
+          # a pin branch made on an older main can no longer merge (strict
+          # rule): close its pull request and delete it, this run proposes
+          # the pins afresh
+          for old in $(git ls-remote --heads origin 'spec-pin/*' | sed 's|.*refs/heads/||'); do
+            [ "$old" != "$branch" ] || continue
+            if [ -n "$(gh pr list -R "$GITHUB_REPOSITORY" --head "$old" --state open --json number -q '.[0].number // empty')" ]; then
+              gh pr close "$old" -R "$GITHUB_REPOSITORY" --delete-branch --comment "main moved on; spec-update.yml proposes the pins again on $branch"
+            else
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$old" >/dev/null
+            fi
+            echo "removed $old (made on an older main)"
+          done
           if ! git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null; then
             tools/ci/spec-ref.sh set "$new_spec"
             tools/ci/catalog-ref.sh set "$new_data"
@@ -69,13 +95,13 @@ jobs:
               commit -q -m "ci: pin opnsense-api-spec ${new_spec:0:12} and data $new_data" tools/ci/spec-ref tools/ci/catalog-ref
             git push -q origin "HEAD:refs/heads/$branch"
             gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$branch"
-            echo "proposed spec ${new_spec:0:12} and data $new_data on $branch; ci.yml started" | tee -a "$GITHUB_STEP_SUMMARY"
+            url=$(open_pr)
+            gh pr merge "$url" -R "$GITHUB_REPOSITORY" --auto --rebase
+            echo "proposed spec ${new_spec:0:12} and data $new_data on $branch ($url, auto-merge on); ci.yml started" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           # proposed before on this main: its ci.yml run decides. A passed
-          # one is merged here: automerge.yml never sees it, because GitHub
-          # starts no workflow_run for a run that the job token started
-          # (seen 2026-11-19 and -20).
+          # one whose auto-merge did not fire is merged here.
           read -r id state attempt sha < <(gh run list -R "$GITHUB_REPOSITORY" -w ci.yml -b "$branch" -e workflow_dispatch -L 1 \
             --json databaseId,status,conclusion,attempt,headSha \
             -q '.[0] | if . == null then "- none 0 -" elif .status != "completed" then "\(.databaseId) running \(.attempt) -" else "\(.databaseId) \(.conclusion) \(.attempt) \(.headSha)" end')
@@ -86,7 +112,7 @@ jobs:
               tip=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
               [ "$tip" = "$sha" ] || { echo "::error::$branch is at ${tip:0:12}, but ci.yml passed on ${sha:0:12}"; exit 1; }
               # one commit on top of main, touching the pin files only;
-              # fast-forward only
+              # up to date with main (strict rule)
               cmp=$(gh api "repos/$GITHUB_REPOSITORY/compare/$base...$sha")
               files=$(jq -r '[.files[].filename] | sort | join(" ")' <<<"$cmp")
               case " $files " in
@@ -96,9 +122,9 @@ jobs:
               if [ "$(jq .ahead_by <<<"$cmp")" != 1 ] || [ "$(jq .behind_by <<<"$cmp")" != 0 ]; then
                 echo "::error::$branch must be one commit on main"; exit 1
               fi
-              gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/main" -f sha="$sha" -F force=false >/dev/null
-              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" >/dev/null
-              echo "main is now ${sha:0:12}: spec ${new_spec:0:12}, data $new_data, tested by ci.yml on $branch" | tee -a "$GITHUB_STEP_SUMMARY" ;;
+              url=$(open_pr)
+              gh pr merge "$url" -R "$GITHUB_REPOSITORY" --rebase --match-head-commit "$sha"
+              echo "merged $url: spec ${new_spec:0:12}, data $new_data, tested by ci.yml on $branch" | tee -a "$GITHUB_STEP_SUMMARY" ;;
             *)
               if [ "$attempt" = 1 ]; then
                 # once: a VM boot, a mirror or a runner can fail by chance
