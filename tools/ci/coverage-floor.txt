@@ -1,7 +1,7 @@
 # Coverage floors (tools/ci/coverage.sh): name, minimum percent of
 # statements, margin. Floor = lowest measurement minus the margin, rounded
-# down: unit 93.1% (2026-11-24) - 1; integration 60.3% (25.7.11, local VM
-# runs of 2026-11-24 with data a4c4cd55b90853bb; 26.1.11 60.7%, 26.7.9
-# 60.9%) - 3. The integration floor is enforced only on a push to main.
+# down: unit 93.1% (2026-11-24) - 1; integration 62.7% (26.1.11, local VM
+# runs of 2026-11-25 with data 1e07d2884313bb35; 25.7.11 63.2%, 26.7.10
+# 63.8%) - 3. The integration floor is enforced only on a push to main.
 unit 92 1
-integration 57 3
+integration 59 3
