@@ -31,13 +31,13 @@ func data(t *testing.T) *capability.Set {
 }
 
 // frrFragment: the fragment the data selects for the fake firewall's
-// os-frr 2.1 on 26.7.9_1, read from the raw data; tests never name hashes,
+// os-frr 2.1 on 26.7.9_3, read from the raw data; tests never name hashes,
 // so a refreshed test data set (tools/testdata.sh) needs no test change.
 func frrFragment(t *testing.T, s *capability.Set) string {
 	t.Helper()
-	h := s.Docs["os-frr"].Select[s.Catalog.Cores["26.7.9_1"].Framework]["2.1"]
+	h := s.Docs["os-frr"].Select[s.Catalog.Cores["26.7.9_3"].Framework]["2.1"]
 	if h == "" {
-		t.Fatal("os-frr 2.1 on 26.7.9_1 is not in the test data")
+		t.Fatal("os-frr 2.1 on 26.7.9_3 is not in the test data")
 	}
 	return h
 }
@@ -75,7 +75,7 @@ func TestDetectExact(t *testing.T) {
 	f := newFake(t)
 	c := mustConnect(t, f)
 	inst := c.Instance()
-	if inst.Core != "26.7.9_1" || inst.Plugins["os-frr"] != "2.1" || len(inst.Plugins) != 1 {
+	if inst.Core != "26.7.9_3" || inst.Plugins["os-frr"] != "2.1" || len(inst.Plugins) != 1 {
 		t.Errorf("instance: %+v", inst)
 	}
 	if len(inst.Warnings) != 0 {
@@ -113,7 +113,7 @@ func TestDetectHotfixIsANote(t *testing.T) {
 
 func TestDetectAssumedAndRefused(t *testing.T) {
 	f := newFake(t)
-	f.core = "26.7.10"
+	f.core = "26.7.99"
 	c := mustConnect(t, f)
 	if w := strings.Join(c.Instance().Warnings, "|"); !strings.Contains(w, "assuming "+newestCore26_7(data(t))) {
 		t.Errorf("want a warning about the assumed core, got %q", w)

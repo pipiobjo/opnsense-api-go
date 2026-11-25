@@ -58,9 +58,13 @@ settings, `<module>/<controller>#<model path>` for entry lists, and
 `<module>/<controller>#<model path>@<family>` where one entry list is
 served by several families of endpoints (bind's primary and forward
 domains). `Values`
-maps field paths to `bool`, `int64`, `string` or `[]string` (list fields);
-the wire encoding (`"0"`/`"1"`, comma-separated lists, option maps on read)
-is the client's job. To clear a field, set it to `nil` (sent as the empty
+maps field paths to `bool`, `int64`, `string` or `[]string` (list fields:
+`multiple` option fields and every field with `list` in the data, such as
+alias content or Kea DNS servers);
+the wire encoding (`"0"`/`"1"`, lists joined by the data's separator,
+option maps on read) is the client's job. Where the firewall keeps the
+order of a list (`list.ordered`), reads return it in that order and a
+write is compared in order; other lists compare as sets. To clear a field, set it to `nil` (sent as the empty
 value; a provider does this for an attribute removed from the
 configuration, since `Set` leaves fields it is not given unchanged).
 Where the model has a default, the firewall may store that instead: the

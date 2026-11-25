@@ -4,7 +4,9 @@
 package opnsense
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -130,11 +132,11 @@ func (e *Entries) Get(ctx context.Context, id string) (Values, error) {
 	if err := checkID(id); err != nil {
 		return nil, err
 	}
-	obj, err := e.b.exists(ctx, id, true)
+	obj, order, err := e.b.exists(ctx, id, true)
 	if err != nil {
 		return nil, err
 	}
-	return e.b.decode(obj)
+	return e.b.decode(obj, order)
 }
 
 // GetRaw reads one entry as the firewall returns it (without the wrapper
@@ -172,7 +174,7 @@ func (e *Entries) Set(ctx context.Context, id string, v Values) error {
 	// under that UUID (seen on 26.7.9), which would silently undo a delete.
 	// The model lock keeps this client's own deletes out of the gap; a
 	// delete by someone else in between cannot be excluded.
-	if _, err := b.exists(ctx, id, false); err != nil {
+	if _, _, err := b.exists(ctx, id, false); err != nil {
 		return err
 	}
 	var resp map[string]any
@@ -224,7 +226,7 @@ func (e *Entries) Delete(ctx context.Context, id string) error {
 	} // else: the endpoint answers nothing; the check below decides
 	b.c.markPending(b.api.Apply)
 	var confirm error
-	if _, err := b.exists(ctx, id, false); !errors.Is(err, ErrNotFound) {
+	if _, _, err := b.exists(ctx, id, false); !errors.Is(err, ErrNotFound) {
 		if err == nil {
 			confirm = &ErrStillExists{Resource: b.id, ID: id}
 		} else {
@@ -257,7 +259,7 @@ func (e *Entries) Toggle(ctx context.Context, id string, enabled bool) error {
 	}
 	defer unlock()
 	// an unknown UUID must not be trusted either: check and read first
-	obj, err := b.exists(ctx, id, false)
+	obj, _, err := b.exists(ctx, id, false)
 	if err != nil {
 		return err
 	}
@@ -403,11 +405,11 @@ func (e *Entries) Find(ctx context.Context, match Values) ([]Row, error) {
 // Get reads the settings. With an *ErrDecode error the decodable fields
 // are returned as well.
 func (s *Settings) Get(ctx context.Context) (Values, error) {
-	obj, err := s.b.getObject(ctx, "")
+	obj, order, err := s.b.getObjectOrder(ctx, "")
 	if err != nil {
 		return nil, err
 	}
-	return s.b.decode(obj)
+	return s.b.decode(obj, order)
 }
 
 // GetRaw reads the settings as the firewall returns them (without the
@@ -580,17 +582,61 @@ func lookup(m map[string]any, path string) (any, bool) {
 // getObject reads the object (entry with id, or the settings with id "")
 // and returns it without wrapper; ErrNotFound for a missing entry.
 func (b *bound) getObject(ctx context.Context, id string) (map[string]any, error) {
+	obj, _, err := b.getObjectOrder(ctx, id)
+	return obj, err
+}
+
+// getObjectOrder is getObject with the order of the selected keys of each
+// selection map, by field path (capability.SelectionOrder): decoding loses
+// it, and for a list field that keeps the order written it is the value.
+func (b *bound) getObjectOrder(ctx context.Context, id string) (map[string]any, map[string][]string, error) {
+	obj, msg, err := b.getObjectRaw(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	order, err := capability.SelectionOrder(msg)
+	if err != nil {
+		return nil, nil, err
+	}
+	op, _ := b.op("get")
+	prefix := b.wrapper(op) + "."
+	if op.Outer != "" {
+		prefix = op.Outer + "." + prefix
+	}
+	inner := map[string][]string{}
+	for p, keys := range order {
+		if rest, ok := strings.CutPrefix(p, prefix); ok {
+			inner[rest] = keys
+		}
+	}
+	return obj, inner, nil
+}
+
+func (b *bound) getObjectRaw(ctx context.Context, id string) (map[string]any, json.RawMessage, error) {
 	op, err := b.op("get")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	p := op.Path
 	if id != "" {
 		p = b.path(op, id)
 	}
+	var msg json.RawMessage
+	if err := b.c.t.Get(ctx, p, nil, &msg); err != nil {
+		return nil, nil, err
+	}
+	obj, err := b.unwrap(msg, id)
+	return obj, msg, err
+}
+
+// unwrap decodes a get answer and returns the object below its keys.
+func (b *bound) unwrap(msg json.RawMessage, id string) (map[string]any, error) {
+	op, _ := b.op("get")
 	var raw any
-	if err := b.c.t.Get(ctx, p, nil, &raw); err != nil {
-		return nil, err
+	dec := json.NewDecoder(bytes.NewReader(msg))
+	dec.UseNumber() // as the transport: values are strings on the wire anyway
+	if err := dec.Decode(&raw); err != nil {
+		return nil, fmt.Errorf("opnsense: %s: response is not the expected JSON (%d bytes): %w", b.id, len(msg), err)
 	}
 	root, ok := raw.(map[string]any)
 	if !ok || len(root) == 0 {
@@ -632,28 +678,28 @@ func (b *bound) getObject(ctx context.Context, id string) (map[string]any, error
 // Config.ExistsCacheTTL counts as existing without a new search; an ID it
 // did not list is searched afresh. Writes never use the cache: a stale
 // "exists" would let Set recreate an entry deleted elsewhere.
-func (b *bound) exists(ctx context.Context, id string, cached bool) (map[string]any, error) {
-	obj, err := b.getObject(ctx, id)
+func (b *bound) exists(ctx context.Context, id string, cached bool) (map[string]any, map[string][]string, error) {
+	obj, order, err := b.getObjectOrder(ctx, id)
 	if (err == nil || errors.Is(err, ErrNotFound)) && b.getDecides(ctx) {
-		return obj, err
+		return obj, order, err
 	}
 	if _, ok := b.api.Operations["search"]; !ok {
-		return obj, err
+		return obj, order, err
 	}
 	if cached && b.c.listedRecently(b.id, id) {
-		return obj, err
+		return obj, order, err
 	}
 	rows, serr := b.search(ctx)
 	if serr != nil {
-		return nil, fmt.Errorf("opnsense: %s: checking that %s exists: %w", b.id, id, serr)
+		return nil, nil, fmt.Errorf("opnsense: %s: checking that %s exists: %w", b.id, id, serr)
 	}
 	b.c.rememberIDs(b.id, rows)
 	for _, r := range rows {
 		if r.id == id {
-			return obj, err
+			return obj, order, err
 		}
 	}
-	return nil, ErrNotFound
+	return nil, nil, ErrNotFound
 }
 
 // probeID is an ID no entry has: the nil UUID.
@@ -773,7 +819,7 @@ func (b *bound) decodeRow(r searchRow, bad map[string]string) Values {
 			return nil, false
 		}
 		return r.field(name)
-	})
+	}, nil)
 	for f, p := range problems {
 		bad[r.id+" "+f] = p
 	}
@@ -784,12 +830,14 @@ func (b *bound) decodeRow(r searchRow, bad map[string]string) Values {
 // row lacks is read from the entry itself.
 func (b *bound) matches(ctx context.Context, r searchRow, want map[string]string) (bool, error) {
 	var obj map[string]any
+	var order map[string][]string
 	for name, s := range want {
 		raw, ok := r.field(name)
+		var keys []string
 		if !ok || !b.searchShows(name) {
 			if obj == nil {
 				var err error
-				obj, err = b.getObject(ctx, r.id)
+				obj, order, err = b.getObjectOrder(ctx, r.id)
 				if errors.Is(err, ErrNotFound) {
 					// a row that is no stored entry: 26.1's firewall/d_nat
 					// search adds anti-lockout rules ("lockout_0") get
@@ -803,9 +851,10 @@ func (b *bound) matches(ctx context.Context, r searchRow, want map[string]string
 			if raw, ok = lookup(obj, name); !ok {
 				return false, nil
 			}
+			keys = order[name]
 		}
 		f := b.res.FieldFor(name, b.frag)
-		got, err := f.Wire(raw)
+		got, err := f.WireOrdered(raw, keys)
 		if err != nil {
 			return false, &ErrDecode{Resource: b.id, Fields: map[string]string{r.id + " " + name: err.Error()}}
 		}
@@ -827,14 +876,15 @@ func decodeErr(resource string, bad map[string]string) error {
 // decode returns every field it can decode; fields with an unexpected
 // shape are reported in *ErrDecode together with the rest. Write-only
 // fields are left out (the firewall never returns their value).
-func (b *bound) decode(obj map[string]any) (Values, error) {
-	out, bad := b.decodeWith(func(name string) (any, bool) { return lookup(obj, name) })
+func (b *bound) decode(obj map[string]any, order map[string][]string) (Values, error) {
+	out, bad := b.decodeWith(func(name string) (any, bool) { return lookup(obj, name) }, order)
 	return out, decodeErr(b.id, bad)
 }
 
 // decodeWith decodes every field of the resource that get returns; the
-// problems are keyed by field.
-func (b *bound) decodeWith(get func(string) (any, bool)) (Values, map[string]string) {
+// problems are keyed by field. order: the selection order of the answer
+// (getObjectOrder); nil for a search row.
+func (b *bound) decodeWith(get func(string) (any, bool), order map[string][]string) (Values, map[string]string) {
 	out := Values{}
 	bad := map[string]string{}
 	for name, f := range b.res.FieldsFor(b.frag) {
@@ -845,7 +895,7 @@ func (b *bound) decodeWith(get func(string) (any, bool)) (Values, map[string]str
 		if !ok {
 			continue
 		}
-		s, err := f.Wire(raw)
+		s, err := f.WireOrdered(raw, order[name])
 		if err == nil {
 			var v any
 			if v, err = f.Decode(s); err == nil {
@@ -863,7 +913,7 @@ func (b *bound) decodeWith(get func(string) (any, bool)) (Values, map[string]str
 // sent (encode refuses them); transformed fields (stored in another form by
 // this endpoint) must at least not come back empty.
 func (b *bound) readBack(ctx context.Context, id string, sent map[string]string, op *capability.Operation) error {
-	obj, err := b.getObject(ctx, id)
+	obj, order, err := b.getObjectOrder(ctx, id)
 	if err != nil {
 		return fmt.Errorf("opnsense: %s: reading back after the write: %w", b.id, err)
 	}
@@ -889,7 +939,7 @@ func (b *bound) readBack(ctx context.Context, id string, sent map[string]string,
 		raw, ok := lookup(obj, name)
 		got := "(missing)"
 		if ok {
-			if got, err = f.Wire(raw); err != nil {
+			if got, err = f.WireOrdered(raw, order[name]); err != nil {
 				got = "(" + err.Error() + ")"
 				ok = false
 			}

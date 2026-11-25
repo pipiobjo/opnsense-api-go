@@ -110,3 +110,82 @@ func TestSameWire(t *testing.T) {
 		t.Error("WriteOnly")
 	}
 }
+
+var (
+	// AsList set field (kea option_data.domain_name_servers, chrony peers)
+	asListF = &Field{Type: "NetworkField", Base: "BaseSetField", ReadShape: "select", List: &List{Separator: ",", Ordered: true}}
+	// AliasContentField: newline-separated, order kept
+	aliasF = &Field{Type: "AliasContentField", Base: "BaseField", ReadShape: "select", List: &List{Separator: "\n", Ordered: true}}
+)
+
+// Claim (DEV-1 of the review of 2026-11-24): a list field without
+// "multiple" (AsList, alias content) is a list with the separator of the
+// data, and where the firewall keeps the order written, the order counts:
+// it is read in the answer's order and compared in order.
+func TestListFields(t *testing.T) {
+	if asListF.Kind() != KindList || aliasF.Kind() != KindList || multiF.Kind() != KindList || textF.Kind() != KindString {
+		t.Fatal("kind")
+	}
+	if got, err := aliasF.Encode([]string{"192.0.2.2", "192.0.2.1"}); err != nil || got != "192.0.2.2\n192.0.2.1" {
+		t.Errorf("alias encode = %q, %v", got, err)
+	}
+	if _, err := aliasF.Encode([]string{"a\nb"}); err == nil {
+		t.Error("an element with the separator must fail")
+	}
+	if got, err := aliasF.Encode([]string{"a,b"}); err != nil || got != "a,b" {
+		t.Errorf("a comma is no separator of alias content: %q, %v", got, err)
+	}
+	sel := map[string]any{
+		"192.0.2.53": map[string]any{"value": "192.0.2.53", "selected": float64(1)},
+		"192.0.2.1":  map[string]any{"value": "192.0.2.1", "selected": float64(1)},
+	}
+	if w, err := asListF.WireOrdered(sel, []string{"192.0.2.53", "192.0.2.1"}); err != nil || w != "192.0.2.53,192.0.2.1" {
+		t.Errorf("the answer's order is kept: %q, %v", w, err)
+	}
+	if _, err := asListF.WireOrdered(sel, []string{"192.0.2.53"}); err == nil {
+		t.Error("an order that does not name the selected keys must fail")
+	}
+	if w, _ := aliasF.WireOrdered(map[string]any{
+		"b": map[string]any{"value": "b", "selected": float64(1)},
+		"a": map[string]any{"value": "a", "selected": float64(1)},
+		"c": map[string]any{"value": "c", "selected": float64(0)}, // getItem lists other aliases
+	}, []string{"b", "a"}); w != "b\na" {
+		t.Errorf("alias wire = %q", w)
+	}
+	// an empty AsList value reads as the key ""
+	empty := map[string]any{"": map[string]any{"value": "", "selected": float64(1)}}
+	if w, err := asListF.WireOrdered(empty, []string{""}); err != nil || w != "" {
+		t.Errorf("empty list: %q, %v", w, err)
+	}
+	if v, _ := aliasF.Decode("b\na"); !reflect.DeepEqual(v, []string{"b", "a"}) {
+		t.Errorf("decode = %#v", v)
+	}
+	if asListF.SameWire("b,a", "a,b") || !asListF.SameWire("b,a", "b,a") || !asListF.SameWire("a,a", "a") {
+		t.Error("ordered lists compare in order; duplicates read back once")
+	}
+	if !multiF.SameWire("b,a", "a,b") {
+		t.Error("an option list (order of the options) compares as a set")
+	}
+}
+
+// SelectionOrder keeps the order the answer lists the selected keys in,
+// for maps and for lists, at their paths; other objects are not selections.
+func TestSelectionOrder(t *testing.T) {
+	raw := []byte(`{"unbound":{"general":{"port":"53","servers":{"192.0.2.53":{"value":"192.0.2.53","selected":1},"192.0.2.1":{"value":"192.0.2.1","selected":1}},
+	"iface":{"lan":{"value":"LAN","selected":0},"opt1":{"value":"OPT1","selected":"1"}},"level":[{"value":"0","selected":0},{"value":"1","selected":1}],"empty":{}}}}`)
+	got, err := SelectionOrder(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][]string{
+		"unbound.general.servers": {"192.0.2.53", "192.0.2.1"},
+		"unbound.general.iface":   {"opt1"},
+		"unbound.general.level":   {"1"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	if _, err := SelectionOrder([]byte(`{"a":`)); err == nil {
+		t.Error("broken JSON must fail")
+	}
+}

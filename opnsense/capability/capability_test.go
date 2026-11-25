@@ -62,7 +62,7 @@ func versionsOf(s *Set, pkg, frag string) string {
 func TestResolveReal(t *testing.T) {
 	s := loadReal(t)
 	newest := newestCore(s, "26.7")
-	exact := fragFor(t, s, "26.7.9_1", "os-frr", "2.1")
+	exact := fragFor(t, s, "26.7.9_3", "os-frr", "2.1")
 	cases := []struct {
 		name       string
 		core, frr  string
@@ -73,14 +73,14 @@ func TestResolveReal(t *testing.T) {
 		frrExact   string // and, where it matters, exactly this fragment
 		warn, note string
 	}{
-		{"exact", "26.7.9_1", "2.1", "26.7.9_1", MatchExact, MatchExact, "2.1", exact, "", ""},
+		{"exact", "26.7.9_3", "2.1", "26.7.9_3", MatchExact, MatchExact, "2.1", exact, "", ""},
 		// usual after an update: a note, not a warning
-		{"other hotfix revision of a known release", "26.7.9", "2.1", "26.7.9_1", MatchNearest, MatchExact, "2.1", exact, "", "same release, other hotfix revision"},
-		{"newer release of a known series", "26.7.10", "2.1", newest, MatchAssumed, MatchExact, "2.1", fragFor(t, s, newest, "os-frr", "2.1"), "assuming " + newest, ""},
+		{"other hotfix revision of a known release", "26.7.9", "2.1", "26.7.9_3", MatchNearest, MatchExact, "2.1", exact, "", "same release, other hotfix revision"},
+		{"newer release of a known series", "26.7.99", "2.1", newest, MatchAssumed, MatchExact, "2.1", fragFor(t, s, newest, "os-frr", "2.1"), "assuming " + newest, ""},
 		// seen only on other cores (same API everywhere): a note, not "exact"
-		{"same plugin version, other framework, same fragment", "26.7.9_1", "1.55", "26.7.9_1", MatchExact, MatchNearest, "1.55", "", "", "its API was the same on every core"},
+		{"same plugin version, other framework, same fragment", "26.7.9_3", "1.55", "26.7.9_3", MatchExact, MatchNearest, "1.55", "", "", "its API was the same on every core"},
 		// unknown: the nearest older known version's data
-		{"unknown plugin version", "26.7.9_1", "9.9", "26.7.9_1", MatchExact, MatchAssumed, "2.1", "", "os-frr 9.9 is not in the data", ""},
+		{"unknown plugin version", "26.7.9_3", "9.9", "26.7.9_3", MatchExact, MatchAssumed, "2.1", "", "os-frr 9.9 is not in the data", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -117,13 +117,13 @@ func TestResolveReal(t *testing.T) {
 
 func TestResolveRefuse(t *testing.T) {
 	s := loadReal(t)
-	if _, err := s.Resolve("26.7.9_1", map[string]string{"os-frr": "2.1"}, Refuse); err != nil {
+	if _, err := s.Resolve("26.7.9_3", map[string]string{"os-frr": "2.1"}, Refuse); err != nil {
 		t.Errorf("exact must pass with Refuse: %v", err)
 	}
 	if _, err := s.Resolve("26.7.9", nil, Refuse); err == nil {
 		t.Error("Refuse must fail for an unknown core revision")
 	}
-	if _, err := s.Resolve("26.7.9_1", map[string]string{"os-frr": "9.9"}, Refuse); err == nil {
+	if _, err := s.Resolve("26.7.9_3", map[string]string{"os-frr": "9.9"}, Refuse); err == nil {
 		t.Error("Refuse must fail for an unknown plugin version")
 	}
 	if _, err := s.Resolve("27.1", nil, AssumeNewestInSeries); err == nil || !strings.Contains(err.Error(), "series 27.1") {
@@ -242,7 +242,7 @@ func TestCompareVersions(t *testing.T) {
 			t.Errorf("CompareVersions(%s, %s) must be 0 both ways", eq[0], eq[1])
 		}
 	}
-	if SeriesOf("26.7.9_1") != "26.7" || ReleaseOf("26.7.9_1") != "26.7.9" || SeriesOf("26.1") != "26.1" {
+	if SeriesOf("26.7.9_3") != "26.7" || ReleaseOf("26.7.9_3") != "26.7.9" || SeriesOf("26.1") != "26.1" {
 		t.Error("SeriesOf/ReleaseOf")
 	}
 }
@@ -259,7 +259,7 @@ func TestRealDataFieldsAndVariants(t *testing.T) {
 			}
 		}
 	}
-	v21 := fragFor(t, s, "26.7.9_1", "os-frr", "2.1")
+	v21 := fragFor(t, s, "26.7.9_3", "os-frr", "2.1")
 	old := r.FieldFor("area", v145)
 	cur := r.FieldFor("area", v21)
 	if old == nil || cur == nil || old.Type != "TextField" || cur.Type != "ModelRelationField" || cur.ReadShape != "select" {
@@ -315,7 +315,7 @@ func TestCheckNullEntriesWithoutPanic(t *testing.T) {
 	if err := nilSet.Check(); err == nil {
 		t.Error("nil set accepted")
 	}
-	if _, err := (&Set{}).Resolve("26.7.9_1", nil, AssumeNewestInSeries); err == nil {
+	if _, err := (&Set{}).Resolve("26.7.9_3", nil, AssumeNewestInSeries); err == nil {
 		t.Error("Resolve without catalog must fail, not panic")
 	}
 }

@@ -1,136 +1,21 @@
 {
   "format": 1,
   "package": "os-frr",
-  "generator": "0.9.3",
+  "generator": "0.10.0",
   "fragments": {
-    "255b3c2fdaa68268": {
+    "2f9cbf021e7222c3": {
       "versions": [
-        "2.0_2",
-        "2.0_4"
+        "1.47"
       ],
       "cores": [
-        "26.7.7",
-        "26.7.8_2"
+        "25.7.3_7"
       ],
       "releases": [
-        "26.7.7",
-        "26.7.8"
+        "25.7.3"
       ],
-      "order": 11
+      "order": 2
     },
-    "3163436f2f320ab6": {
-      "versions": [
-        "2.1"
-      ],
-      "cores": [
-        "26.7.9_3"
-      ],
-      "releases": [
-        "26.7.9"
-      ],
-      "order": 13
-    },
-    "6150142a67e18641": {
-      "versions": [
-        "1.45",
-        "1.45_1"
-      ],
-      "cores": [
-        "25.7",
-        "25.7.1_1"
-      ],
-      "releases": [
-        "25.7",
-        "25.7.1"
-      ],
-      "order": 0
-    },
-    "622cd7174181cd5c": {
-      "versions": [
-        "1.47_1"
-      ],
-      "cores": [
-        "25.7.4",
-        "25.7.5",
-        "25.7.6"
-      ],
-      "releases": [
-        "25.7.4",
-        "25.7.5",
-        "25.7.6"
-      ],
-      "order": 3
-    },
-    "62baa425cd0059d4": {
-      "versions": [
-        "1.54"
-      ],
-      "cores": [
-        "26.7.2_2"
-      ],
-      "releases": [
-        "26.7.2"
-      ],
-      "order": 9
-    },
-    "685b2ce25535cae9": {
-      "versions": [
-        "1.52"
-      ],
-      "cores": [
-        "26.1.8_5",
-        "26.1.9"
-      ],
-      "releases": [
-        "26.1.8",
-        "26.1.9"
-      ],
-      "order": 7
-    },
-    "7675282bd568612b": {
-      "versions": [
-        "1.48",
-        "1.49"
-      ],
-      "cores": [
-        "25.7.7_4",
-        "25.7.8",
-        "25.7.9_7",
-        "25.7.10"
-      ],
-      "releases": [
-        "25.7.7",
-        "25.7.8",
-        "25.7.9",
-        "25.7.10"
-      ],
-      "order": 4
-    },
-    "7e6d2543fc9edbb9": {
-      "versions": [
-        "1.46"
-      ],
-      "cores": [
-        "25.7.2"
-      ],
-      "releases": [
-        "25.7.2"
-      ],
-      "order": 1
-    },
-    "8259be67f862e47b": {
-      "versions": [
-        "2.1"
-      ],
-      "cores": [
-        "26.7.9_1"
-      ],
-      "releases": [
-        "26.7.9"
-      ],
-      "order": 12
-    },
-    "874aee4f8bf6065b": {
+    "589c07a5fd80587e": {
       "versions": [
         "1.53_1",
         "1.53_3"
@@ -149,25 +34,33 @@
       ],
       "order": 8
     },
-    "9632d127d669672f": {
+    "599b7cb6dbadf5c8": {
       "versions": [
-        "1.55"
+        "1.52"
       ],
       "cores": [
-        "26.7.3_11",
-        "26.7.4_1",
-        "26.7.5",
-        "26.7.6_3"
+        "26.1.8_5",
+        "26.1.9"
       ],
       "releases": [
-        "26.7.3",
-        "26.7.4",
-        "26.7.5",
-        "26.7.6"
+        "26.1.8",
+        "26.1.9"
       ],
-      "order": 10
+      "order": 7
     },
-    "c1a08acdc0467060": {
+    "797d044a993f5ece": {
+      "versions": [
+        "1.46"
+      ],
+      "cores": [
+        "25.7.2"
+      ],
+      "releases": [
+        "25.7.2"
+      ],
+      "order": 1
+    },
+    "9015c038f8f3126d": {
       "versions": [
         "1.50_1"
       ],
@@ -189,7 +82,7 @@
       ],
       "order": 5
     },
-    "e1bf312e36d451ac": {
+    "b0cc53c5c54e6a53": {
       "versions": [
         "1.51"
       ],
@@ -205,111 +98,209 @@
       ],
       "order": 6
     },
-    "e589b44040e6087b": {
+    "c153e7d683e6e99b": {
       "versions": [
-        "1.47"
+        "1.47_1"
       ],
       "cores": [
-        "25.7.3_7"
+        "25.7.4",
+        "25.7.5",
+        "25.7.6"
       ],
       "releases": [
-        "25.7.3"
+        "25.7.4",
+        "25.7.5",
+        "25.7.6"
       ],
-      "order": 2
+      "order": 3
+    },
+    "cc8bf3587c3b53bd": {
+      "versions": [
+        "1.55"
+      ],
+      "cores": [
+        "26.7.3_11",
+        "26.7.4_1",
+        "26.7.5",
+        "26.7.6_3"
+      ],
+      "releases": [
+        "26.7.3",
+        "26.7.4",
+        "26.7.5",
+        "26.7.6"
+      ],
+      "order": 10
+    },
+    "cca993bccd7ae07b": {
+      "versions": [
+        "1.48",
+        "1.49"
+      ],
+      "cores": [
+        "25.7.7_4",
+        "25.7.8",
+        "25.7.9_7",
+        "25.7.10"
+      ],
+      "releases": [
+        "25.7.7",
+        "25.7.8",
+        "25.7.9",
+        "25.7.10"
+      ],
+      "order": 4
+    },
+    "cdfb454f7b95ec65": {
+      "versions": [
+        "1.45",
+        "1.45_1"
+      ],
+      "cores": [
+        "25.7",
+        "25.7.1_1"
+      ],
+      "releases": [
+        "25.7",
+        "25.7.1"
+      ],
+      "order": 0
+    },
+    "d1608aebee6f415a": {
+      "versions": [
+        "2.0_2",
+        "2.0_4"
+      ],
+      "cores": [
+        "26.7.7",
+        "26.7.8_2"
+      ],
+      "releases": [
+        "26.7.7",
+        "26.7.8"
+      ],
+      "order": 11
+    },
+    "d42c2833e67565a3": {
+      "versions": [
+        "2.1",
+        "2.1_1"
+      ],
+      "cores": [
+        "26.7.9_3",
+        "26.7.10"
+      ],
+      "releases": [
+        "26.7.9",
+        "26.7.10"
+      ],
+      "order": 12
+    },
+    "f6acb9288f133cbb": {
+      "versions": [
+        "1.54"
+      ],
+      "cores": [
+        "26.7.2_2"
+      ],
+      "releases": [
+        "26.7.2"
+      ],
+      "order": 9
     }
   },
   "select": {
     "046fc254f30f1892": {
-      "1.50_1": "c1a08acdc0467060"
+      "1.50_1": "9015c038f8f3126d"
     },
     "0ddc5c264e9d3b78": {
-      "1.54": "62baa425cd0059d4"
+      "1.54": "f6acb9288f133cbb"
     },
     "13556b5fde9fcb23": {
-      "1.53_3": "874aee4f8bf6065b"
+      "1.53_3": "589c07a5fd80587e"
     },
     "3474b58a4fd11c99": {
-      "1.50_1": "c1a08acdc0467060"
+      "1.50_1": "9015c038f8f3126d"
     },
     "46ca311bb5a3e6b7": {
-      "1.55": "9632d127d669672f"
+      "1.55": "cc8bf3587c3b53bd"
     },
     "4da8f2c1ce7d5bc5": {
-      "1.52": "685b2ce25535cae9",
-      "1.53_1": "874aee4f8bf6065b"
+      "1.52": "599b7cb6dbadf5c8",
+      "1.53_1": "589c07a5fd80587e"
     },
     "5ddba6daa11749ca": {
-      "1.53_3": "874aee4f8bf6065b"
+      "1.53_3": "589c07a5fd80587e"
     },
     "698003d800c002af": {
-      "1.47_1": "622cd7174181cd5c",
-      "1.48": "7675282bd568612b",
-      "1.49": "7675282bd568612b"
+      "1.47_1": "c153e7d683e6e99b",
+      "1.48": "cca993bccd7ae07b",
+      "1.49": "cca993bccd7ae07b"
     },
     "7d70a768bf0554d5": {
-      "1.55": "9632d127d669672f",
-      "2.0_2": "255b3c2fdaa68268"
+      "1.55": "cc8bf3587c3b53bd",
+      "2.0_2": "d1608aebee6f415a"
     },
     "8d844312ac36d0a2": {
-      "1.50_1": "c1a08acdc0467060"
+      "1.50_1": "9015c038f8f3126d"
     },
     "93e880c3fbfaf59f": {
-      "1.47_1": "622cd7174181cd5c"
+      "1.47_1": "c153e7d683e6e99b"
     },
     "995b248bda3c7fc2": {
-      "1.49": "7675282bd568612b"
+      "1.49": "cca993bccd7ae07b"
     },
     "9ed4f877dda47bf3": {
-      "1.50_1": "c1a08acdc0467060"
+      "1.50_1": "9015c038f8f3126d"
     },
     "a1c0499916701a33": {
-      "2.0_4": "255b3c2fdaa68268"
+      "2.0_4": "d1608aebee6f415a"
     },
     "a88377a837781ae9": {
-      "1.55": "9632d127d669672f"
+      "1.55": "cc8bf3587c3b53bd"
     },
     "aa8feee739c43325": {
-      "1.51": "e1bf312e36d451ac"
+      "1.51": "b0cc53c5c54e6a53"
     },
     "ba313549fdfa9a3d": {
-      "1.47": "e589b44040e6087b"
+      "1.47": "2f9cbf021e7222c3"
     },
     "bc8fbac28b9fda48": {
-      "1.51": "e1bf312e36d451ac"
+      "1.51": "b0cc53c5c54e6a53"
     },
     "dec042dcaed26347": {
-      "1.45_1": "6150142a67e18641",
-      "1.46": "7e6d2543fc9edbb9"
+      "1.45_1": "cdfb454f7b95ec65",
+      "1.46": "797d044a993f5ece"
     },
     "fa28675742c33421": {
-      "1.50_1": "c1a08acdc0467060",
-      "1.51": "e1bf312e36d451ac"
+      "1.50_1": "9015c038f8f3126d",
+      "1.51": "b0cc53c5c54e6a53"
     },
     "fb3734b94bf5416f": {
-      "2.1": "3163436f2f320ab6"
+      "2.1": "d42c2833e67565a3",
+      "2.1_1": "d42c2833e67565a3"
     },
     "ff8724da663dda9f": {
-      "1.45": "6150142a67e18641"
+      "1.45": "cdfb454f7b95ec65"
     }
   },
   "resources": {
     "quagga/ospfsettings": {
       "kind": "settings",
       "in": [
-        "6150142a67e18641",
-        "7e6d2543fc9edbb9",
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "cdfb454f7b95ec65",
+        "797d044a993f5ece",
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -415,22 +406,26 @@
         "passiveinterfaces": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "InterfaceField",
             "base": "BaseListField",
             "read_shape": "select",
             "multiple": true,
+            "list": {
+              "separator": ",",
+              "ordered": false
+            },
             "constraints": {
               "AllowDynamic": "Y",
               "filters": "(structured)"
@@ -440,17 +435,17 @@
         "routerid": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -461,8 +456,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -474,56 +469,170 @@
             "gaps": [
               "custom-write"
             ]
-          },
-          {
-            "in": [
-              "8259be67f862e47b"
-            ],
-            "type": "NetworkField",
-            "base": "BaseSetField",
-            "read_shape": "string",
-            "constraints": {
-              "AddressFamily": "ipv4",
-              "NetMaskAllowed": "N"
-            }
           }
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "set",
-            "read-back"
-          ]
-        },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "set",
-            "read-back"
-          ]
-        },
-        "c1a08acdc0467060": {
+        "2f9cbf021e7222c3": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
           "read": "ok",
           "write": "ok",
           "steps": [
             "set",
-            "read-back"
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ]
+        },
+        "599b7cb6dbadf5c8": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "797d044a993f5ece": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ]
+        },
+        "b0cc53c5c54e6a53": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cdfb454f7b95ec65": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
+          ],
+          "same_definition_as": "d42c2833e67565a3"
+        },
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "set",
+            "read-back",
+            "restore",
+            "read-back-restore"
           ]
         }
       }
@@ -531,18 +640,17 @@
     "quagga/ospfsettings#areas.area": {
       "kind": "entries",
       "in": [
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -626,19 +734,7 @@
         ],
         "id": [
           {
-            "in": [
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f",
-              "255b3c2fdaa68268",
-              "3163436f2f320ab6"
-            ],
+            "in": "*",
             "type": "NetworkField",
             "base": "BaseSetField",
             "read_shape": "string",
@@ -651,28 +747,13 @@
             "gaps": [
               "custom-write"
             ]
-          },
-          {
-            "in": [
-              "8259be67f862e47b"
-            ],
-            "type": "NetworkField",
-            "base": "BaseSetField",
-            "read_shape": "string",
-            "required": true,
-            "constraints": {
-              "AddressFamily": "ipv4",
-              "Constraints": "(structured)",
-              "NetMaskAllowed": "N"
-            }
           }
         ],
         "linkedPrefixlistIn": [
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "GroupedModelRelationField",
             "base": "BaseListField",
@@ -694,9 +775,8 @@
         "linkedPrefixlistOut": [
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "GroupedModelRelationField",
             "base": "BaseListField",
@@ -718,12 +798,16 @@
         "ranges": [
           {
             "in": [
-              "255b3c2fdaa68268",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
             "read_shape": "select",
+            "list": {
+              "separator": ",",
+              "ordered": true
+            },
             "constraints": {
               "AddressFamily": "ipv4",
               "AsList": "Y"
@@ -731,24 +815,12 @@
             "gaps": [
               "custom-write"
             ]
-          },
-          {
-            "in": [
-              "8259be67f862e47b"
-            ],
-            "type": "NetworkField",
-            "base": "BaseSetField",
-            "read_shape": "select",
-            "constraints": {
-              "AddressFamily": "ipv4",
-              "AsList": "Y"
-            }
           }
         ],
         "type": [
           {
             "in": [
-              "e589b44040e6087b"
+              "2f9cbf021e7222c3"
             ],
             "type": "OptionField",
             "base": "BaseListField",
@@ -780,14 +852,14 @@
           },
           {
             "in": [
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "OptionField",
             "base": "BaseListField",
@@ -815,9 +887,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "OptionField",
             "base": "BaseListField",
@@ -844,11 +915,187 @@
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ]
+        },
+        "599b7cb6dbadf5c8": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ]
+        },
+        "b0cc53c5c54e6a53": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "type": "stub"
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "enabled": "1",
+            "id": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "ranges": "",
+            "type": ""
+          },
+          "generated": [
+            "id"
+          ],
+          "runtime_required": [
+            "id"
+          ],
+          "same_definition_as": "d42c2833e67565a3"
+        },
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -870,74 +1117,25 @@
           "runtime_required": [
             "id"
           ]
-        },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "del"
-          ],
-          "sample": {
-            "enabled": "1",
-            "id": "192.0.2.10",
-            "type": "stub"
-          },
-          "generated": [
-            "id"
-          ],
-          "runtime_required": [
-            "id"
-          ]
-        },
-        "c1a08acdc0467060": {
-          "release": "25.7.11",
-          "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "del"
-          ],
-          "sample": {
-            "enabled": "1",
-            "id": "192.0.2.10",
-            "type": "stub"
-          },
-          "generated": [
-            "id"
-          ],
-          "runtime_required": [
-            "id"
-          ]
         }
       }
     },
     "quagga/ospfsettings#interfaces.interface": {
       "kind": "entries",
       "in": [
-        "6150142a67e18641",
-        "7e6d2543fc9edbb9",
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "cdfb454f7b95ec65",
+        "797d044a993f5ece",
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -1012,17 +1210,17 @@
         "area": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -1033,9 +1231,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
@@ -1100,8 +1297,8 @@
         "bfd": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece"
             ],
             "type": "BooleanField",
             "base": "BooleanField",
@@ -1110,18 +1307,17 @@
           },
           {
             "in": [
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f",
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd",
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "BooleanField",
             "base": "BooleanField",
@@ -1154,8 +1350,8 @@
         "cost_demoted": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece"
             ],
             "type": "IntegerField",
             "base": "IntegerField",
@@ -1168,18 +1364,17 @@
           },
           {
             "in": [
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f",
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd",
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "IntegerField",
             "base": "IntegerField",
@@ -1227,17 +1422,17 @@
         "interfacename": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "InterfaceField",
             "base": "BaseListField",
@@ -1249,9 +1444,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "InterfaceField",
             "base": "BaseListField",
@@ -1292,19 +1486,18 @@
         "p2mpoptions": [
           {
             "in": [
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f",
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd",
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "OptionField",
             "base": "BaseListField",
@@ -1324,9 +1517,8 @@
         "passive": [
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "BooleanField",
             "base": "BooleanField",
@@ -1373,11 +1565,280 @@
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
+        "2f9cbf021e7222c3": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          }
+        },
+        "599b7cb6dbadf5c8": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          },
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          }
+        },
+        "b0cc53c5c54e6a53": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          },
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "",
+            "networktype": "",
+            "p2mpoptions": "",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "",
+            "authkey": "",
+            "authkey_id": "1",
+            "authtype": "",
+            "bfd": "0",
+            "carp_depend_on": "",
+            "cost": "",
+            "cost_demoted": "",
+            "deadinterval": "",
+            "enabled": "1",
+            "hellointerval": "",
+            "interfacename": "lan",
+            "networktype": "",
+            "p2mpoptions": "",
+            "passive": "0",
+            "priority": "",
+            "retransmitinterval": "",
+            "transmitdelay": ""
+          },
+          "generated": [
+            "interfacename"
+          ],
+          "runtime_required": [
+            "interfacename"
+          ],
+          "same_definition_as": "d42c2833e67565a3"
+        },
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -1411,90 +1872,25 @@
           "runtime_required": [
             "interfacename"
           ]
-        },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "del"
-          ],
-          "sample": {
-            "area": "",
-            "authkey": "",
-            "authkey_id": "1",
-            "authtype": "",
-            "bfd": "0",
-            "carp_depend_on": "",
-            "cost": "",
-            "cost_demoted": "",
-            "deadinterval": "",
-            "enabled": "1",
-            "hellointerval": "",
-            "interfacename": "",
-            "networktype": "",
-            "p2mpoptions": "",
-            "priority": "",
-            "retransmitinterval": "",
-            "transmitdelay": ""
-          }
-        },
-        "c1a08acdc0467060": {
-          "release": "25.7.11",
-          "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "del"
-          ],
-          "sample": {
-            "area": "",
-            "authkey": "",
-            "authkey_id": "1",
-            "authtype": "",
-            "bfd": "0",
-            "carp_depend_on": "",
-            "cost": "",
-            "cost_demoted": "",
-            "deadinterval": "",
-            "enabled": "1",
-            "hellointerval": "",
-            "interfacename": "",
-            "networktype": "",
-            "p2mpoptions": "",
-            "priority": "",
-            "retransmitinterval": "",
-            "transmitdelay": ""
-          }
         }
       }
     },
     "quagga/ospfsettings#neighbors.neighbor": {
       "kind": "entries",
       "in": [
-        "6150142a67e18641",
-        "7e6d2543fc9edbb9",
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "cdfb454f7b95ec65",
+        "797d044a993f5ece",
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -1569,17 +1965,17 @@
         "address": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -1591,8 +1987,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -1605,19 +2001,6 @@
             "gaps": [
               "custom-write"
             ]
-          },
-          {
-            "in": [
-              "8259be67f862e47b"
-            ],
-            "type": "NetworkField",
-            "base": "BaseSetField",
-            "read_shape": "string",
-            "required": true,
-            "constraints": {
-              "AddressFamily": "ipv4",
-              "NetMaskAllowed": "N"
-            }
           }
         ],
         "description": [
@@ -1664,67 +2047,299 @@
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "set",
-            "read-back-set",
-            "del"
-          ],
-          "sample": {
-            "address": "192.0.2.10",
-            "description": "contracttest1",
-            "enabled": "1",
-            "pollinterval": "",
-            "priority": ""
-          },
-          "generated": [
-            "address"
-          ],
-          "runtime_required": [
-            "address"
-          ]
-        },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "set",
-            "read-back-set",
-            "del"
-          ],
-          "sample": {
-            "address": "192.0.2.10",
-            "description": "contracttest1",
-            "enabled": "1",
-            "pollinterval": "",
-            "priority": ""
-          },
-          "generated": [
-            "address"
-          ],
-          "runtime_required": [
-            "address"
-          ]
-        },
-        "c1a08acdc0467060": {
+        "2f9cbf021e7222c3": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ]
+        },
+        "599b7cb6dbadf5c8": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "797d044a993f5ece": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ]
+        },
+        "b0cc53c5c54e6a53": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cdfb454f7b95ec65": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "address": "192.0.2.10",
+            "description": "contracttest1",
+            "enabled": "1",
+            "pollinterval": "",
+            "priority": ""
+          },
+          "generated": [
+            "address"
+          ],
+          "runtime_required": [
+            "address"
+          ],
+          "same_definition_as": "d42c2833e67565a3"
+        },
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -1753,20 +2368,19 @@
     "quagga/ospfsettings#networks.network": {
       "kind": "entries",
       "in": [
-        "6150142a67e18641",
-        "7e6d2543fc9edbb9",
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "cdfb454f7b95ec65",
+        "797d044a993f5ece",
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -1841,17 +2455,17 @@
         "area": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -1863,9 +2477,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
@@ -1888,17 +2501,17 @@
         "arearange": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -1921,17 +2534,17 @@
         "ipaddr": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -1943,8 +2556,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "NetworkField",
             "base": "BaseSetField",
@@ -1957,35 +2570,22 @@
             "gaps": [
               "custom-write"
             ]
-          },
-          {
-            "in": [
-              "8259be67f862e47b"
-            ],
-            "type": "NetworkField",
-            "base": "BaseSetField",
-            "read_shape": "string",
-            "required": true,
-            "constraints": {
-              "AddressFamily": "ipv4",
-              "NetMaskAllowed": "N"
-            }
           }
         ],
         "linkedPrefixlistIn": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
@@ -2007,17 +2607,17 @@
         "linkedPrefixlistOut": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
@@ -2052,68 +2652,11 @@
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "del"
-          ],
-          "sample": {
-            "area": "9500bc18-a5a2-430e-b268-d8bf41b9630c",
-            "enabled": "1",
-            "ipaddr": "192.0.2.10",
-            "netmask": "24"
-          },
-          "generated": [
-            "area",
-            "ipaddr"
-          ],
-          "runtime_required": [
-            "area",
-            "ipaddr"
-          ]
-        },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "del"
-          ],
-          "sample": {
-            "area": "192.0.2.10",
-            "arearange": "",
-            "enabled": "1",
-            "ipaddr": "192.0.2.10",
-            "linkedPrefixlistIn": "",
-            "linkedPrefixlistOut": "",
-            "netmask": "24"
-          },
-          "generated": [
-            "area",
-            "ipaddr"
-          ],
-          "runtime_required": [
-            "area",
-            "ipaddr"
-          ]
-        },
-        "c1a08acdc0467060": {
+        "2f9cbf021e7222c3": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -2128,6 +2671,308 @@
             "ipaddr": "192.0.2.10",
             "linkedPrefixlistIn": "",
             "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ]
+        },
+        "599b7cb6dbadf5c8": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "797d044a993f5ece": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ]
+        },
+        "b0cc53c5c54e6a53": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cdfb454f7b95ec65": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "192.0.2.10",
+            "arearange": "",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "linkedPrefixlistIn": "",
+            "linkedPrefixlistOut": "",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "52ab8a55-b6a4-4a8f-bf0e-c2524d729dbe",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
+            "netmask": "24"
+          },
+          "generated": [
+            "area",
+            "ipaddr"
+          ],
+          "runtime_required": [
+            "area",
+            "ipaddr"
+          ],
+          "same_definition_as": "d42c2833e67565a3"
+        },
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "del"
+          ],
+          "sample": {
+            "area": "52ab8a55-b6a4-4a8f-bf0e-c2524d729dbe",
+            "enabled": "1",
+            "ipaddr": "192.0.2.10",
             "netmask": "24"
           },
           "generated": [
@@ -2144,20 +2989,19 @@
     "quagga/ospfsettings#prefixlists.prefixlist": {
       "kind": "entries",
       "in": [
-        "6150142a67e18641",
-        "7e6d2543fc9edbb9",
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "cdfb454f7b95ec65",
+        "797d044a993f5ece",
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -2261,17 +3105,17 @@
         "name": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -2283,9 +3127,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -2320,79 +3163,359 @@
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "set",
-            "read-back-set",
-            "del"
-          ],
-          "sample": {
-            "action": "deny",
-            "enabled": "1",
-            "name": "contracttest1",
-            "network": "contracttest1",
-            "seqnumber": "10"
-          },
-          "generated": [
-            "action",
-            "name",
-            "network",
-            "seqnumber"
-          ],
-          "runtime_required": [
-            "action",
-            "name",
-            "network",
-            "seqnumber"
-          ]
-        },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "set",
-            "read-back-set",
-            "del"
-          ],
-          "sample": {
-            "action": "deny",
-            "enabled": "1",
-            "name": "contracttest1",
-            "network": "contracttest1",
-            "seqnumber": "10"
-          },
-          "generated": [
-            "action",
-            "name",
-            "network",
-            "seqnumber"
-          ],
-          "runtime_required": [
-            "action",
-            "name",
-            "network",
-            "seqnumber"
-          ]
-        },
-        "c1a08acdc0467060": {
+        "2f9cbf021e7222c3": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ]
+        },
+        "599b7cb6dbadf5c8": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "797d044a993f5ece": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ]
+        },
+        "b0cc53c5c54e6a53": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cdfb454f7b95ec65": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "name": "contracttest1",
+            "network": "contracttest1",
+            "seqnumber": "10"
+          },
+          "generated": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "runtime_required": [
+            "action",
+            "name",
+            "network",
+            "seqnumber"
+          ],
+          "same_definition_as": "d42c2833e67565a3"
+        },
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -2427,20 +3550,19 @@
     "quagga/ospfsettings#redistributions.redistribution": {
       "kind": "entries",
       "in": [
-        "6150142a67e18641",
-        "7e6d2543fc9edbb9",
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "cdfb454f7b95ec65",
+        "797d044a993f5ece",
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -2533,17 +3655,17 @@
         "linkedRoutemap": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
@@ -2563,9 +3685,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "GroupedModelRelationField",
             "base": "BaseListField",
@@ -2618,53 +3739,229 @@
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "set",
-            "read-back-set",
-            "del"
-          ],
-          "sample": {
-            "description": "contracttest1",
-            "enabled": "1",
-            "linkedRoutemap": "",
-            "redistribute": "connected"
-          }
-        },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "set",
-            "read-back-set",
-            "del"
-          ],
-          "sample": {
-            "description": "contracttest1",
-            "enabled": "1",
-            "linkedRoutemap": "",
-            "redistribute": "connected"
-          }
-        },
-        "c1a08acdc0467060": {
+        "2f9cbf021e7222c3": {
           "release": "25.7.11",
           "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          }
+        },
+        "599b7cb6dbadf5c8": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "797d044a993f5ece": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          }
+        },
+        "b0cc53c5c54e6a53": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "589c07a5fd80587e"
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cdfb454f7b95ec65": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "description": "contracttest1",
+            "enabled": "1",
+            "linkedRoutemap": "",
+            "redistribute": "connected"
+          },
+          "same_definition_as": "d42c2833e67565a3"
+        },
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -2686,20 +3983,19 @@
     "quagga/ospfsettings#routemaps.routemap": {
       "kind": "entries",
       "in": [
-        "6150142a67e18641",
-        "7e6d2543fc9edbb9",
-        "e589b44040e6087b",
-        "622cd7174181cd5c",
-        "7675282bd568612b",
-        "c1a08acdc0467060",
-        "e1bf312e36d451ac",
-        "685b2ce25535cae9",
-        "874aee4f8bf6065b",
-        "62baa425cd0059d4",
-        "9632d127d669672f",
-        "255b3c2fdaa68268",
-        "8259be67f862e47b",
-        "3163436f2f320ab6"
+        "cdfb454f7b95ec65",
+        "797d044a993f5ece",
+        "2f9cbf021e7222c3",
+        "c153e7d683e6e99b",
+        "cca993bccd7ae07b",
+        "9015c038f8f3126d",
+        "b0cc53c5c54e6a53",
+        "599b7cb6dbadf5c8",
+        "589c07a5fd80587e",
+        "f6acb9288f133cbb",
+        "cc8bf3587c3b53bd",
+        "d1608aebee6f415a",
+        "d42c2833e67565a3"
       ],
       "api": [
         {
@@ -2803,13 +4099,12 @@
         "id": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "62baa425cd0059d4",
-              "9632d127d669672f",
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd",
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "IntegerField",
             "base": "IntegerField",
@@ -2822,13 +4117,13 @@
           },
           {
             "in": [
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b"
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e"
             ],
             "type": "IntegerField",
             "base": "IntegerField",
@@ -2842,14 +4137,14 @@
         "match2": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
@@ -2869,14 +4164,18 @@
           },
           {
             "in": [
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "ModelRelationField",
             "base": "BaseListField",
             "read_shape": "select",
             "multiple": true,
+            "list": {
+              "separator": ",",
+              "ordered": false
+            },
             "relations": [
               {
                 "source": "OPNsense.quagga.ospf",
@@ -2892,14 +4191,17 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "GroupedModelRelationField",
             "base": "BaseListField",
             "read_shape": "select",
             "multiple": true,
+            "list": {
+              "separator": ",",
+              "ordered": false
+            },
             "relations": [
               {
                 "source": "OPNsense.quagga.ospf",
@@ -2917,17 +4219,17 @@
         "name": [
           {
             "in": [
-              "6150142a67e18641",
-              "7e6d2543fc9edbb9",
-              "e589b44040e6087b",
-              "622cd7174181cd5c",
-              "7675282bd568612b",
-              "c1a08acdc0467060",
-              "e1bf312e36d451ac",
-              "685b2ce25535cae9",
-              "874aee4f8bf6065b",
-              "62baa425cd0059d4",
-              "9632d127d669672f"
+              "cdfb454f7b95ec65",
+              "797d044a993f5ece",
+              "2f9cbf021e7222c3",
+              "c153e7d683e6e99b",
+              "cca993bccd7ae07b",
+              "9015c038f8f3126d",
+              "b0cc53c5c54e6a53",
+              "599b7cb6dbadf5c8",
+              "589c07a5fd80587e",
+              "f6acb9288f133cbb",
+              "cc8bf3587c3b53bd"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -2936,9 +4238,8 @@
           },
           {
             "in": [
-              "255b3c2fdaa68268",
-              "8259be67f862e47b",
-              "3163436f2f320ab6"
+              "d1608aebee6f415a",
+              "d42c2833e67565a3"
             ],
             "type": "TextField",
             "base": "TextField",
@@ -2959,11 +4260,169 @@
         ]
       },
       "verified": {
-        "3163436f2f320ab6": {
-          "release": "26.7.9",
-          "composition": "26.7.9_3~f6af0703c1a6",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:48:42Z",
+        "2f9cbf021e7222c3": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "name"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "589c07a5fd80587e": {
+          "release": "26.1.11",
+          "composition": "26.1.11_10~b2d8ecf78d77",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:46:20Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "name"
+          ]
+        },
+        "9015c038f8f3126d": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "name"
+          ]
+        },
+        "c153e7d683e6e99b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "name"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "cca993bccd7ae07b": {
+          "release": "25.7.11",
+          "composition": "25.7.11_9~f12e165a376b",
+          "generator": "0.10.0",
+          "date": "2026-11-24T23:28:04Z",
+          "read": "ok",
+          "write": "ok",
+          "steps": [
+            "add",
+            "read-back",
+            "set",
+            "read-back-set",
+            "del"
+          ],
+          "sample": {
+            "action": "deny",
+            "enabled": "1",
+            "id": "",
+            "match2": "",
+            "name": "contracttest1",
+            "set": ""
+          },
+          "generated": [
+            "action",
+            "name"
+          ],
+          "runtime_required": [
+            "action",
+            "name"
+          ],
+          "same_definition_as": "9015c038f8f3126d"
+        },
+        "d1608aebee6f415a": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -2990,13 +4449,14 @@
             "action",
             "id",
             "name"
-          ]
+          ],
+          "same_definition_as": "d42c2833e67565a3"
         },
-        "874aee4f8bf6065b": {
-          "release": "26.1.11",
-          "composition": "26.1.11_10~b2d8ecf78d77",
-          "generator": "0.9.3",
-          "date": "2026-11-17T05:47:22Z",
+        "d42c2833e67565a3": {
+          "release": "26.7.10",
+          "composition": "26.7.10~43aee729d5df",
+          "generator": "0.10.0",
+          "date": "2026-11-25T00:04:09Z",
           "read": "ok",
           "write": "ok",
           "steps": [
@@ -3009,48 +4469,19 @@
           "sample": {
             "action": "deny",
             "enabled": "1",
-            "id": "",
+            "id": "10",
             "match2": "",
             "name": "contracttest1",
             "set": ""
           },
           "generated": [
             "action",
+            "id",
             "name"
           ],
           "runtime_required": [
             "action",
-            "name"
-          ]
-        },
-        "c1a08acdc0467060": {
-          "release": "25.7.11",
-          "composition": "25.7.11_9~f12e165a376b",
-          "generator": "0.9.3",
-          "date": "2026-11-17T06:26:56Z",
-          "read": "ok",
-          "write": "ok",
-          "steps": [
-            "add",
-            "read-back",
-            "set",
-            "read-back-set",
-            "del"
-          ],
-          "sample": {
-            "action": "deny",
-            "enabled": "1",
-            "id": "",
-            "match2": "",
-            "name": "contracttest1",
-            "set": ""
-          },
-          "generated": [
-            "action",
-            "name"
-          ],
-          "runtime_required": [
-            "action",
+            "id",
             "name"
           ]
         }

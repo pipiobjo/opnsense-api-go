@@ -209,17 +209,32 @@ type Field struct {
 	Multiple  bool   `json:"multiple,omitempty"`
 	Required  bool   `json:"required,omitempty"`
 	Volatile  bool   `json:"volatile,omitempty"`
-	// ServerSet: the firewall fills the field itself and ignores a value
-	// sent (unique ids, auto numbers, audit fields); WriteOnly: stored but
-	// never returned (passwords). Both come from the data, so the client
-	// keeps no list of field types.
-	ServerSet   bool              `json:"server_set,omitempty"`
-	WriteOnly   bool              `json:"write_only,omitempty"`
-	Default     *string           `json:"default,omitempty"`
-	Options     []Option          `json:"options,omitempty"`
-	Relations   []Relation        `json:"relations,omitempty"`
-	Constraints map[string]string `json:"constraints,omitempty"`
-	Gaps        []string          `json:"gaps,omitempty"`
+	// List: the value is a list of elements joined by List.Separator
+	// (multiple option fields, AsList set fields, alias content); nil for
+	// a single value.
+	List *List `json:"list,omitempty"`
+	// ServerSet: the firewall fills the field itself or discards a value
+	// sent (unique ids, auto numbers, audit fields, legacy links);
+	// WriteOnly: get returns it empty (passwords; search may return the
+	// stored value from OPNsense 26.1.8 on); EmptyIgnored: writing "" does
+	// not clear it. All come from the data, so the client keeps no list of
+	// field types.
+	ServerSet    bool              `json:"server_set,omitempty"`
+	WriteOnly    bool              `json:"write_only,omitempty"`
+	EmptyIgnored bool              `json:"empty_ignored,omitempty"`
+	Default      *string           `json:"default,omitempty"`
+	Options      []Option          `json:"options,omitempty"`
+	Relations    []Relation        `json:"relations,omitempty"`
+	Constraints  map[string]string `json:"constraints,omitempty"`
+	Gaps         []string          `json:"gaps,omitempty"`
+}
+
+// List describes a list-valued field: the separator between the elements
+// on the wire, and whether the firewall keeps the order written (a read
+// returns the elements in that order).
+type List struct {
+	Separator string `json:"separator"`
+	Ordered   bool   `json:"ordered"`
 }
 
 // Option is a static option of a field.

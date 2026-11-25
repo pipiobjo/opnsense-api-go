@@ -24,8 +24,8 @@ const (
 	KindBool
 	// KindInt: int64; decimal on the wire.
 	KindInt
-	// KindList: []string; comma-separated on the wire, a selection map on
-	// read for option fields.
+	// KindList: []string; joined by Field.Separator on the wire, a
+	// selection map on read.
 	KindList
 )
 
@@ -39,7 +39,7 @@ func (k Kind) String() string {
 // Kind of a field variant.
 func (f *Field) Kind() Kind {
 	switch {
-	case f.Multiple:
+	case f.Multiple || f.List != nil:
 		return KindList
 	case f.Base == "BooleanField":
 		return KindBool
@@ -48,6 +48,19 @@ func (f *Field) Kind() Kind {
 	}
 	return KindString
 }
+
+// Separator joins the elements of a list field on the wire: the one the
+// data names, else "," (multiple option fields of older data).
+func (f *Field) Separator() string {
+	if f.List != nil && f.List.Separator != "" {
+		return f.List.Separator
+	}
+	return ","
+}
+
+// Ordered reports whether the firewall keeps the order of a list field's
+// elements as written; for other lists the order on read is its own.
+func (f *Field) Ordered() bool { return f.List != nil && f.List.Ordered }
 
 // StaticOptions reports whether Options is the complete list of allowed
 // values: only for the core OptionField without derivation gaps. Subclasses
@@ -92,12 +105,13 @@ func (f *Field) Encode(v any) (string, error) {
 		if f.Kind() != KindList {
 			return "", fmt.Errorf("list given for a %s field", f.Kind())
 		}
+		sep := f.Separator()
 		for i, e := range x {
-			if strings.Contains(e, ",") {
-				return "", fmt.Errorf("list element %d contains a comma", i+1)
+			if strings.Contains(e, sep) {
+				return "", fmt.Errorf("list element %d contains the separator %q", i+1, sep)
 			}
 		}
-		s = strings.Join(x, ",")
+		s = strings.Join(x, sep)
 	case nil:
 		s = ""
 	default:
@@ -120,12 +134,12 @@ func (f *Field) checkOptions(s string) error {
 		allowed[o.Value] = true
 	}
 	vals := []string{s}
-	if f.Multiple {
-		vals = strings.Split(s, ",")
+	if f.Kind() == KindList {
+		vals = strings.Split(s, f.Separator())
 	}
 	for i, v := range vals {
 		if !allowed[v] {
-			if f.Multiple {
+			if f.Kind() == KindList {
 				return fmt.Errorf("element %d is not an option (%s)", i+1, optionList(f.Options))
 			}
 			return fmt.Errorf("not an option (%s)", optionList(f.Options))
@@ -146,9 +160,19 @@ func optionList(opts []Option) string {
 }
 
 // Wire returns the raw wire string of a value as read from the firewall:
-// option fields arrive as {key: {value, selected}} and become the selected
-// keys, comma-separated, in the server's order.
+// list fields arrive as {key: {value, selected}} and become the selected
+// keys joined by the separator. A decoded JSON object has lost its order,
+// so the keys are sorted; for a field whose order counts (Ordered) use
+// WireOrdered with the order of the answer (SelectionOrder).
 func (f *Field) Wire(raw any) (string, error) {
+	return f.WireOrdered(raw, nil)
+}
+
+// WireOrdered is Wire with the selected keys of a selection map in the
+// order the answer listed them (from SelectionOrder); nil sorts them. The
+// order must name exactly the selected keys.
+func (f *Field) WireOrdered(raw any, order []string) (string, error) {
+	sep := f.Separator()
 	switch x := raw.(type) {
 	case nil:
 		return "", nil
@@ -177,7 +201,7 @@ func (f *Field) Wire(raw any) (string, error) {
 				keys = append(keys, strconv.Itoa(i))
 			}
 		}
-		return strings.Join(keys, ","), nil
+		return joinSelection(keys, sep), nil
 	case map[string]any:
 		var keys []string
 		for k, v := range x {
@@ -189,10 +213,27 @@ func (f *Field) Wire(raw any) (string, error) {
 				keys = append(keys, k)
 			}
 		}
-		sort.Strings(keys) // JSON objects have no order; sort for stable output
-		return strings.Join(keys, ","), nil
+		sort.Strings(keys)
+		if order != nil {
+			o := slices.Clone(order)
+			sort.Strings(o)
+			if !slices.Equal(o, keys) {
+				return "", fmt.Errorf("order %q does not name the selected keys %q", order, keys)
+			}
+			keys = order
+		}
+		return joinSelection(keys, sep), nil
 	}
 	return "", fmt.Errorf("unexpected value of type %T", raw)
+}
+
+// joinSelection joins selected keys; an AsList field with an empty value
+// reads as the single key "", which is the empty list.
+func joinSelection(keys []string, sep string) string {
+	if len(keys) == 1 && keys[0] == "" {
+		return ""
+	}
+	return strings.Join(keys, sep)
 }
 
 // selected reads the "selected" flag of an option: 1, true or "1".
@@ -237,13 +278,15 @@ func (f *Field) Decode(s string) (any, error) {
 		if s == "" {
 			return []string{}, nil
 		}
-		return strings.Split(s, ","), nil
+		return strings.Split(s, f.Separator()), nil
 	}
 	return s, nil
 }
 
-// SameWire compares a written and a read wire value: equal, or for list
-// fields the same elements in any order (the server may reorder them).
+// SameWire compares a written and a read wire value: equal; for list
+// fields the same elements, in the same order where the firewall keeps it
+// (Ordered), else in any order. Elements are unique on read (the keys of
+// the selection map), so a duplicate written once reads back once.
 func (f *Field) SameWire(sent, got string) bool {
 	if sent == got {
 		return true
@@ -251,16 +294,30 @@ func (f *Field) SameWire(sent, got string) bool {
 	if f.Kind() != KindList {
 		return false
 	}
-	a, b := strings.Split(sent, ","), strings.Split(got, ",")
+	sep := f.Separator()
+	a, b := uniq(strings.Split(sent, sep)), uniq(strings.Split(got, sep))
 	if sent == "" {
 		a = nil
 	}
 	if got == "" {
 		b = nil
 	}
-	sort.Strings(a)
-	sort.Strings(b)
-	return strings.Join(a, ",") == strings.Join(b, ",")
+	if !f.Ordered() {
+		sort.Strings(a)
+		sort.Strings(b)
+	}
+	return slices.Equal(a, b)
+}
+
+// uniq keeps the first of equal elements, in order.
+func uniq(l []string) []string {
+	out := l[:0:0]
+	for _, e := range l {
+		if !slices.Contains(out, e) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // CustomWrite reports whether the field's type converts or normalizes

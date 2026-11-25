@@ -151,10 +151,12 @@ func TestWriteVerified(t *testing.T) {
 	}
 	n, _ := c.Entries(neighbors)
 	in := n.Info()
-	if !in.WriteVerified() || in.VerifiedOn() != "26.7.9" || in.Verified.SameDefinition || in.Assumed {
-		t.Errorf("neighbors (add, set, del read back on 26.7.9): %+v", in.Verified)
+	tested := res[neighbors].Verified[frag].Release // the release the data's test ran on
+	if !in.WriteVerified() || in.VerifiedOn() != tested || in.Verified.SameDefinition || in.Assumed {
+		t.Errorf("neighbors (add, set, del read back on %s): %+v", tested, in.Verified)
 	}
 	st, _ := c.Settings("quagga/ospfsettings")
+	res["quagga/ospfsettings"].Verified[frag].Steps = []string{"set", "read-back"} // as before generator 0.10.0
 	if st.Info().Verified.Write != VerifyOK || st.Info().WriteVerified() {
 		t.Error("settings written back with their current value only (steps set, read-back) are not write-verified")
 	}
@@ -164,8 +166,8 @@ func TestWriteVerified(t *testing.T) {
 	}
 	v := res[neighbors].Verified[frag]
 	v.Write = capability.StatusSkipped
-	if n.Info().WriteVerified() || n.Info().VerifiedOn() != "26.7.9" {
-		t.Error("write skipped: read tested on 26.7.9, not write-verified")
+	if n.Info().WriteVerified() || n.Info().VerifiedOn() != tested {
+		t.Error("write skipped: read tested, not write-verified")
 	}
 	v.Write, v.Read = VerifyOK, VerifyKnownGap
 	if n.Info().WriteVerified() {

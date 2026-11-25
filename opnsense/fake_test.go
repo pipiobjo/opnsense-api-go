@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-// fakeFirewall behaves like OPNsense 26.7.9_1 with os-frr 2.1 for the OSPF
+// fakeFirewall behaves like OPNsense 26.7.9_3 with os-frr 2.1 for the OSPF
 // settings and neighbors, as recorded from a test VM on 2026-11-15:
 // unknown keys are ignored silently, an unknown UUID reads as [], a missing
 // endpoint is HTTP 404, a GET with a Content-Type is HTTP 400, and a set
@@ -60,10 +60,11 @@ type fakeFirewall struct {
 	setAnswer     map[string]any    // if set, set (settings and entries) stores nothing and answers this
 	getStatus     int               // if set, every get answers this HTTP status (a GUI restarting after a write)
 	addStatus     int               // if set, add answers this HTTP status with a body that echoes the sent description (a PHP error page)
+	raw           map[string]string // "METHOD path" -> answer sent as it is (member order kept)
 }
 
 func newFake(t *testing.T) *fakeFirewall {
-	f := &fakeFirewall{t: t, key: "key", secret: "secret", core: "26.7.9_1", plugins: map[string]string{"os-frr": "2.1"},
+	f := &fakeFirewall{t: t, key: "key", secret: "secret", core: "26.7.9_3", plugins: map[string]string{"os-frr": "2.1"},
 		ospf: map[string]string{"enabled": "0", "routerid": "", "costreference": "", "logadjacencychanges": "0",
 			"carp_demote": "0", "originate": "0", "originatealways": "0", "originatemetric": ""},
 		nbrs: map[string]map[string]string{}, dropSets: map[string]bool{}}
@@ -125,6 +126,10 @@ func (f *fakeFirewall) handle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	p := r.URL.Path
+	if a, ok := f.raw[r.Method+" "+p]; ok {
+		fmt.Fprint(w, a)
+		return
+	}
 	reply := func(v any) { _ = json.NewEncoder(w).Encode(v) }
 	switch {
 	case p == "/api/core/firmware/info" && f.infoStatus != 0:

@@ -102,7 +102,7 @@ func TestDetectionWithoutFirmwarePrivilege(t *testing.T) {
 	f.infoStatus = http.StatusForbidden
 	c := mustConnect(t, f)
 	inst := c.Instance()
-	if inst.Core != "26.7.9_1" || len(inst.Plugins) != 0 || !strings.Contains(strings.Join(inst.Warnings, "|"), "plugin list not available") {
+	if inst.Core != "26.7.9_3" || len(inst.Plugins) != 0 || !strings.Contains(strings.Join(inst.Warnings, "|"), "plugin list not available") {
 		t.Errorf("fallback: %+v", inst)
 	}
 	if _, err := c.Entries(neighbors); err == nil {
@@ -272,7 +272,7 @@ func TestWriteOnlyFieldsAreNotDecoded(t *testing.T) {
 		"name":     {{In: capability.In{All: true}, Type: "TextField", Base: "TextField"}},
 	}}
 	b := &bound{id: "x/y#z", frag: "h", res: r}
-	v, err := b.decode(map[string]any{"password": "", "name": "n"})
+	v, err := b.decode(map[string]any{"password": "", "name": "n"}, nil)
 	if err != nil || v["name"] != "n" {
 		t.Fatal(v, err)
 	}

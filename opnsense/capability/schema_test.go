@@ -16,14 +16,9 @@ import (
 // Keys of the format the client deliberately does not read, with the
 // reason. Everything else in the schema must have a field in the model, so
 // a key added to the format is either used or listed here on purpose.
-var ignoredKeys = map[string]string{
-	// list fields (field.list, field.empty_ignored): the client still
-	// encodes lists by "multiple"; the list encoding change reads them
-	"list":          "list encoding not yet read",
-	"separator":     "list encoding not yet read",
-	"ordered":       "list encoding not yet read",
-	"empty_ignored": "list encoding not yet read",
-}
+// ignoredKeys: keys of the format the model deliberately does not read,
+// with the reason. Empty: the model reads every key.
+var ignoredKeys = map[string]string{}
 
 // schemaKeys returns every property name the JSON Schema defines, at any
 // depth. Map keys (resource IDs, versions, hashes) are additionalProperties

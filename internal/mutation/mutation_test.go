@@ -48,8 +48,8 @@ var mutants = []mutant{
 		`if !ok {`,
 		"./opnsense/", "^TestReadBackCatchesWhatTheServerIgnored$"},
 	{"existence by any search row, not the ID", "opnsense/resource.go",
-		"if r.id == id {\n\t\t\treturn obj, err",
-		"if r.id != \"\" {\n\t\t\treturn obj, err",
+		"if r.id == id {\n\t\t\treturn obj, order, err",
+		"if r.id != \"\" {\n\t\t\treturn obj, order, err",
 		"./opnsense/", "^TestTemplateControllerMatchesTheID$"},
 	{"a write trusts the remembered list", "opnsense/resource.go",
 		`if cached && b.c.listedRecently(b.id, id) {`,
@@ -99,6 +99,14 @@ var mutants = []mutant{
 		`if CompareVersions(refs[i].Version, v) <= 0 {`,
 		`if true {`,
 		"./opnsense/capability/", "^TestResolveCoreNeverNewer$"},
+	{"an ordered list compared as a set (DEV-1)", "opnsense/capability/values.go",
+		"if !f.Ordered() {",
+		"if true {",
+		"./opnsense/capability/", "^TestListFields$"},
+	{"the answer's list order not used on read-back (DEV-1)", "opnsense/resource.go",
+		"if got, err = f.WireOrdered(raw, order[name]); err != nil {",
+		"if got, err = f.WireOrdered(raw, nil); err != nil || order == nil && false {",
+		"./opnsense/", "^TestListOrderIsReadAndCompared$"},
 }
 
 // Claim (Q1(c)): every check in the table above fails when its rule is
