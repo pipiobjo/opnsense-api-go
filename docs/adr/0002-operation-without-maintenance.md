@@ -116,7 +116,12 @@ back every write.
    the commit status `ci passed` on the commit it tested; a status is bound
    to the commit, not to a run. The `pull_request` runs GitHub starts for
    the pin pull request wait for an approval (opened by a bot) and are not
-   needed; they stay as "action required".
+   needed; they wait as "action required" and end as a failure without
+   jobs when the pull request is merged (the watchdog looks only at
+   `spec-update.yml`). Proven 2026-11-25: PR #3 merged by GitHub Actions
+   through auto-merge, rule suite "pass". GitHub's "delete head branches"
+   does not act on that merge, so each `spec-update.yml` run deletes the
+   merged pin branches.
 7. **Unknown versions are graded.** Another hotfix revision of a known
    release, or a known plugin version seen on another core of the series,
    is a note (`Instance().Notes`): usual after an update, nothing to do. A

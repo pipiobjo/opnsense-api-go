@@ -12,8 +12,8 @@
 # spec-pin/..., starts ci.yml there (the whole suite against the new data:
 # unit tests, then every series on a VM with every plugin) and opens a
 # pull request with auto-merge: GitHub rebases it onto main once "ci
-# passed" is green on it (ruleset "main: tested"; the merged branch is
-# deleted by the repository setting). A later run merges a passed one
+# passed" is green on it (ruleset "main: tested"); the next run deletes
+# the merged branch. A later run merges a passed one
 # whose auto-merge did not fire. Not a fast-forward of main by the job
 # token: the ruleset refuses that even with a green check on the commit
 # (rule suite of 2026-11-25, "Required status check is expected"). So
@@ -58,6 +58,16 @@ jobs:
           ref: main
       - name: Propose the newest promoted spec commit and data as the new pins
         run: |
+          # a merged pin branch is left behind: GitHub's "delete head
+          # branches" does not act on a merge by GitHub Actions (PR #3,
+          # 2026-11-25)
+          for done in $(gh pr list -R "$GITHUB_REPOSITORY" --base main --state merged --limit 20 --json headRefName \
+            -q '.[] | select(.headRefName | startswith("spec-pin/")) | .headRefName'); do
+            if git ls-remote --exit-code --heads origin "$done" >/dev/null; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$done" >/dev/null
+              echo "deleted merged $done"
+            fi
+          done
           cur_spec=$(tools/ci/spec-ref.sh get)
           new_spec=$(tools/ci/spec-ref.sh latest)
           cur_data=$(tools/ci/catalog-ref.sh get)
