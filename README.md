@@ -332,6 +332,7 @@ opnsense/              Client, Config, Entries, Settings, errors (public API)
 opnsense/capability/   capability data model, resolver, value checks (usable on its own)
 internal/transport/    HTTP, TLS, error mapping
 test/integration/      tests against the throwaway VM
+tools/parallel.sh      local integration run on several throwaway VMs at once
 docs/design.md         layers, request flow, behaviour rules, how to add one
 docs/testing.md        what is tested, how we know it works, coverage, what is not tested
 docs/adr/              decisions (0001 data-driven client, 0002 code only, no routine maintenance)

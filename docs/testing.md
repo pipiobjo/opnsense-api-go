@@ -35,6 +35,7 @@ series (25.7, 26.1, 26.7), core and plugins:
 | Vulnerability check | `tools/ci/vulncheck.sh` (govulncheck) | every push, pull request and release, and after new spec data | no known vulnerability with a fix in code the client calls, for the Go release CI builds with | vulnerabilities not yet known |
 | Recorded behaviour | `test/integration/recorded_test.go` | integration runs | the fake's assumptions, checked with raw HTTP calls that bypass the client | — |
 | Integration | `test/integration/integration_test.go` on a throwaway VM with every plugin | every push and pull request, and when the spec publishes new data; newest release of each series | the client end to end on every verified resource | resources without a verified sample; older releases of a series |
+| Integration, parallel (local only) | `tools/parallel.sh`: the same tests split over plugin groups, one fresh VM each, the core on one of them, plus one VM per release that installs every plugin together | before a push, instead of three serial VM runs | the same as the integration layer, merged per series ("Parallel local runs") | as above |
 
 The integration tests run only against a VM on `127.0.0.1` (C1). They
 refuse any other target.
@@ -46,7 +47,7 @@ refuse any other target.
 | K1 | `TestDetectExact`, `TestInstanceReportsDataID`, `TestDetectHotfixIsANote`, `TestDetectAssumedAndRefused`, `TestDetectionFallbackOnlyOnForbidden`, `TestDetectionWithoutFirmwarePrivilege`, `TestResolveReal`, `TestResolveRefuse`, `TestResolveNearestOlderCore`, `TestResolveCoreNeverNewer`, `TestResolveNewerSeriesIsTypedError`, `TestResolveNewerSeriesReadOnly` (a newer series is read with the newest data, every package read-only), `TestResolvePluginBetweenKnownVersions`, `TestResolvePluginOlderThanData`, `TestResolveCoreOlderThanData`, `TestRefuseCoversPackageWithoutSeriesData`, `TestResolveOtherCoresOnlyIsANote`, `TestCompareVersions` (the published table `version-order.json`, the same file the spec tests), `TestVersionsWithLetters`, `TestReadOnlyPackageRefusesWrites`, `TestInstanceIsACopy`; on the VM `TestDetectionResolves` |
 | K2 | `TestNothingIsSentThatTheVersionDoesNotHave`, `TestCheck`, `TestInfo`, `TestFieldOfAnotherVersion`, `TestResourceNotAvailable`, `TestEncode`, `TestServerSetFieldsAndOptionLists`, `TestVolatileRefusedTransformedChecked`, `TestTypedErrors`, `TestFieldsAndGetRaw`, `TestValidationFromTheFirewall` |
 | K3 | `TestEntriesCycle`, `TestNilClearsAField`, `TestWritesAreSerialisedByDefault`, `TestSetRejectedByTheFirewall`, `TestReadBackFailureIsAnError`, `TestSettings`, `TestReadBackCatchesWhatTheServerIgnored`, `TestSameWire`, `TestReadBackCause`, `TestToggle`, `TestToggleReadsBack`, `TestDeleteIsConfirmed`, `TestSilentDelete`, `TestTransformedFieldIsWrittenNotCompared`, `TestWriteOnlyFieldIsNotReadBack`, `TestAutoApply`, `TestAutoApplyAfterReadBack`, `TestApplyNeedsAnExplicitOK`, `TestApplyKeepsWritesDuringTheCall`, `TestLocksRespectTheContext`, `TestResourceApply`, `TestResourceApplyInANewProcess`, `TestLostAnswerMarksPending`, `TestPostOutcomeUnknown`; on the VM `TestOSPFNeighborCycle`, `TestSettingsSetAndRestore`, `TestEveryVerifiedResource` |
-| K4 | `TestEveryVerifiedResource`, `TestWireAndDecode`, `TestListFields` (lists without `multiple`, the data's separator, order kept where the data says so), `TestSelectionOrder`, `TestListOrderIsReadAndCompared` (the answer's order of selected keys), `TestOneOddFieldDoesNotHideTheOthers`, `TestWriteOnlyFieldsAreNotDecoded`, `TestRealDataFieldsAndVariants`; on the VM `TestListFieldsKeepOrder` (an alias content list and a Kea subnet's DNS servers written out of sorted order read back in that order, also after a set in the other order) |
+| K4 | `TestEveryVerifiedResource` (on a parallel run, `TestMergedGroups` adds up its VMs and checks the floor of the series), `TestWireAndDecode`, `TestListFields` (lists without `multiple`, the data's separator, order kept where the data says so), `TestSelectionOrder`, `TestListOrderIsReadAndCompared` (the answer's order of selected keys), `TestOneOddFieldDoesNotHideTheOthers`, `TestWriteOnlyFieldsAreNotDecoded`, `TestRealDataFieldsAndVariants`; on the VM `TestListFieldsKeepOrder` (an alias content list and a Kea subnet's DNS servers written out of sorted order read back in that order, also after a set in the other order) |
 | K5 | `TestExistenceWithoutASearch` (one GET decides where get answers `[]`; the probe once per list and client), `TestProbeErrorLeavesItToTheSearch`, `TestUnreadableGetLeavesItToTheSearch`, `TestRows`, `TestFind`, `TestRowsOnlyWhatTheSearchShowsAsGetDoes`, `TestRowsKeepSelectFields`, `TestBadIDsAreRefused`, `TestNonUUIDIDsAreAccepted`, `TestBlankTemplateIsNotAnEntry`, `TestGetFullTemplateIsNotFound`, `TestTemplateControllerMatchesTheID` (another existing entry does not make a deleted one exist), `TestExistenceSearchIsReusedByGet` (one search for N reads; writes never trust it), `TestListPagesAndGetOnlySearch`, `TestListNoticesMissingRows`, `TestSearchWithUncountedRows`, `TestApplyAcceptsResultOK`, `TestSetPath`, `TestCall` |
 | K6 | `TestTLSPinAndAuth`, `TestTLSWithCA`, `TestCAReplacesSystemRoots` (a configured CA replaces the system roots), `TestHTTPClientWithTLSIsRefused`, `TestCredentialsNeverInErrorsOrLogs`, `TestValuesNeverInErrorMessages`, `TestRawAnswersAreTruncated` (the raw answers kept in errors stay at 300 bytes), `TestBrokenJSONIsNotQuoted`, `TestConfigChecks`, `TestQueryRedirectAndSize`, `TestErrorsAndRequestShape`, `TestGetIsRetriedPostIsNot`, `TestReadRetries`, `TestDefaultTransportUsesHTTP2`, `TestUnauthorizedAndForbiddenDiffer`, `TestCheckPath`, `FuzzCheckPath`, `FuzzCheckID` |
 | K7 | `TestLoadBounded`, `TestLoadFromEmbed` (data embedded with `go:embed`, ADR 0003), `TestCapabilityDirSymlinkOutside`, `TestLoadRefusesEscapingFileNames`, `TestLoadRefusesOtherFormat`, `TestCheckFindsBrokenReferences`, `TestCheckNullEntriesWithoutPanic`, `TestBrokenDataIsAnErrorNotAPanic`, `TestModelMatchesSchema`, `FuzzLoad`, `FuzzWireDecode` |
@@ -186,6 +187,41 @@ boolean field to change (`firewall/alias`, the plugin authentication
 settings), the model not valid in its default state on the VM
 (`core/initial_setup`, whose own save code also ignores most boolean
 fields), or a sample that refers to the contract test's instance.
+
+## Parallel local runs
+
+A full local run (three series, every plugin) on one VM after the other
+takes about half an hour, most of it installing plugins: the firmware
+runs one installation at a time. `tools/parallel.sh` runs it on several
+fresh VMs at once instead (opnsense-api-spec ADR 0016). For each release
+it splits the plugins into groups (`test/integration/groups.json`: the
+named group `dns-dhcp` with the core, the other plugins over balanced
+groups; plugins that need each other always together, including the
+file's `together` list: the verified sample of the core's cron jobs runs
+an action of os-acme-client, so that plugin is tested with the core),
+boots one VM per
+group that installs exactly that group's plugins, and one more VM that
+installs every plugin together and runs no test (a plugin that does not
+install there, or in its group, fails the run). Every plugin is
+installed fresh on every run.
+
+Each VM runs the integration tests scoped to its packages
+(`OPNSENSE_PACKAGES`; `TestScope`): resources of other packages are left
+to the other VMs, a test that needs a package of another group does not
+run here (it is left out, not skipped), and a missing plugin of the
+group fails as with `OPNSENSE_PLUGINS=all`. Per series, the runner then
+checks the VMs together: `TestMergedGroups` adds up what
+`TestEveryVerifiedResource` wrote on each VM (`OPNSENSE_SUMMARY`), fails
+when a package or resource was tested on two VMs or the core on none,
+and applies the floor of `tested-floor.txt` to the sum; the skip check
+reads every VM's log; the coverage floor applies to the merged profile.
+CI does not use this: it keeps one VM per release with every plugin.
+
+Measured on 2026-11-26 (24 cores, KVM, 25.7.11, 26.1.11, 26.7.10): 527 s
+with 12 VMs against 1870 s for one VM per release in a row; every test
+and subtest had the same outcome as in the serial run (tested 223, 230,
+234 against 223, 230, 233: `tor/general`, on the skip allowlist as
+"not valid in its default state on some runs", passed once more).
 
 ## Coverage
 

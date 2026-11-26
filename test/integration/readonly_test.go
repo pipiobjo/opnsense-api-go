@@ -42,7 +42,11 @@ func TestReadOnlyClientChangesNothing(t *testing.T) {
 		}
 	}
 	var ids []string
-	for _, d := range c.Data().Docs {
+	sc := currentScope()
+	for pkg, d := range c.Data().Docs {
+		if !sc.has(pkg) {
+			continue // another VM of a parallel run reads it
+		}
 		for id := range d.Resources {
 			ids = append(ids, id)
 		}

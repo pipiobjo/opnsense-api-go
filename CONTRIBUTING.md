@@ -47,6 +47,19 @@ tools/ci/skips.sh integration.log  # only the skips in tools/ci/skip-allowlist.t
 tools/testvm.sh down
 ```
 
+All three series at once, each on several fresh VMs (plugin groups, the
+core on one of them, plus one VM per release that installs every plugin
+together; about 2 GB of memory per VM, 9 to 12 VMs), with a checkout of
+opnsense-api-spec next to this one (or `OPNSENSE_SPEC_DIR`):
+
+```sh
+tools/parallel.sh                  # VMs, tests, per-series floors and coverage, teardown
+```
+
+It prints a timing table and leaves logs and results in
+`.cache/parallel/<time>/`; see [docs/testing.md](docs/testing.md),
+"Parallel local runs".
+
 `OPNSENSE_PLUGINS=all` says the VM has every plugin, so a test that needs
 a missing one fails instead of skipping. Without hardware virtualisation
 (`TESTVM_ACCEL=tcg`) set `TESTVM_SLOW` to the `slow` value `testvm.sh`

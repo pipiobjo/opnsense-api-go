@@ -1,0 +1,34 @@
+{
+ "about": "Plugin groups of the local parallel integration run (tools/parallel.sh, docs/testing.md). Each group is installed and tested on its own throwaway VM; the core is tested on exactly one. Plugins no group below names are spread over auto_groups balanced groups; plugins that need each other (package dependency, model relation, inherited controller, and the together list with its evidence) always share a VM. CI does not use this file: it tests every plugin on one VM per release. Format: opnsense-api-spec, internal/groups.",
+ "auto_groups": 2,
+ "groups": [
+  {
+   "name": "dns-dhcp",
+   "why": "DNS and DHCP on one firewall, as a site runs them: the core's Kea, Unbound and dnsmasq next to the DNS and DHCP plugins (BIND, DNSCrypt, dynamic DNS, ISC DHCP where the release has it, mDNS repeater)",
+   "core": true,
+   "packages": [
+    "os-bind",
+    "os-ddclient",
+    "os-dnscrypt-proxy",
+    "os-isc-dhcp",
+    "os-mdns-repeater"
+   ]
+  }
+ ],
+ "together": [
+  {
+   "packages": [
+    "os-crowdsec",
+    "os-ndp-proxy-go"
+   ],
+   "why": "os-ndp-proxy-go's alias field only accepts a firewall alias of type external, which on a fresh firewall only os-crowdsec's plugin code creates (opnsense-api-spec verify/groups.json has the evidence); kept together so a parallel run sees the firewall a single VM with every plugin sees."
+  },
+  {
+   "packages": [
+    "opnsense",
+    "os-acme-client"
+   ],
+   "why": "the verified sample of the core's cron jobs (cron/settings#jobs.job) runs the command 'acmeclient cron-auto-renew', a configd action os-acme-client installs; on a VM without it the firewall rejects the command and the resource is skipped. Seen on 25.7.11, 26.1.11 and 26.7.10 on 2026-11-26 (data 1e07d2884313bb35). The sample comes from the contract test on a VM with every plugin."
+  }
+ ]
+}

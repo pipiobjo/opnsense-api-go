@@ -13,7 +13,11 @@
 //
 // OPNSENSE_PLUGINS=all says every plugin was requested for the VM: then a
 // resource of a plugin that is missing fails the tests that need it
-// instead of skipping them. TESTVM_SLOW (default 1) is how many times
+// instead of skipping them. OPNSENSE_PACKAGES limits the run to some
+// packages (one VM of a parallel run, tools/parallel.sh; scope_test.go):
+// the VM was asked for exactly those, so a missing one fails as well, and
+// OPNSENSE_SUMMARY names the file for TestEveryVerifiedResource's numbers,
+// which TestMergedGroups adds up and checks against the floor. TESTVM_SLOW (default 1) is how many times
 // slower the VM is than with hardware virtualisation (software emulation:
 // 6, as tools/testvm.sh); request timeouts are stretched by it.
 package integration
@@ -25,6 +29,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/url"
 	"os"
 	"reflect"
@@ -99,12 +104,17 @@ func slow(t *testing.T) time.Duration {
 }
 
 // missing ends a test whose resource is not on the VM: a failure when
-// every plugin was requested (OPNSENSE_PLUGINS=all), since the plugin then
-// failed to install and its resources went untested; a skip otherwise.
+// every plugin was requested (OPNSENSE_PLUGINS=all) or the run is scoped
+// to the packages the VM was asked for (OPNSENSE_PACKAGES; a test needing
+// another package does not run, TestMain), since the plugin then failed
+// to install and its resources went untested; a skip otherwise.
 func missing(t *testing.T, err error) {
 	t.Helper()
 	if os.Getenv("OPNSENSE_PLUGINS") == "all" {
 		t.Fatalf("every plugin was requested, but: %v", err)
+	}
+	if currentScope() != nil {
+		t.Fatalf("the packages of this run were requested (OPNSENSE_PACKAGES), but: %v", err)
 	}
 	t.Skip(err)
 }
@@ -252,7 +262,8 @@ func TestEveryVerifiedResource(t *testing.T) {
 	// rejected: settings whose changed field the firewall's validation
 	// refused (nothing was written, so not tested)
 	var tested, readOnly, skippedRun, noSample, unverified, undecodable, readFailed, tolerated, rejected int
-	count := func(passed, skipped, onlyRead, wasRejected bool) {
+	var testedIDs []string
+	count := func(id string, passed, skipped, onlyRead, wasRejected bool) {
 		switch {
 		case skipped:
 			skippedRun++
@@ -262,9 +273,14 @@ func TestEveryVerifiedResource(t *testing.T) {
 			readOnly++
 		case passed:
 			tested++
+			testedIDs = append(testedIDs, id)
 		}
 	}
+	sc := currentScope()
 	for pkg, d := range c.Data().Docs {
+		if !sc.has(pkg) {
+			continue // another VM of a parallel run tests it
+		}
 		res := inst.Resolved.Packages[pkg]
 		if res == nil || res.Fragment == "" {
 			continue
@@ -374,7 +390,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 						t.Errorf("restore %s to %v: %v", name, val, err)
 					}
 				})
-				count(passed, skipped, !writable, wasRejected)
+				count(id, passed, skipped, !writable, wasRejected)
 			case "entries":
 				if v == nil || v.Write != capability.StatusOK || len(v.Sample) == 0 || hasReference(v.Sample) {
 					noSample++
@@ -461,13 +477,28 @@ func TestEveryVerifiedResource(t *testing.T) {
 						goneStaysGone(t, ctx, e, uid, canSet)
 					}
 				})
-				count(passed, skipped, false, false)
+				count(id, passed, skipped, false, false)
 			}
 		}
 	}
 	t.Logf("tested %d resources (written and read back), %d settings only read (the contract test did not write them), %d settings whose change the firewall rejected (nothing written), %d skipped themselves, %d entry lists without a usable sample, %d settings not verified on this version (read through the client: %d with fields not decoded, %d failed); %d read-back differences tolerated (custom-save, not chosen)",
 		tested, readOnly, rejected, skippedRun, noSample, unverified, undecodable, readFailed, tolerated)
-	if floor := testedFloor(t, inst.Resolved.Series); tested < floor {
+	if sc != nil {
+		// one VM of a parallel run: the floor is for the whole series, so
+		// TestMergedGroups checks it on the sum of all VMs' summaries
+		path := os.Getenv("OPNSENSE_SUMMARY")
+		if path == "" {
+			t.Fatal("OPNSENSE_PACKAGES without OPNSENSE_SUMMARY: the floor of the series would never be checked")
+		}
+		slices.Sort(testedIDs)
+		b, _ := json.Marshal(groupSummary{Series: inst.Resolved.Series, Packages: slices.Sorted(maps.Keys(sc)), Tested: testedIDs,
+			Counts: map[string]int{"tested": tested, "read_only": readOnly, "rejected": rejected, "skipped": skippedRun, "no_sample": noSample,
+				"unverified": unverified, "undecodable": undecodable, "read_failed": readFailed, "tolerated": tolerated}})
+		if err := os.WriteFile(path, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("scoped to %s: the floor of series %s is checked on the merged run (TestMergedGroups)", strings.Join(slices.Sorted(maps.Keys(sc)), ","), inst.Resolved.Series)
+	} else if floor := testedFloor(t, inst.Resolved.Series); tested < floor {
 		t.Errorf("tested %d resources, the floor for series %s is %d (tested-floor.txt): verification data or plugins went missing", tested, inst.Resolved.Series, floor)
 	}
 	// apply through the client: every pending endpoint once; afterwards only
