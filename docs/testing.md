@@ -182,9 +182,12 @@ marks a gap (on 26.7.9: `kea/dhcpv4`, `kea/dhcpv6`, `firewall/source_nat`,
 `stunnel/services`, `ids/settings`, `ipsec/settings`, `dyndns/settings`);
 all of them are read and decoded.
 
+A settings object is changed and restored through a boolean field; one
+without a boolean field (`firewall/alias`, the plugin authentication
+settings) through a URL field, set to an address under `example.com`.
 The subtests that skip themselves do so with a reason in the log: no
-boolean field to change (`firewall/alias`, the plugin authentication
-settings), the model not valid in its default state on the VM
+boolean or URL field to change, the model not valid in its default
+state on the VM
 (`core/initial_setup`, whose own save code also ignores most boolean
 fields), or a sample that refers to the contract test's instance.
 

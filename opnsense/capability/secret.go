@@ -22,8 +22,12 @@ import (
 //     secretWords, ends in one of secretEnds, and contains none of
 //     notSecretWords.
 //
-// The rule errs towards hiding: a name such as zabbix's item "key" is
-// marked although it is not a secret. testdata/secret/golden.txt lists
+// The rule errs towards hiding: names such as zabbix's item "key" or the
+// "key" of a user's API key (auth/user_api_key, the public half; the
+// firewall stores the secret half only as a hash and never returns it)
+// are marked although they are no secret. Hiding a value costs a reader
+// little; an exception per field would be a list someone must keep up,
+// so there is none. testdata/secret/golden.txt lists
 // every field it marks in one published data state; a change of the rule
 // shows there.
 func (f *Field) Secret(name string) bool {

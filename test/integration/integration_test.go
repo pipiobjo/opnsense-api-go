@@ -344,25 +344,25 @@ func TestEveryVerifiedResource(t *testing.T) {
 					// ignored one
 					cands := flippable(cur, s.Fields())
 					if len(cands) == 0 {
-						t.Skip("no boolean field to change and restore")
+						t.Skip("no boolean or URL field to change and restore")
 					}
 					var na *opnsense.ErrNotApplied
 					var val2 *opnsense.ErrValidation
 					// a resource stored through own code (custom-save) may
 					// ignore a field that does not apply in its current state:
-					// then the next boolean field is tried; only a field that
-					// is stored counts
+					// then the next field is tried; only a field that is
+					// stored counts
 					var name string
-					var val bool
+					var val, other any
 					for i, cand := range cands {
-						name, val = cand.name, cand.val
-						err = s.Set(ctx, opnsense.Values{name: !val})
+						name, val, other = cand.name, cand.from, cand.to
+						err = s.Set(ctx, opnsense.Values{name: other})
 						if !errors.As(err, &na) || !ignored(na, name) {
 							break
 						}
-						t.Logf("%s=%v not stored (custom-save); trying the next boolean field", name, !val)
+						t.Logf("%s=%v not stored (custom-save); trying the next field", name, other)
 						if i == len(cands)-1 {
-							t.Skipf("the firewall's own save code ignored every boolean field (%d)", len(cands))
+							t.Skipf("the firewall's own save code ignored every field tried (%d)", len(cands))
 						}
 					}
 					switch {
@@ -378,11 +378,11 @@ func TestEveryVerifiedResource(t *testing.T) {
 						// the other value is not allowed in this state (a
 						// dependency between fields): nothing was written, so
 						// this resource is counted apart, not as tested
-						t.Logf("%s=%v rejected by the firewall's validation, nothing written: %v", name, !val, err)
+						t.Logf("%s=%v rejected by the firewall's validation, nothing written: %v", name, other, err)
 						wasRejected = true
 						return
 					case err != nil:
-						t.Errorf("set %s to %v: %v", name, !val, err)
+						t.Errorf("set %s to %v: %v", name, other, err)
 					}
 					if err := s.Set(ctx, opnsense.Values{name: val}); errors.As(err, &na) {
 						tolerated += expectedDiffs(t, na, map[string]bool{name: true})
@@ -656,30 +656,43 @@ func refersToInstance(v *opnsense.ErrValidation, fields map[string]*capability.F
 }
 
 type flip struct {
-	name string
-	val  bool
+	name     string
+	from, to any
 }
 
-// flippable: the boolean fields of a settings object with their current
-// values, to change and restore, in name order; fields the firewall sets
-// itself are left out.
+// flipURL is the other value written to a URL field: a reserved name
+// (RFC 2606), so a restart of the service that uses it reaches nothing.
+const flipURL = "https://opnsense-api-go.example.com/test"
+
+// flippable: the fields of a settings object to change and restore, with
+// their current and the other value: the boolean fields in name order,
+// then the URL fields (settings without a boolean field, such as the
+// alias settings and the plugin authentication settings, still get a
+// write that must be stored); fields the firewall sets itself are left
+// out.
 func flippable(cur opnsense.Values, fields map[string]*capability.Field) []flip {
 	names := make([]string, 0, len(fields))
 	for n := range fields {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	var out []flip
+	var bools, urls []flip
 	for _, n := range names {
 		f := fields[n]
 		if f.ServerSet || f.WriteOnly || f.Volatile || len(f.Gaps) > 0 {
 			continue
 		}
-		if b, ok := cur[n].(bool); ok {
-			out = append(out, flip{n, b})
+		switch v := cur[n].(type) {
+		case bool:
+			bools = append(bools, flip{n, v, !v})
+		case string:
+			// restoring "" must clear the field again
+			if f.Base == "UrlField" && f.List == nil && v != flipURL && (v != "" || !f.EmptyIgnored) {
+				urls = append(urls, flip{n, v, flipURL})
+			}
 		}
 	}
-	return out
+	return append(bools, urls...)
 }
 
 // ignored: the read-back shows that the firewall's own save code
