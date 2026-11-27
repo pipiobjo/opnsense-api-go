@@ -156,6 +156,7 @@ const (
 	GapResultNotReturned = "result-not-returned" // the endpoint answers nothing; the existence check decides
 	GapOptionsDynamic    = "options-dynamic"     // the firewall decides the options at run time
 	GapInvalidDefault    = "invalid-default"     // the model's default is not a valid value (upstream error)
+	GapModelValidation   = "model-validation"    // the model checks the field together with other fields or entries
 )
 
 // HasGap reports whether the operation carries the gap code.
@@ -228,7 +229,19 @@ type Field struct {
 	Options      []Option          `json:"options,omitempty"`
 	Relations    []Relation        `json:"relations,omitempty"`
 	Constraints  map[string]string `json:"constraints,omitempty"`
-	Gaps         []string          `json:"gaps,omitempty"`
+	// Limits: what the field's own validators enforce beyond type and
+	// options, where the data can state it (nil: none known).
+	Limits *Limits  `json:"limits,omitempty"`
+	Gaps   []string `json:"gaps,omitempty"`
+}
+
+// Limits are the value limits a field's class enforces on a non-empty
+// value: an integer range, and a pattern whose first match must be the
+// whole value (OPNsense's mask, in Go regexp syntax).
+type Limits struct {
+	Minimum *int64 `json:"minimum,omitempty"`
+	Maximum *int64 `json:"maximum,omitempty"`
+	Pattern string `json:"pattern,omitempty"`
 }
 
 // List describes a list-valued field: the separator between the elements
@@ -284,6 +297,17 @@ type ResVerify struct {
 	// ReturnedBySearch: write-only fields whose stored value the search
 	// answer contained in this run.
 	ReturnedBySearch []string `json:"returned_by_search,omitempty"`
+	// Probe: status of the field probes; Probes: per field, the values the
+	// firewall accepted and rejected, each written alone to an otherwise
+	// valid object (spec ADR 0017).
+	Probe  Status               `json:"probe,omitempty"`
+	Probes map[string]*Verdicts `json:"probes,omitempty"`
+}
+
+// Verdicts are the firewall's verdicts on values of one field.
+type Verdicts struct {
+	Accepted []string `json:"accepted,omitempty"`
+	Rejected []string `json:"rejected,omitempty"`
 }
 
 // Status is a result of the contract test (ResVerify.Read and Write); the
@@ -400,6 +424,10 @@ func (f *Field) Clone() *Field {
 	c.Options = slices.Clone(f.Options)
 	c.Relations = slices.Clone(f.Relations)
 	c.Gaps = slices.Clone(f.Gaps)
+	if f.Limits != nil {
+		l := *f.Limits
+		c.Limits = &l // the pointers inside are never written through
+	}
 	if f.Constraints != nil {
 		c.Constraints = make(map[string]string, len(f.Constraints))
 		for k, v := range f.Constraints {

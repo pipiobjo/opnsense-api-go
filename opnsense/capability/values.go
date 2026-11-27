@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Kind is the Go type a field's value has in this package.
@@ -121,7 +123,73 @@ func (f *Field) Encode(v any) (string, error) {
 	if err := f.checkOptions(s); err != nil {
 		return "", err
 	}
+	if err := f.checkValue(s); err != nil {
+		return "", err
+	}
 	return s, nil
+}
+
+// checkValue: what the field's validators refuse that the type and the
+// options do not show: the empty value of a required field (unless an
+// empty write is ignored), and the limits of a non-empty value.
+func (f *Field) checkValue(s string) error {
+	if s == "" {
+		if f.Required && !f.EmptyIgnored {
+			return errors.New("a value is required")
+		}
+		return nil
+	}
+	// a single select (not multiple, no list) takes one key; the firewall
+	// refuses a list of keys also where the options are decided at run
+	// time (interfaces, certificates)
+	if f.ReadShape == "select" && f.Kind() != KindList && strings.Contains(s, ",") &&
+		!slices.ContainsFunc(f.Options, func(o Option) bool { return o.Value == s }) {
+		return errors.New("takes one value, not a list")
+	}
+	l := f.Limits
+	if l == nil {
+		return nil
+	}
+	if l.Minimum != nil || l.Maximum != nil {
+		n, err := strconv.ParseInt(s, 10, 64)
+		switch {
+		case err != nil:
+			return errors.New("not an integer")
+		case l.Minimum != nil && n < *l.Minimum:
+			return fmt.Errorf("less than the minimum %d", *l.Minimum)
+		case l.Maximum != nil && n > *l.Maximum:
+			return fmt.Errorf("more than the maximum %d", *l.Maximum)
+		}
+	}
+	if l.Pattern != "" {
+		re, err := pattern(l.Pattern)
+		if err != nil {
+			return nil // a pattern this Go cannot run: left to the firewall
+		}
+		if loc := re.FindStringIndex(s); loc == nil || loc[0] != 0 || loc[1] != len(s) {
+			return fmt.Errorf("does not match the pattern %s", l.Pattern)
+		}
+	}
+	return nil
+}
+
+var patterns sync.Map // pattern -> *regexp.Regexp or error
+
+// pattern compiles a Limits.Pattern once.
+func pattern(p string) (*regexp.Regexp, error) {
+	if v, ok := patterns.Load(p); ok {
+		if re, ok := v.(*regexp.Regexp); ok {
+			return re, nil
+		}
+		return nil, v.(error)
+	}
+	re, err := regexp.Compile(p)
+	if err != nil {
+		patterns.Store(p, err)
+		return nil, err
+	}
+	patterns.Store(p, re)
+	return re, nil
 }
 
 // checkOptions: values of a field with a complete static option list must
@@ -215,6 +283,7 @@ func (f *Field) WireOrdered(raw any, order []string) (string, error) {
 			}
 		}
 		sort.Strings(keys)
+		keys = f.singleSelection(keys)
 		if order != nil {
 			o := slices.Clone(order)
 			sort.Strings(o)
@@ -235,6 +304,17 @@ func joinSelection(keys []string, sep string) string {
 		return ""
 	}
 	return strings.Join(keys, sep)
+}
+
+// singleSelection: a single select that marks the empty choice and one
+// key holds that key. OPNsense 25.7 marks the empty choice for every
+// value PHP's empty() calls empty, "0" included (spec
+// docs/capabilities.md, "List fields").
+func (f *Field) singleSelection(keys []string) []string {
+	if f.Kind() != KindList && len(keys) == 2 && keys[0] == "" {
+		return keys[1:]
+	}
+	return keys
 }
 
 // selected reads the "selected" flag of an option: 1, true or "1".

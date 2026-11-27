@@ -227,3 +227,21 @@ func TestStaticOptions(t *testing.T) {
 		}
 	}
 }
+
+// OPNsense 25.7 marks the empty choice of a single select for "0" too
+// (empty("0") is true in PHP): the value is "0", not ",0"
+func TestWireSingleSelectEmptyAndZero(t *testing.T) {
+	sel := map[string]any{
+		"":  map[string]any{"value": "none", "selected": float64(1)},
+		"0": map[string]any{"value": "zero", "selected": float64(1)},
+		"1": map[string]any{"value": "one", "selected": float64(0)},
+	}
+	single := &Field{Type: "OptionField", Base: "BaseListField", ReadShape: "select"}
+	if got, err := single.Wire(sel); err != nil || got != "0" {
+		t.Errorf("single: %q, %v", got, err)
+	}
+	multiple := &Field{Type: "OptionField", Base: "BaseListField", ReadShape: "select", Multiple: true}
+	if got, err := multiple.Wire(sel); err != nil || got != ",0" {
+		t.Errorf("multiple keeps what it reads: %q, %v", got, err)
+	}
+}
