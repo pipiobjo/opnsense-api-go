@@ -154,6 +154,8 @@ const (
 	GapCustomReadShape   = "custom-read-shape"   // the field type renders its value with own code on read
 	GapOverlayUnknown    = "overlay-unknown"     // the endpoint overwrites fields it does not declare
 	GapResultNotReturned = "result-not-returned" // the endpoint answers nothing; the existence check decides
+	GapOptionsDynamic    = "options-dynamic"     // the firewall decides the options at run time
+	GapInvalidDefault    = "invalid-default"     // the model's default is not a valid value (upstream error)
 )
 
 // HasGap reports whether the operation carries the gap code.

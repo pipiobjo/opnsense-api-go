@@ -63,11 +63,12 @@ func (f *Field) Separator() string {
 func (f *Field) Ordered() bool { return f.List != nil && f.List.Ordered }
 
 // StaticOptions reports whether Options is the complete list of allowed
-// values: only for the core OptionField without derivation gaps. Subclasses
-// (ServiceField, JsonKeyValueStoreField, ...) can add options at run time,
-// and option groups are not represented exactly.
+// values: only for the core OptionField whose options the firewall does
+// not decide at run time (gap options-dynamic). Subclasses
+// (ServiceField, JsonKeyValueStoreField, ...) can add options at run time.
+// The spec's contract test checks this claim with the same rule.
 func (f *Field) StaticOptions() bool {
-	return f.Type == "OptionField" && len(f.Gaps) == 0 && len(f.Options) > 0
+	return f.Type == "OptionField" && len(f.Options) > 0 && !slices.Contains(f.Gaps, GapOptionsDynamic)
 }
 
 // Encode turns a Go value into the wire string for this field, checking

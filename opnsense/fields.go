@@ -43,7 +43,10 @@ type FieldInfo struct {
 	// CustomWrite: the field's type converts values on write, so a value
 	// may read back in another form.
 	CustomWrite bool
-	Default     *string // the model's default, nil if none
+	// Default: the value a new entry gets, nil if none; also nil when the
+	// model's default is not a valid value (gap invalid-default in Gaps),
+	// because the firewall refuses to save it.
+	Default *string
 	// Options: the static options; StaticOptions says whether they are the
 	// complete list (otherwise the firewall may accept more, and
 	// OfferedOptions reads what it offers now).
@@ -177,6 +180,9 @@ func fieldInfo(name string, f *capability.Field, runtime []string) FieldInfo {
 		Required: c.Required, RuntimeRequired: slices.Contains(runtime, name),
 		ServerSet: c.ServerSet, WriteOnly: c.WriteOnly, Secret: c.Secret(name), Volatile: c.Volatile, CustomWrite: c.CustomWrite(),
 		Default: c.Default, StaticOptions: c.StaticOptions(), Gaps: c.Gaps}
+	if slices.Contains(c.Gaps, capability.GapInvalidDefault) {
+		fi.Default = nil
+	}
 	for _, o := range c.Options {
 		fi.Options = append(fi.Options, Option{Value: o.Value, Label: o.Label, Group: o.Group})
 	}

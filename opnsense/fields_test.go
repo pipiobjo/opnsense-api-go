@@ -15,6 +15,24 @@ import (
 // the data: write-only, server-set and runtime-required fields, other
 // resources on the same stored data, the verification result. The values
 // are copies: changing them changes nothing in the client.
+// Claim: a default the model gets wrong (gap invalid-default) is not
+// offered as a default; the firewall refuses to save it.
+func TestFieldInfoInvalidDefault(t *testing.T) {
+	d := "udp"
+	f := &capability.Field{Type: "OptionField", Base: "BaseListField", Default: &d, Options: []capability.Option{{Value: "udp4"}}}
+	if fi := fieldInfo("transport", f, nil); fi.Default == nil || *fi.Default != "udp" {
+		t.Fatalf("valid default dropped: %+v", fi.Default)
+	}
+	f.Gaps = []string{capability.GapInvalidDefault}
+	fi := fieldInfo("transport", f, nil)
+	if fi.Default != nil {
+		t.Errorf("Default = %q, want nil for an invalid default", *fi.Default)
+	}
+	if !fi.StaticOptions || len(fi.Gaps) != 1 {
+		t.Errorf("options and gap kept: %+v", fi)
+	}
+}
+
 func TestInfo(t *testing.T) {
 	s, err := capability.Load(os.DirFS("capability/testdata/catalog")) // private copy
 	if err != nil {

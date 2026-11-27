@@ -204,3 +204,26 @@ func TestOffered(t *testing.T) {
 		}
 	}
 }
+
+// Claim: the options of a core OptionField are the complete list unless
+// the firewall decides them at run time; an invalid default does not
+// change that (the spec's contract test checks the same rule).
+func TestStaticOptions(t *testing.T) {
+	gapped := func(codes ...string) *Field { f := *optF; f.Gaps = codes; return &f }
+	for _, c := range []struct {
+		name string
+		f    *Field
+		want bool
+	}{
+		{"OptionField", optF, true},
+		{"invalid default", gapped(GapInvalidDefault), true},
+		{"options at run time", gapped(GapOptionsDynamic), false},
+		{"subclass", &Field{Type: `.\ServiceField`, Base: "BaseListField", Options: optF.Options}, false},
+		{"no options", &Field{Type: "OptionField", Base: "BaseListField"}, false},
+		{"relation", relF, false},
+	} {
+		if got := c.f.StaticOptions(); got != c.want {
+			t.Errorf("%s: StaticOptions = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
