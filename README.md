@@ -187,7 +187,10 @@ What the client deliberately does not check before sending, because the
 data cannot know it reliably: required fields (controllers fill some of
 them), option lists of field subclasses (they add options at run time),
 and anything that refers to other objects. The firewall's own validation
-answers these as `*ErrValidation`.
+answers these as `*ErrValidation`. What the firewall offers for such a
+field right now (its certificates, interfaces, aliases, other entries) is
+read with `OfferedOptions(ctx, field)` on `Entries` (from the template of
+a new entry) or `Settings`.
 
 `Info()` describes a resource in the firewall's version, as copies a
 consumer may keep: each field's type and kind, whether it is required,

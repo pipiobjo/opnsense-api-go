@@ -45,15 +45,17 @@ type FieldInfo struct {
 	CustomWrite bool
 	Default     *string // the model's default, nil if none
 	// Options: the static options; StaticOptions says whether they are the
-	// complete list (otherwise the firewall may accept more).
+	// complete list (otherwise the firewall may accept more, and
+	// OfferedOptions reads what it offers now).
 	Options       []Option
 	StaticOptions bool
 	Relations     []Relation // entry lists a relation field points to
 	Gaps          []string   // what the data could not derive about the field
 }
 
-// Option is a static option of a field: the value to send, and how the
-// firewall labels and groups it.
+// Option is an option of a field: the value to send, and how the firewall
+// labels and groups it. FieldInfo.Options holds the static options;
+// OfferedOptions reads those the firewall offers at runtime.
 type Option struct{ Value, Label, Group string }
 
 // Relation names an entry list a relation field points to: its model

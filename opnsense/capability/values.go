@@ -331,3 +331,43 @@ func (f *Field) CustomWrite() bool { return f != nil && slices.Contains(f.Gaps, 
 func (f *Field) CustomReadShape() bool {
 	return f != nil && slices.Contains(f.Gaps, GapCustomReadShape)
 }
+
+// Offered returns every option of a selection map as read from the
+// firewall ({key: {value, selected}}), sorted by key: the static options
+// and those the firewall fills in at runtime (certificates, interfaces,
+// other entries). The empty key (no selection) is left out. A value that
+// is not a selection map is an error: the field has no options to offer.
+func Offered(raw any) ([]Option, error) {
+	var out []Option
+	switch x := raw.(type) {
+	case []any:
+		// an option map with the keys "0", "1", ... arrives as a list (Wire)
+		for i, e := range x {
+			opt, ok := e.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("unexpected list value")
+			}
+			label, _ := opt["value"].(string)
+			out = append(out, Option{Value: strconv.Itoa(i), Label: label})
+		}
+		return out, nil
+	case map[string]any:
+		for k, v := range x {
+			opt, _ := v.(map[string]any)
+			if opt == nil {
+				return nil, fmt.Errorf("option %q is not an object", k)
+			}
+			if _, ok := opt["selected"]; !ok {
+				return nil, fmt.Errorf("option %q is not an object", k)
+			}
+			if k == "" {
+				continue
+			}
+			label, _ := opt["value"].(string)
+			out = append(out, Option{Value: k, Label: label})
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
+		return out, nil
+	}
+	return nil, fmt.Errorf("not a selection: a value of type %T", raw)
+}

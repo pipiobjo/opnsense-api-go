@@ -23,7 +23,7 @@ series (25.7, 26.1, 26.7), core and plugins:
 | K9 | In read-only mode nothing that changes the firewall is sent, by two independent checks (the API methods and the transport), and every read keeps working. | F7 |
 | K10 | One rule says which fields hold secrets (`FieldInfo.Secret`): every write-only field and the credential fields a short name list misses (passphrase, community, `*_pass`, credentials, OTP seeds), not integers, booleans or options whose names look alike. | Q2 |
 | K11 | It says honestly what was tested: `Info().WriteVerified()` only where read and write passed on data describing this version (not a skipped write, not a settings write that only echoed the current value, not a version the data lacks); the format's keys are all read or deliberately ignored, also in the newest published data. | F3, Q1 |
-| K12 | A consumer can list and describe resources without rebuilding the client's rules: `Resources()` lists exactly what binds on this firewall; `Schemas(data)` describes every resource over all versions without a firewall, with type changes between versions as explicit conflicts. | F3, Q6 |
+| K12 | A consumer can list and describe resources without rebuilding the client's rules: `Resources()` lists exactly what binds on this firewall; `Schemas(data)` describes every resource over all versions without a firewall, with type changes between versions as explicit conflicts; `OfferedOptions` lists what the firewall offers for a field now (runtime options such as certificates, without the empty choice), and a field that is no selection or that the version lacks is an error. | F3, Q6 |
 
 ## Test layers
 
@@ -54,7 +54,7 @@ refuse any other target.
 | K9 | `TestReadOnlyMode` (every changing method refused, only GETs and the search POST reach the fake, its state unchanged), `TestReadOnlyConfig`, `TestReadOnlyTransport` (the transport alone refuses every other POST and every GET outside its list); on the VM `TestReadOnlyClientChangesNothing` (every resource read, every change refused, `config.xml` byte-identical afterwards) |
 | K10 | `TestSecretWords`, `TestSecretGolden` (every field the rule marks in the published data state `1e07d2884313bb35`, reviewed in `opnsense/capability/testdata/secret/golden.txt`), `TestInfo` |
 | K11 | `TestWriteVerified`, `TestInfo`, `TestModelMatchesSchema` (also in CI against the downloaded data, job `data` of `ci.yml`) |
-| K12 | `TestResources`, `TestSchemas` |
+| K12 | `TestResources`, `TestSchemas`, `TestOfferedOptions`, `TestOffered` (also the list shape of option maps); on the VM `TestEveryVerifiedResource` (`stunnel/services` adds with the offered certificate, `tor/general` fills its log levels) |
 | K8 | `TestRecordedBehaviour` (unknown keys ignored with "saved", `[]` for an unknown UUID, set creates under an unknown UUID, GET with `Content-Type` rejected, search totals, apply answer), `TestFakeSpeaksHTTP2` |
 
 Error messages, which a provider shows its users, are checked by
@@ -95,9 +95,9 @@ A skipped test proves nothing either, and a skip in a green run is easy
 to overlook. `tools/ci/skips.sh` reads the `go test -v` output of the unit
 and the integration run and fails CI when a test skipped that is not on
 the allowlist [`tools/ci/skip-allowlist.txt`](../tools/ci/skip-allowlist.txt),
-where each entry names the test and the reason (the subtests of
-`TestEveryVerifiedResource` the VM cannot exercise). Unit tests have no
-entry. `tools/ci/skips_test.sh` checks the script itself (an unlisted
+where each entry names the test and the reason (a subtest of
+`TestEveryVerifiedResource` the VM cannot exercise). The list is empty:
+no test may skip. Unit tests have no entry. `tools/ci/skips_test.sh` checks the script itself (an unlisted
 skip, a nested one, an entry without a reason, a name that is only a
 prefix).
 
@@ -138,8 +138,12 @@ and only with an answer that contains the `match` text: another failure
 of the same endpoint (a client regression in the apply request) fails.
 An entry whose apply worked fails the run too, so a stale tolerance
 cannot stay; if nobody removes it, the watchdog reports the red runs
-after 7 days. Samples that refer to something only the contract test's
-instance had are skipped with the reason.
+after 7 days. A sample that refers to something only the contract
+test's instance had (its certificate for `stunnel/services`) is rejected
+on the VM; the test then takes what this firewall offers for the rejected
+fields (`OfferedOptions`, read from the template of a new entry) and adds
+once more, as the contract test picks from what its instance offers. Only
+a field for which the VM offers nothing would make it skip.
 
 Only subtests that ran to the end without failing count as tested; a
 subtest that skips itself is counted apart, and so is a settings
@@ -185,11 +189,18 @@ all of them are read and decoded.
 A settings object is changed and restored through a boolean field; one
 without a boolean field (`firewall/alias`, the plugin authentication
 settings) through a URL field, set to an address under `example.com`.
-The subtests that skip themselves do so with a reason in the log: no
-boolean or URL field to change, the model not valid in its default
-state on the VM
-(`core/initial_setup`, whose own save code also ignores most boolean
-fields), or a sample that refers to the contract test's instance.
+A settings model that is not valid as it is rejects every change for
+its other fields: `tor/general` has required log levels whose default
+(`notifications`) is not among their options, so they read empty after
+installing, unless another test on the same model set them first (which
+made the subtest skip on some runs). The test fills such fields with the
+option the firewall offers (the field's default if it is offered, else
+the first) and sends the change again; they keep that value. A model that
+needs fields that are not options (a MAC address, an interface) is not
+written by the contract test, so the client only reads it
+(`ndproxy/general` on 25.7, `core/initial_setup`). A subtest that still
+skips (no boolean or URL field to change, a custom save that ignores
+every field tried, nothing offered) fails the skip check.
 
 ## Parallel local runs
 
@@ -223,8 +234,8 @@ CI does not use this: it keeps one VM per release with every plugin.
 Measured on 2026-11-26 (24 cores, KVM, 25.7.11, 26.1.11, 26.7.10): 527 s
 with 12 VMs against 1870 s for one VM per release in a row; every test
 and subtest had the same outcome as in the serial run (tested 223, 230,
-234 against 223, 230, 233: `tor/general`, on the skip allowlist as
-"not valid in its default state on some runs", passed once more).
+234 against 223, 230, 233: `tor/general`, then on the skip allowlist
+as "not valid in its default state on some runs", passed once more).
 
 ## Coverage
 

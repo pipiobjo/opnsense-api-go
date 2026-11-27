@@ -142,7 +142,9 @@ removed.
    locally.** Controllers fill some required fields, and subclasses such
    as `ServiceField` add options at run time. Only the core
    `OptionField`'s list is treated as complete. The firewall's validation
-   reports the rest.
+   reports the rest; `OfferedOptions` reads the options it offers at that
+   moment (the selection map of the settings, or of a new entry's
+   template), for a consumer that wants to pick or check a reference.
 6. **Answer shapes.** Option maps with keys `0..n` arrive as JSON lists;
    a model without fields as `[]`; apply success as `"status": "ok"` or
    `"result": "ok"` (anything else is `ErrApply`); some deletes answer

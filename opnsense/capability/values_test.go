@@ -189,3 +189,18 @@ func TestSelectionOrder(t *testing.T) {
 		t.Error("broken JSON must fail")
 	}
 }
+
+// Offered: every option of a selection map, the list shape (keys "0",
+// "1", ... as PHP encodes them) included; a value that is no selection is
+// an error.
+func TestOffered(t *testing.T) {
+	got, err := Offered([]any{map[string]any{"value": "low", "selected": "0"}, map[string]any{"value": "high", "selected": "1"}})
+	if want := []Option{{Value: "0", Label: "low"}, {Value: "1", Label: "high"}}; err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("list shape: %+v, %v; want %+v", got, err, want)
+	}
+	for _, bad := range []any{"x", nil, map[string]any{"a": "b"}, map[string]any{"a": map[string]any{"value": "a"}}} {
+		if _, err := Offered(bad); err == nil {
+			t.Errorf("Offered(%v): no error", bad)
+		}
+	}
+}

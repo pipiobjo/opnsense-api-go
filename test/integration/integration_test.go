@@ -365,14 +365,26 @@ func TestEveryVerifiedResource(t *testing.T) {
 							t.Skipf("the firewall's own save code ignored every field tried (%d)", len(cands))
 						}
 					}
+					if errors.As(err, &val2) && !rejects(val2, name) {
+						// the model is not valid as it is: required option
+						// fields without a valid selection (os-tor log levels,
+						// whose default is not among their options; another
+						// test on the same model may have set them first).
+						// Those fields get what the firewall offers, as a
+						// consumer would set them, and the change is sent
+						// again; they keep that value afterwards
+						if fill := offered(ctx, t, s, val2); fill != nil {
+							fill[name] = other
+							err = s.Set(ctx, fill)
+						}
+					}
 					switch {
 					case errors.As(err, &na):
 						// the changed field itself must read back as sent
 						tolerated += expectedDiffs(t, na, map[string]bool{name: true})
 					case errors.As(err, &val2) && !rejects(val2, name):
-						// as in the contract test: the model is not valid in
-						// its default state on this instance (the recorded
-						// write verification may come from another core)
+						// fields other than option fields are missing (a MAC
+						// address, an interface): nothing to pick from here
 						t.Skipf("model not valid in its default state here: %v", err)
 					case errors.As(err, &val2):
 						// the other value is not allowed in this state (a
@@ -409,8 +421,19 @@ func TestEveryVerifiedResource(t *testing.T) {
 					}
 					vals := sampleValues(v.Sample, e.Fields(), r.APIFor(res.Fragment).Operations["add"])
 					uid, err := e.Add(ctx, vals)
-					deleted := false
 					fields := e.Fields()
+					var val *opnsense.ErrValidation
+					if errors.As(err, &val) && refersToInstance(val, fields) {
+						// the sample refers to an object of the contract test's
+						// instance (a certificate, an interface): pick what this
+						// firewall offers for those fields, as the contract test
+						// does, and add once more
+						if repl := offered(ctx, t, e, val); repl != nil {
+							maps.Copy(vals, repl)
+							uid, err = e.Add(ctx, vals)
+						}
+					}
+					deleted := false
 					// locked entries (interface assignments) refuse deletion:
 					// unlock first, as the contract test does
 					unlock := func() {
@@ -428,14 +451,13 @@ func TestEveryVerifiedResource(t *testing.T) {
 							}
 						}()
 					}
-					var val *opnsense.ErrValidation
 					if errors.As(err, &val) {
-						// only a value that refers to something on the contract
-						// test's instance (a certificate, an interface, another
-						// entry) may be rejected here; any other rejection is
-						// a fault in the client or the data
-						if refersToInstance(val, e.Fields()) {
-							t.Skipf("instance-specific sample: %v", err)
+						// a reference this firewall offers nothing for (no
+						// object of that kind exists here) may be rejected;
+						// any other rejection is a fault in the client or the
+						// data
+						if refersToInstance(val, fields) {
+							t.Skipf("instance-specific sample, nothing offered here: %v", err)
 						}
 						t.Fatalf("add rejected for values that do not refer to other objects: %v", err)
 					}
@@ -653,6 +675,35 @@ func refersToInstance(v *opnsense.ErrValidation, fields map[string]*capability.F
 		}
 	}
 	return true
+}
+
+// offered: for each rejected field, an option this firewall offers for it
+// (OfferedOptions): the field's default when offered, else the first; nil
+// when one of them offers nothing (not an option field, or no object of
+// that kind exists here).
+func offered(ctx context.Context, t *testing.T, r interface {
+	OfferedOptions(context.Context, string) ([]opnsense.Option, error)
+	Fields() map[string]*capability.Field
+}, v *opnsense.ErrValidation) opnsense.Values {
+	out := opnsense.Values{}
+	for name := range v.Fields {
+		opts, err := r.OfferedOptions(ctx, name)
+		if err != nil || len(opts) == 0 {
+			t.Logf("%s: nothing offered (%v)", name, err)
+			return nil
+		}
+		pick := opts[0]
+		if f := r.Fields()[name]; f != nil {
+			for _, o := range opts {
+				if f.Default != nil && o.Value == *f.Default {
+					pick = o
+				}
+			}
+		}
+		t.Logf("%s rejected (%s); using the offered %q (%s)", name, v.Fields[name], pick.Value, pick.Label)
+		out[name] = pick.Value
+	}
+	return out
 }
 
 type flip struct {

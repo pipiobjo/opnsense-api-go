@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -577,6 +578,53 @@ func lookup(m map[string]any, path string) (any, bool) {
 		}
 	}
 	return cur, true
+}
+
+// OfferedOptions returns the options the firewall offers for a field of a
+// new entry, read from its empty-entry template: the static options and
+// those it fills in at runtime (certificates, interfaces, aliases, other
+// entries), which the capability data cannot list (FieldInfo.Options holds
+// only the static ones). Use it to pick or check a reference before Add.
+func (e *Entries) OfferedOptions(ctx context.Context, name string) ([]Option, error) {
+	return e.b.offered(ctx, name)
+}
+
+// OfferedOptions returns the options the firewall offers for a settings
+// field now (see Entries.OfferedOptions).
+func (s *Settings) OfferedOptions(ctx context.Context, name string) ([]Option, error) {
+	return s.b.offered(ctx, name)
+}
+
+func (b *bound) offered(ctx context.Context, name string) ([]Option, error) {
+	if b.res.FieldFor(name, b.frag) == nil {
+		return nil, &ErrFieldNotAvailable{Resource: b.id, Field: name, Package: b.pkg, Have: b.version,
+			AvailableIn: b.c.versions(b.pkg, b.fieldFragments(name))}
+	}
+	if b.res.Kind == "entries" {
+		// the template is the get without an id ("uuid?"); some lists have none
+		if op, err := b.op("get"); err != nil {
+			return nil, err
+		} else if !slices.Contains(op.Params, "uuid?") {
+			return nil, fmt.Errorf("opnsense: %s: the firewall offers no template of a new entry", b.id)
+		}
+	}
+	obj, err := b.getObject(ctx, "") // the settings, or the template of a new entry
+	if err != nil {
+		return nil, err
+	}
+	raw, ok := lookup(obj, name)
+	if !ok {
+		return nil, fmt.Errorf("opnsense: %s: field %q missing in the answer", b.id, name)
+	}
+	opts, err := capability.Offered(raw)
+	if err != nil {
+		return nil, fmt.Errorf("opnsense: %s: field %q: %w", b.id, name, err)
+	}
+	out := make([]Option, len(opts))
+	for i, o := range opts {
+		out[i] = Option{Value: o.Value, Label: o.Label}
+	}
+	return out, nil
 }
 
 // getObject reads the object (entry with id, or the settings with id "")
