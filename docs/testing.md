@@ -45,7 +45,7 @@ refuse any other target.
 | Claim | Tests |
 |---|---|
 | K1 | `TestDetectExact`, `TestInstanceReportsDataID`, `TestDetectHotfixIsANote`, `TestDetectAssumedAndRefused`, `TestDetectionFallbackOnlyOnForbidden`, `TestDetectionWithoutFirmwarePrivilege`, `TestResolveReal`, `TestResolveRefuse`, `TestResolveNearestOlderCore`, `TestResolveCoreNeverNewer`, `TestResolveNewerSeriesIsTypedError`, `TestResolveNewerSeriesReadOnly` (a newer series is read with the newest data, every package read-only), `TestResolvePluginBetweenKnownVersions`, `TestResolvePluginOlderThanData`, `TestResolveCoreOlderThanData`, `TestRefuseCoversPackageWithoutSeriesData`, `TestResolveOtherCoresOnlyIsANote`, `TestCompareVersions` (the published table `version-order.json`, the same file the spec tests), `TestVersionsWithLetters`, `TestReadOnlyPackageRefusesWrites`, `TestInstanceIsACopy`; on the VM `TestDetectionResolves` |
-| K2 | `TestNothingIsSentThatTheVersionDoesNotHave`, `TestCheck`, `TestInfo`, `TestFieldOfAnotherVersion`, `TestResourceNotAvailable`, `TestEncode`, `TestServerSetFieldsAndOptionLists`, `TestVolatileRefusedTransformedChecked`, `TestTypedErrors`, `TestFieldsAndGetRaw`, `TestValidationFromTheFirewall` |
+| K2 | `TestNothingIsSentThatTheVersionDoesNotHave`, `TestCheck`, `TestInfo`, `TestFieldOfAnotherVersion`, `TestResourceNotAvailable`, `TestEncode`, `TestServerSetFieldsAndOptionLists`, `TestVolatileRefusedTransformedChecked`, `TestTypedErrors`, `TestFieldsAndGetRaw`, `TestValidationFromTheFirewall`; on the VM `TestEveryVerifiedResource` (`Check` lets through what the firewall accepted, complete option lists equal what it offers) |
 | K3 | `TestEntriesCycle`, `TestNilClearsAField`, `TestWritesAreSerialisedByDefault`, `TestSetRejectedByTheFirewall`, `TestReadBackFailureIsAnError`, `TestSettings`, `TestReadBackCatchesWhatTheServerIgnored`, `TestSameWire`, `TestReadBackCause`, `TestToggle`, `TestToggleReadsBack`, `TestDeleteIsConfirmed`, `TestSilentDelete`, `TestTransformedFieldIsWrittenNotCompared`, `TestWriteOnlyFieldIsNotReadBack`, `TestAutoApply`, `TestAutoApplyAfterReadBack`, `TestApplyNeedsAnExplicitOK`, `TestApplyKeepsWritesDuringTheCall`, `TestLocksRespectTheContext`, `TestResourceApply`, `TestResourceApplyInANewProcess`, `TestLostAnswerMarksPending`, `TestPostOutcomeUnknown`; on the VM `TestOSPFNeighborCycle`, `TestSettingsSetAndRestore`, `TestEveryVerifiedResource` |
 | K4 | `TestEveryVerifiedResource` (on a parallel run, `TestMergedGroups` adds up its VMs and checks the floor of the series), `TestWireAndDecode`, `TestListFields` (lists without `multiple`, the data's separator, order kept where the data says so), `TestSelectionOrder`, `TestListOrderIsReadAndCompared` (the answer's order of selected keys), `TestOneOddFieldDoesNotHideTheOthers`, `TestWriteOnlyFieldsAreNotDecoded`, `TestRealDataFieldsAndVariants`; on the VM `TestListFieldsKeepOrder` (an alias content list and a Kea subnet's DNS servers written out of sorted order read back in that order, also after a set in the other order) |
 | K5 | `TestExistenceWithoutASearch` (one GET decides where get answers `[]`; the probe once per list and client), `TestProbeErrorLeavesItToTheSearch`, `TestUnreadableGetLeavesItToTheSearch`, `TestRows`, `TestFind`, `TestRowsOnlyWhatTheSearchShowsAsGetDoes`, `TestRowsKeepSelectFields`, `TestBadIDsAreRefused`, `TestNonUUIDIDsAreAccepted`, `TestBlankTemplateIsNotAnEntry`, `TestGetFullTemplateIsNotFound`, `TestTemplateControllerMatchesTheID` (another existing entry does not make a deleted one exist), `TestExistenceSearchIsReusedByGet` (one search for N reads; writes never trust it), `TestListPagesAndGetOnlySearch`, `TestListNoticesMissingRows`, `TestSearchWithUncountedRows`, `TestApplyAcceptsResultOK`, `TestSetPath`, `TestCall` |
@@ -53,8 +53,8 @@ refuse any other target.
 | K7 | `TestLoadBounded`, `TestLoadFromEmbed` (data embedded with `go:embed`, ADR 0003), `TestCapabilityDirSymlinkOutside`, `TestLoadRefusesEscapingFileNames`, `TestLoadRefusesOtherFormat`, `TestCheckFindsBrokenReferences`, `TestCheckNullEntriesWithoutPanic`, `TestBrokenDataIsAnErrorNotAPanic`, `TestModelMatchesSchema`, `FuzzLoad`, `FuzzWireDecode` |
 | K9 | `TestReadOnlyMode` (every changing method refused, only GETs and the search POST reach the fake, its state unchanged), `TestReadOnlyConfig`, `TestReadOnlyTransport` (the transport alone refuses every other POST and every GET outside its list); on the VM `TestReadOnlyClientChangesNothing` (every resource read, every change refused, `config.xml` byte-identical afterwards) |
 | K10 | `TestSecretWords`, `TestSecretGolden` (every field the rule marks in the published data state `1e07d2884313bb35`, reviewed in `opnsense/capability/testdata/secret/golden.txt`), `TestInfo` |
-| K11 | `TestWriteVerified`, `TestInfo`, `TestModelMatchesSchema` (also in CI against the downloaded data, job `data` of `ci.yml`) |
-| K12 | `TestResources`, `TestSchemas`, `TestOfferedOptions`, `TestOffered` (also the list shape of option maps); on the VM `TestEveryVerifiedResource` (`stunnel/services` adds with the offered certificate, `tor/general` fills its log levels) |
+| K11 | `TestWriteVerified`, `TestInfo`, `TestModelMatchesSchema` (also in CI against the downloaded data, job `data` of `ci.yml`); on the VM `TestEveryVerifiedResource` (`VerifiedOn`, `WriteVerified` never without the contract test's write) |
+| K12 | `TestResources`, `TestSchemas`, `TestOfferedOptions`, `TestOffered` (also the list shape of option maps); on the VM `TestResourcesOnTheFirewall` and `TestEveryVerifiedResource` (`stunnel/services` adds with the offered certificate, `tor/general` fills its log levels, complete option lists equal what the firewall offers) |
 | K8 | `TestRecordedBehaviour` (unknown keys ignored with "saved", `[]` for an unknown UUID, set creates under an unknown UUID, GET with `Content-Type` rejected, search totals, apply answer), `TestFakeSpeaksHTTP2` |
 
 Error messages, which a provider shows its users, are checked by
@@ -256,6 +256,38 @@ each CI run writes the measured values to its summary. Two kinds:
   3 points below the lowest measurement. A pull request, a Dependabot
   update and the spec pin never fail on it.
 
+### Every exported method on a real firewall
+
+The integration percentage cannot get near the unit one, and should not
+have to: most code the VM does not reach handles failures a healthy
+firewall does not produce (broken answers, lost connections, refused
+writes), which the fake firewall of the unit tests produces on purpose.
+A higher floor would not add tests. What a percentage cannot show is a
+public method that a consumer calls on a firewall but that only ever met
+the fake (until 2026-11-27: `Check`, `Info`, `WriteVerified`,
+`VerifiedOn`, `GetRaw`, `Settings.Apply`, `Resources`, `Schemas`).
+So [`tools/ci/api-reached.sh`](../tools/ci/api-reached.sh) fails when an
+exported function or method of package `opnsense` did not run in the
+integration profile of a release (CI per release, `tools/parallel.sh` on
+the merged profile). It is deterministic, so it is enforced on every run.
+Not counted: `Error`, `Unwrap`, `Is`, `String` (formatting of errors and
+values the unit tests check) and the subpackage `capability`. Each call
+the integration test makes for it checks something:
+
+- `Check` lets through every value the firewall then accepted (a plan-time
+  check that refuses what OPNsense accepts would block a valid plan);
+- `Info().VerifiedOn()` names the release of the record the test uses,
+  and `WriteVerified()` is never true where the contract test did not
+  write;
+- `GetRaw` holds every value `Get` decoded, at its path;
+- `OfferedOptions` offers exactly the option list the data calls complete
+  (`FieldInfo.StaticOptions`), for every such field of every tested
+  resource; a difference means the client would refuse a value the
+  firewall accepts or send one it rejects;
+- `Settings.Apply` with nothing pending is sent and succeeds;
+- `Resources()` lists only what binds, as `Entries`/`Settings` describe
+  it, and `Schemas()` describes each of them (`TestResourcesOnTheFirewall`).
+
 Coverage says which code ran, not whether its result was checked; the
 claims and the deliberate breaks above are what make the tests count.
 Code not reached by unit tests is mostly string formatting
@@ -270,7 +302,8 @@ Code not reached by unit tests is mostly string formatting
 - Only the newest release of each series runs on a VM. Older releases
   rely on the data, the resolver tests and read-back at run time.
 - Option lists that OPNsense fills at run time (interfaces, certificates)
-  are not checked before sending; the firewall's validation reports them.
+  are not checked before sending; the firewall's validation reports them
+  (a consumer can read them with `OfferedOptions`).
 - A plugin that does not install on the test VM is a warning, not a
   failure, for `TestEveryVerifiedResource`: its resources are not tested
   in that run (the floor in `tested-floor.txt` still applies), the run

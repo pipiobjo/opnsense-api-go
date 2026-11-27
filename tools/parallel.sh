@@ -14,8 +14,9 @@
 # test/integration/groups.json. Per VM: go test -tags integration scoped to
 # the group's packages (OPNSENSE_PACKAGES; the core on one VM), with
 # coverage; per series: TestMergedGroups (counts added, floor of the
-# series), the skip check over all VMs' logs, and the integration coverage
-# floor on the merged profile.
+# series), the skip check over all VMs' logs, the integration coverage
+# floor and the exported-API check (tools/ci/api-reached.sh) on the merged
+# profile.
 #
 #   tools/parallel.sh group    (called by the runner on each VM)
 #   tools/parallel.sh merge    (called by the runner per release)
@@ -51,6 +52,7 @@ case "${1:-}" in
     # counts as covered when any VM covered it, tools/ci/coverage.sh)
     awk 'FNR == 1 && NR != 1 { next } { print }' "${profs[@]}" > "$RELEASE_DIR/integration.out"
     tools/ci/coverage.sh integration "$RELEASE_DIR/integration.out" "$RELEASE_DIR/coverage" || rc=1
+    tools/ci/api-reached.sh "$RELEASE_DIR/integration.out" || rc=1
     exit "$rc" ;;
 esac
 

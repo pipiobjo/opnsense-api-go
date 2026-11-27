@@ -72,6 +72,7 @@ jobs:
           [ "$rc" = 0 ] || exit "$rc"
           tools/ci/skips.sh unit.log
           tools/ci/skips_test.sh
+          tools/ci/api-reached_test.sh
       # statements covered per package; fails below tools/ci/coverage-floor.txt
       - name: Coverage
         if: matrix.go == '1.27'
@@ -216,6 +217,10 @@ jobs:
         env:
           COVERAGE_ENFORCE: ${{ github.event_name == 'push' && '1' || '0' }}
         run: tools/ci/coverage.sh integration integration.out coverage
+      # every exported method ran against the firewall; deterministic, so
+      # enforced in every run
+      - name: Exported API on the firewall
+        run: tools/ci/api-reached.sh integration.out | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-integration-${{ matrix.release }}

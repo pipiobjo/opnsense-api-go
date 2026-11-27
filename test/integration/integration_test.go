@@ -139,6 +139,52 @@ func TestDetectionResolves(t *testing.T) {
 	}
 }
 
+// Claim K12 on a real firewall: Resources lists what binds here, each
+// entry as Entries or Settings describe it, and every resource it lists is
+// described by Schemas of the same data.
+func TestResourcesOnTheFirewall(t *testing.T) {
+	c := client(t)
+	list := c.Resources()
+	if len(list) == 0 {
+		t.Fatal("Resources() is empty")
+	}
+	schemas, err := opnsense.Schemas(c.Data())
+	if err != nil {
+		t.Fatal(err)
+	}
+	described := map[string]bool{}
+	for _, s := range schemas {
+		described[s.ID] = true
+	}
+	for _, in := range list {
+		var bound opnsense.Info
+		switch in.Kind {
+		case "entries":
+			e, err := c.Entries(in.ID)
+			if err != nil {
+				t.Errorf("%s listed but does not bind: %v", in.ID, err)
+				continue
+			}
+			bound = e.Info()
+		default:
+			s, err := c.Settings(in.ID)
+			if err != nil {
+				t.Errorf("%s listed but does not bind: %v", in.ID, err)
+				continue
+			}
+			bound = s.Info()
+		}
+		if bound.Package != in.Package || bound.Version != in.Version || len(bound.Fields) != len(in.Fields) {
+			t.Errorf("%s: Resources() says %s %s with %d fields, the bound resource %s %s with %d", in.ID,
+				in.Package, in.Version, len(in.Fields), bound.Package, bound.Version, len(bound.Fields))
+		}
+		if !described[in.ID] {
+			t.Errorf("%s listed by Resources() but not described by Schemas()", in.ID)
+		}
+	}
+	t.Logf("%d resources bind on this firewall, %d described over all versions", len(list), len(schemas))
+}
+
 func TestOSPFNeighborCycle(t *testing.T) {
 	c := client(t)
 	ctx := context.Background()
@@ -219,6 +265,11 @@ func TestSettingsSetAndRestore(t *testing.T) {
 	}
 	if err := c.Apply(ctx); err != nil || len(c.Pending()) != 0 {
 		t.Errorf("apply: %v, pending %v", err, c.Pending())
+	}
+	// the explicit apply of a resource with nothing pending (a change an
+	// earlier process saved): sent anyway, and it succeeds
+	if err := s.Apply(ctx); err != nil || len(c.Pending()) != 0 {
+		t.Errorf("explicit apply: %v, pending %v", err, c.Pending())
 	}
 }
 
@@ -336,6 +387,15 @@ func TestEveryVerifiedResource(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					honest(t, s.Info(), v)
+					raw, err := s.GetRaw(ctx)
+					if err != nil {
+						t.Fatalf("raw get: %v", err)
+					}
+					rawHolds(t, raw, cur)
+					staticOptionsOffered(t, s.Info(), func(name string) ([]opnsense.Option, error) {
+						return s.OfferedOptions(ctx, name)
+					})
 					if !writable {
 						return
 					}
@@ -354,9 +414,11 @@ func TestEveryVerifiedResource(t *testing.T) {
 					// stored counts
 					var name string
 					var val, other any
+					var sent opnsense.Values
 					for i, cand := range cands {
 						name, val, other = cand.name, cand.from, cand.to
-						err = s.Set(ctx, opnsense.Values{name: other})
+						sent = opnsense.Values{name: other}
+						err = s.Set(ctx, sent)
 						if !errors.As(err, &na) || !ignored(na, name) {
 							break
 						}
@@ -375,6 +437,7 @@ func TestEveryVerifiedResource(t *testing.T) {
 						// again; they keep that value afterwards
 						if fill := offered(ctx, t, s, val2); fill != nil {
 							fill[name] = other
+							sent = fill
 							err = s.Set(ctx, fill)
 						}
 					}
@@ -395,6 +458,11 @@ func TestEveryVerifiedResource(t *testing.T) {
 						return
 					case err != nil:
 						t.Errorf("set %s to %v: %v", name, other, err)
+					}
+					// what the firewall stored, the plan-time check must
+					// let through
+					if err := s.Check(sent); err != nil {
+						t.Errorf("Check refused values the firewall accepted: %v", err)
 					}
 					if err := s.Set(ctx, opnsense.Values{name: val}); errors.As(err, &na) {
 						tolerated += expectedDiffs(t, na, map[string]bool{name: true})
@@ -467,8 +535,25 @@ func TestEveryVerifiedResource(t *testing.T) {
 					} else if err != nil {
 						t.Fatalf("add: %v", err)
 					}
-					if _, err := e.Get(ctx, uid); err != nil {
+					if err := e.Check(vals); err != nil {
+						t.Errorf("Check refused values the firewall accepted: %v", err)
+					}
+					honest(t, e.Info(), v)
+					if got, err := e.Get(ctx, uid); err != nil {
 						t.Errorf("get: %v", err)
+					} else if raw, err := e.GetRaw(ctx, uid); err != nil {
+						t.Errorf("raw get: %v", err)
+					} else {
+						rawHolds(t, raw, got)
+						if slices.Contains(r.APIFor(res.Fragment).Operations["get"].Params, "uuid?") {
+							staticOptionsOffered(t, e.Info(), func(name string) ([]opnsense.Option, error) {
+								return e.OfferedOptions(ctx, name)
+							})
+						} else {
+							// no template of a new entry (interface
+							// assignments): the options of the entry just added
+							staticOptionsOffered(t, e.Info(), fromRaw(raw))
+						}
 					}
 					if desc := descriptionField(e.Fields(), r.APIFor(res.Fragment).Operations["set"]); desc != "" {
 						// letters and digits only: description masks differ
@@ -704,6 +789,88 @@ func offered(ctx context.Context, t *testing.T, r interface {
 		out[name] = pick.Value
 	}
 	return out
+}
+
+// honest: Info describes the verification this test relies on, and never
+// calls a write verified that the contract test did not do (claim K11 on
+// a real firewall).
+func honest(t *testing.T, in opnsense.Info, v *capability.ResVerify) {
+	t.Helper()
+	if got := in.VerifiedOn(); got != v.Release {
+		t.Errorf("Info().VerifiedOn() = %q, the data says %q", got, v.Release)
+	}
+	if in.WriteVerified() && v.Write != capability.StatusOK {
+		t.Errorf("Info().WriteVerified() although the contract test's write was %q", v.Write)
+	}
+}
+
+// rawHolds: every value Get decoded is in the raw answer at its path.
+func rawHolds(t *testing.T, raw map[string]any, decoded opnsense.Values) {
+	t.Helper()
+	for name := range decoded {
+		var cur any = raw
+		for _, p := range strings.Split(name, ".") {
+			m, ok := cur.(map[string]any)
+			if !ok {
+				cur = nil
+				break
+			}
+			cur = m[p]
+		}
+		if cur == nil {
+			t.Errorf("GetRaw lacks %s, which Get returned", name)
+		}
+	}
+}
+
+// staticOptionsOffered: for a field whose option list the data calls
+// complete (the client refuses any other value before sending), the
+// firewall offers exactly that list; otherwise the client would refuse a
+// value the firewall accepts, or send one it rejects.
+func staticOptionsOffered(t *testing.T, in opnsense.Info, offer func(name string) ([]opnsense.Option, error)) {
+	t.Helper()
+	for name, f := range in.Fields {
+		if !f.StaticOptions {
+			continue
+		}
+		got, err := offer(name)
+		if err != nil {
+			t.Errorf("offered options of %s: %v", name, err)
+			continue
+		}
+		var want, have []string
+		for _, o := range f.Options {
+			if o.Value != "" {
+				want = append(want, o.Value)
+			}
+		}
+		for _, o := range got {
+			have = append(have, o.Value)
+		}
+		slices.Sort(want)
+		slices.Sort(have)
+		if !slices.Equal(want, have) {
+			t.Errorf("%s: the data's complete option list %v, the firewall offers %v", name, want, have)
+		}
+	}
+}
+
+// fromRaw reads offered options from a raw answer, as OfferedOptions does
+// from a template.
+func fromRaw(raw map[string]any) func(string) ([]opnsense.Option, error) {
+	return func(name string) ([]opnsense.Option, error) {
+		var cur any = raw
+		for _, p := range strings.Split(name, ".") {
+			m, _ := cur.(map[string]any)
+			cur = m[p]
+		}
+		opts, err := capability.Offered(cur)
+		out := make([]opnsense.Option, len(opts))
+		for i, o := range opts {
+			out[i] = opnsense.Option{Value: o.Value, Label: o.Label}
+		}
+		return out, err
+	}
 }
 
 type flip struct {
