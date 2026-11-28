@@ -235,13 +235,43 @@ type Field struct {
 	Gaps   []string `json:"gaps,omitempty"`
 }
 
-// Limits are the value limits a field's class enforces on a non-empty
-// value: an integer range, and a pattern whose first match must be the
-// whole value (OPNsense's mask, in Go regexp syntax).
+// Limits are the rules a field's classes enforce on a non-empty value,
+// as far as the data states them (the data's docs/capabilities.md,
+// section "limits" and "Formats"): an integer range; a pattern whose first
+// match must be the whole value (OPNsense's mask, in Go regexp syntax;
+// Bytes: matched against the value's bytes, PerElement: against each list
+// element); a length; characters the value may not contain; a format.
 type Limits struct {
-	Minimum *int64 `json:"minimum,omitempty"`
-	Maximum *int64 `json:"maximum,omitempty"`
-	Pattern string `json:"pattern,omitempty"`
+	Minimum    *int64       `json:"minimum,omitempty"`
+	Maximum    *int64       `json:"maximum,omitempty"`
+	Pattern    string       `json:"pattern,omitempty"`
+	Bytes      bool         `json:"bytes,omitempty"`
+	MinLength  *int64       `json:"min_length,omitempty"`
+	MaxLength  *int64       `json:"max_length,omitempty"`
+	PerElement bool         `json:"per_element,omitempty"`
+	Forbidden  string       `json:"forbidden,omitempty"`
+	Format     *ValueFormat `json:"format,omitempty"`
+}
+
+// ValueFormat is the form of value a field class accepts (formats.go checks
+// it; the data's docs/capabilities.md, section Formats, defines it).
+type ValueFormat struct {
+	Kind           string   `json:"kind"`
+	Family         string   `json:"family,omitempty"`
+	Netmask        string   `json:"netmask,omitempty"`
+	Any            bool     `json:"any,omitempty"`
+	Strict         bool     `json:"strict,omitempty"`
+	IP             bool     `json:"ip,omitempty"`
+	HostWildcard   bool     `json:"host_wildcard,omitempty"`
+	DomainWildcard bool     `json:"domain_wildcard,omitempty"`
+	ZoneRoot       bool     `json:"zone_root,omitempty"`
+	DNSName        bool     `json:"dns_name,omitempty"`
+	PortOptional   bool     `json:"port_optional,omitempty"`
+	Hostname       bool     `json:"hostname,omitempty"`
+	Services       []string `json:"services,omitempty"`
+	Ranges         bool     `json:"ranges,omitempty"`
+	Aliases        bool     `json:"aliases,omitempty"`
+	RangeSpaces    bool     `json:"range_spaces,omitempty"`
 }
 
 // List describes a list-valued field: the separator between the elements
@@ -426,6 +456,11 @@ func (f *Field) Clone() *Field {
 	c.Gaps = slices.Clone(f.Gaps)
 	if f.Limits != nil {
 		l := *f.Limits
+		if l.Format != nil {
+			fm := *l.Format
+			fm.Services = slices.Clone(fm.Services)
+			l.Format = &fm
+		}
 		c.Limits = &l // the pointers inside are never written through
 	}
 	if f.Constraints != nil {

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // Kind is the Go type a field's value has in this package.
@@ -161,16 +162,63 @@ func (f *Field) checkValue(s string) error {
 			return fmt.Errorf("more than the maximum %d", *l.Maximum)
 		}
 	}
-	if l.Pattern != "" {
+	if err := l.checkText(s, f.List); err != nil {
+		return err
+	}
+	if l.Format != nil {
+		return l.Format.check(s, f.List)
+	}
+	return nil
+}
+
+// checkText: forbidden characters, the pattern and the length.
+func (l *Limits) checkText(s string, list *List) error {
+	if i := strings.IndexAny(s, l.Forbidden); i >= 0 {
+		return fmt.Errorf("contains %q, which the field forbids", s[i:i+1])
+	}
+	if l.Pattern == "" && l.MinLength == nil && l.MaxLength == nil {
+		return nil
+	}
+	values := []string{s}
+	if l.PerElement && list != nil {
+		values = strings.Split(s, list.Separator)
+	}
+	for _, v := range values {
+		n := int64(utf8.RuneCountInString(v))
+		if l.Bytes {
+			n = int64(len(v))
+		}
+		if l.MinLength != nil && n < *l.MinLength {
+			return fmt.Errorf("shorter than %d", *l.MinLength)
+		}
+		if l.MaxLength != nil && n > *l.MaxLength {
+			return fmt.Errorf("longer than %d", *l.MaxLength)
+		}
+		if l.Pattern == "" {
+			continue
+		}
 		re, err := pattern(l.Pattern)
 		if err != nil {
 			return nil // a pattern this Go cannot run: left to the firewall
 		}
-		if loc := re.FindStringIndex(s); loc == nil || loc[0] != 0 || loc[1] != len(s) {
+		if l.Bytes {
+			v = latin1(v)
+		}
+		if loc := re.FindStringIndex(v); loc == nil || loc[0] != 0 || loc[1] != len(v) {
 			return fmt.Errorf("does not match the pattern %s", l.Pattern)
 		}
 	}
 	return nil
+}
+
+// latin1: each byte one character, as PCRE sees a value without the u
+// modifier.
+func latin1(v string) string {
+	r := make([]rune, len(v))
+	for i := 0; i < len(v); i++ {
+		r[i] = rune(v[i])
+	}
+	return string(r)
 }
 
 var patterns sync.Map // pattern -> *regexp.Regexp or error

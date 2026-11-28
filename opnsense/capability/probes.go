@@ -13,18 +13,19 @@ import (
 // through the client's value check (Field.Encode, which Entries.Check and
 // Settings.Check use for every value).
 type ProbeReplay struct {
-	Checked     int      // probes whose verdict the check reached as well
-	Skipped     int      // probes on fields whose verdict depends on other fields (model-validation) or that have no variant
-	Disagree    []string // probes where the check and the firewall differ
-	Resources   int      // resources with probes
-	ModelChecks int      // fields with model-validation, not replayed
+	Checked   int      // probes whose verdict the check reached as well
+	Skipped   int      // probes on fields without a variant in the tested fragment
+	Disagree  []string // probes where the check and the firewall differ
+	Resources int      // resources with probes
 }
 
 // ReplayProbes runs every published probe (ResVerify.Probes) through the
 // value check of the field variant of the tested fragment: a value the
-// firewall accepted must pass, one it rejected must fail. Fields with the
-// gap model-validation are not replayed: the firewall's verdict there
-// depends on other fields, which a check of one value cannot know.
+// firewall accepted must pass, one it rejected must fail. The data
+// publishes only verdicts about a field's own values: where a rule over
+// several fields (model-validation) decided, the probe was written in a
+// context of other values that lets the field's values decide, or it is
+// not published.
 func (s *Set) ReplayProbes() ProbeReplay {
 	var out ProbeReplay
 	for _, pkg := range slices.Sorted(maps.Keys(s.Docs)) {
@@ -45,11 +46,8 @@ func (s *Set) ReplayProbes() ProbeReplay {
 					vd := v.Probes[name]
 					f := r.FieldFor(name, hash)
 					n := len(vd.Accepted) + len(vd.Rejected)
-					if f == nil || slices.Contains(f.Gaps, GapModelValidation) {
+					if f == nil {
 						out.Skipped += n
-						if f != nil {
-							out.ModelChecks++
-						}
 						continue
 					}
 					for _, val := range vd.Accepted {

@@ -24,7 +24,10 @@ func probeSet(port *Field, rejected []string) *Set {
 			"general.mode": {{In: all, Type: "OptionField", Base: "BaseListField", ReadShape: "select",
 				Options: []Option{{Value: "a"}, {Value: "b"}}}},
 			"general.name": {{In: all, Type: "TextField", Base: "TextField", Limits: &Limits{Pattern: `[a-z]+`}}},
-			"general.peer": {{In: all, Type: "TextField", Base: "TextField", Gaps: []string{GapModelValidation}}},
+			// a rule over several fields: published verdicts were reached in
+			// a context in which the field's own values decide
+			"general.peer": {{In: all, Type: "NetworkField", Base: "BaseSetField", Gaps: []string{GapModelValidation},
+				Limits: &Limits{Format: &ValueFormat{Kind: FormatNetwork, Netmask: "forbidden"}}}},
 			// options decided at run time: still one value, not a list
 			"general.iface": {{In: all, Type: "InterfaceField", Base: "BaseListField", ReadShape: "select"}},
 		},
@@ -33,7 +36,7 @@ func probeSet(port *Field, rejected []string) *Set {
 			"general.enabled": {Accepted: []string{"0", "1"}, Rejected: []string{"", "2"}},
 			"general.mode":    {Accepted: []string{"", "a", "b"}, Rejected: []string{"x", "a,b"}},
 			"general.name":    {Accepted: []string{"abc"}, Rejected: []string{"abc1", "1abc"}},
-			"general.peer":    {Rejected: []string{"anything"}},
+			"general.peer":    {Accepted: []string{"192.0.2.10"}, Rejected: []string{"192.0.2.0/24", "x"}},
 			"general.iface":   {Accepted: []string{"lan"}, Rejected: []string{"lan,wan"}},
 		}}},
 	}}}}}
@@ -42,7 +45,7 @@ func probeSet(port *Field, rejected []string) *Set {
 func TestReplayProbes(t *testing.T) {
 	port := &Field{Type: "IntegerField", Base: "IntegerField", Limits: &Limits{Minimum: i64(1), Maximum: i64(65535)}}
 	r := probeSet(port, []string{"0", "65536", "contract-test"}).ReplayProbes()
-	if len(r.Disagree) > 0 || r.Checked != 20 || r.Skipped != 1 || r.ModelChecks != 1 || r.Resources != 1 {
+	if len(r.Disagree) > 0 || r.Checked != 23 || r.Skipped != 0 || r.Resources != 1 {
 		t.Fatalf("%+v", r)
 	}
 	// the data without the maximum: the check lets 65536 pass, the
@@ -68,7 +71,7 @@ func TestPublishedProbes(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := s.ReplayProbes()
-	t.Logf("%s: %d resources, %d probes agree, %d not replayed (%d fields with model-validation)", dir, r.Resources, r.Checked, r.Skipped, r.ModelChecks)
+	t.Logf("%s: %d resources, %d probes agree, %d not replayed (no field variant)", dir, r.Resources, r.Checked, r.Skipped)
 	for _, d := range r.Disagree {
 		t.Error(d)
 	}

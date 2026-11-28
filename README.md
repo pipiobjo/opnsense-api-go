@@ -214,11 +214,17 @@ true only when read and write passed, the version is in the data (not
 is false. `Check(values)` runs every check a write would run without
 sending anything, for plan time: fields, types, options, one value for a
 single select, a required field left empty, and the `limits` the data
-publishes (an integer range, a text mask). The spec's contract test
-writes these values to a real firewall and publishes its verdicts; the
-client's tests replay all of them through `Check` and require the same
-verdict, except on fields whose validity depends on other fields (gap
-`model-validation`), which only the firewall can judge. In read-only mode
+publishes: an integer range, a pattern and length, forbidden characters,
+and the format of addresses and networks, host names, MAC addresses,
+address and port, URLs and ports (with service names and ranges),
+following the PHP code of each field class
+([opnsense/capability/formats.go](opnsense/capability/formats.go)). The
+spec's contract test writes these values to a real firewall and publishes
+its verdicts; the client's tests replay all of them through `Check` and
+require the same verdict. What only the firewall can know is left to it:
+rules over several fields (gap `model-validation`), checks the data does
+not describe (gap `validation-unknown`), whether an alias, a referenced
+entry or a service name exists. In read-only mode
 it still checks the
 values and joins their errors with the `*ErrReadOnly`. `Fields()` and `Data()` return the raw
 format-1 descriptions (copies, not a stable API); prefer `Info()`, whose
